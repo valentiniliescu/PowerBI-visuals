@@ -447,6 +447,52 @@ module powerbitests.performanceTestsHelpers {
                     }
                 };
 
+            case "timeline":
+                let timelineDataViewMetadata: powerbi.DataViewMetadata ={
+                        columns: [{
+                            displayName: "Date",
+                            queryName: "Date",
+                            type: powerbi.ValueType.fromDescriptor({ dateTime: true })
+                        }]
+                    },
+                    timelineData:  Date[] = [
+                        new Date(2000, 1, 1),
+                        new Date(2004, 1, 25),
+                        new Date(2000, 10, 10),
+                        new Date(2001, 3, 12),
+                        new Date(2008, 6, 10),
+                        new Date(2008, 7, 10),
+                        new Date(2000, 1, 1),
+                        new Date(2017, 1, 1),
+                        new Date(2016, 1, 1),
+                        new Date(2015, 1, 1)
+                    ],
+                    timelineFieldExpr = powerbi.data.SQExprBuilder.fieldExpr({
+                        column: {
+                            schema: "d",
+                            entity: "table1",
+                            name: "country"
+                        }
+                    }),
+                    timelineCategoryIdentities = timelineData.map((item: Date) => {
+                        var expr = powerbi.data.SQExprBuilder.equal(
+                            timelineFieldExpr,
+                            powerbi.data.SQExprBuilder.dateTime(item));
+        
+                        return powerbi.data.createDataViewScopeIdentity(expr);
+                    });
+
+                return {
+                    metadata: timelineDataViewMetadata,
+                    categorical: {
+                        categories: [{
+                            source: timelineDataViewMetadata.columns[0],
+                            values: timelineData,
+                            identity: timelineCategoryIdentities
+                        }]
+                    }
+                };
+
             default:
                 var fieldExpr = powerbi.data.SQExprBuilder.fieldExpr({ column: { schema: "s", entity: "table1", name: "country" } });
 

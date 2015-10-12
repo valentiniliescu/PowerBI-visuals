@@ -326,4 +326,10 @@ module powerbi.visuals.plugins {
         capabilities: samples.DotPlot.capabilities,
         create: () => new samples.DotPlot()
     };
+
+    export var timeline: IVisualPlugin = {
+        name: "timeline",
+        capabilities: Timeline.capabilities,
+        create: () => new Timeline()
+    };
 }

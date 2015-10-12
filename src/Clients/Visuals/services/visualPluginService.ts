@@ -279,6 +279,8 @@ module powerbi.visuals {
             createPlugin(plugins, powerbi.visuals.plugins.dotPlot, () => new samples.DotPlot({
                 animator: new BaseAnimator()
             }));
+            // Timeline
+            createPlugin(plugins, powerbi.visuals.plugins.timeline, () => new Timeline());
         }
 
         export class MinervaVisualPluginService extends VisualPluginService {

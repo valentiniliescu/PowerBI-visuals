@@ -1829,3 +1829,67 @@ div.ql-toolbar {
         }
     }
 }
+
+.timelineContainer {
+    @timelineColor: @neutralSecondaryAltColor;
+    @timelineFontSize: 11px;
+    @timelineMargin: 5px;
+    
+    font-family: @regularFontFamily;
+    font-size: @timelineFontSize;
+    
+    .cursor-resize {
+        cursor: ew-resize;
+    }
+    
+    .header {
+        color: @timelineColor;
+        border-bottom: 1px solid @timelineColor;
+        margin: @timelineMargin 0;
+    }
+
+    .setting {
+        color: @timelineColor;
+        display: inline-block;
+        width: 100%;
+
+        .left {
+            float: left;
+        }
+
+        .right {
+            float: right;
+        }
+        
+        .granularity-dropdown {
+            color: @timelineColor;
+            font-size: @timelineFontSize;
+            border: none;
+        }
+        
+        .granularity-dropdown:focus {
+            outline: none;
+        }
+
+        .clear {
+            .sprite(@slicer-reset);
+            cursor: pointer;
+            margin: 0 0 0 @timelineMargin; 
+        }
+    }
+
+    .body {
+        overflow-x: auto;
+        margin-top: @timelineMargin;
+
+        .timeline {
+            text {
+                text-anchor: middle;
+            }
+        }
+
+        .drag {
+            cursor: ew-resize;
+        }
+    }
+}

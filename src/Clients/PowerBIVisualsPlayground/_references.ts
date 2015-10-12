@@ -43,6 +43,7 @@
 /// <reference path="sampleDataViews/SimpleTableData.ts"/>
 /// <reference path="sampleDataViews/TeamScoreData.ts"/>
 /// <reference path="sampleDataViews/calenderData.ts"/>
+/// <reference path="sampleDataViews/SimpleDateData.ts"/>
 
 /// <reference path="sampleData.ts"/>
 /// <reference path="hostControls.ts"/>
