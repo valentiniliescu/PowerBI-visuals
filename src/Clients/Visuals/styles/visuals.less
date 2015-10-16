@@ -1829,6 +1829,7 @@ div.ql-toolbar {
         }
     }
 }
+
 .sunBurstPercentage{
     font-weight:bold;
     opacity:0;
@@ -1863,5 +1864,92 @@ div.ql-toolbar {
             fill: @histogramLegendTextColor;
             text-anchor: middle;
         }
+    }
+}
+
+.slicerX {
+    font-family: @regularFontFamily;
+    .hidden {
+        display: none !important;
+    }
+
+    .slicerBody {
+
+        .cell {
+            box-sizing: border-box;
+            margin: 2px 5px;
+            border-radius: 5px;
+            display: inline-block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            position: relative;
+            cursor: pointer;
+        }
+
+        li.slicerItemContainer {
+
+            display: flex;
+            flex-direction: column;
+            flex-wrap: nowrap;
+            justify-content: center;
+            align-content: center;
+            align-items: stretch;
+
+            height: 100%;
+            padding-top: 5px;
+            padding-bottom: 5px;
+  
+            .slicer-text-wrapper, .slicer-img-wrapper {
+                order: 0;
+                align-self: auto;
+                
+                flex-grow: 1;
+                flex-shrink: 1;
+                flex-basis: auto;
+            }
+
+            .slicer-text-wrapper {
+                box-sizing: border-box;
+                text-align: center;
+
+                display: flex;
+                flex-direction: column;
+                flex-wrap: nowrap;
+                justify-content: center;
+                align-content: center;
+                align-items: stretch;
+            }
+
+            .slicer-img-wrapper {
+                background-repeat: no-repeat;
+                background-position: center;
+                background-size: contain;
+            }
+            .stretchImage {
+                background-size: cover !important;
+            }
+            .bottomImage {
+                order: 1;
+            }
+        }
+    }
+
+    .slicerItemContainer.selected {
+        background: #BDD7EE;
+    }
+
+    .slicerBody-horizontal {
+        white-space: nowrap;
+    }
+
+    .row-horizontal {
+        display: inline-block;
+    }
+
+    .slicerContainer .slicerText {
+        padding: 0px 5px;
+    }
+    .slicerHeader {
+        margin-bottom: 5px;
     }
 }

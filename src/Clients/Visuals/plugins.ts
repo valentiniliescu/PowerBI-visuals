@@ -338,4 +338,10 @@ module powerbi.visuals.plugins {
         capabilities: Histogram.capabilities,
         create: () => new Histogram()
     };
+    
+    export var slicerX: IVisualPlugin = {
+        name: 'slicerX',
+        capabilities: samples.slicerXCapabilities,
+        create: () => new samples.SlicerX()
+    };
 }
