@@ -28,7 +28,8 @@
 
 module powerbi.visuals.samples {
     import SelectionManager = utility.SelectionManager;
- 
+    import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
+
     export interface DotPlotConstructorOptions {
         animator?: IGenericAnimator;
         svg?: D3.Selection;
@@ -58,21 +59,30 @@ module powerbi.visuals.samples {
                 {
                     name: 'Category',
                     kind: powerbi.VisualDataRoleKind.Grouping,
+                    displayName: data.createDisplayNameGetter("Role_DisplayName_Category")
                 },
                 {
                     name: 'Y',
                     kind: powerbi.VisualDataRoleKind.Measure,
-                },
+                    displayName: data.createDisplayNameGetter("Role_DisplayName_Value")
+                }
             ],
-            dataViewMappings: [{
-                categories: {
-                    for: { in: 'Category' },
-                    dataReductionAlgorithm: { top: {} }
-                },
-                values: {
-                    select: [{ bind: { to: 'Y' } }]
-                },
-            }],
+            dataViewMappings: [
+                {
+                    conditions: [
+                        { 'Category': { max: 1 }, 'Y': { max: 1 } },
+                    ],
+                    categorical: {
+                        categories: {
+                            for: { in: 'Category' },
+                            dataReductionAlgorithm: { top: {} }
+                        },
+                        values: {
+                            select: [{ bind: { to: 'Y' } }]
+                        }
+                    }
+                }
+            ],
             objects: {
                 general: {
                     displayName: data.createDisplayNameGetter('Visual_General'),
@@ -151,23 +161,33 @@ module powerbi.visuals.samples {
         }
 
         public static converter(dataView: DataView, maxDots: number, colors: IDataColorPalette): DotPlotData {
-            let catDv: DataViewCategorical = dataView.categorical;
-            let values = catDv.values;
-
             let dataPoints: DotPlotDatapoint[] = [];
             let legendData: LegendData = {
                 dataPoints: [],
             };
 
-            for (let i = 0, iLen = values.length; i < iLen; i++) {
-                let legendText = values[i].source.displayName;
-                let color = colors.getColorByIndex(i).value;
-                let counts = {};
+            if (!dataView.categorical || 
+                !dataView.categorical.values || 
+                dataView.categorical.values.length < 1) {
+                return {
+                    dataPoints: dataPoints,
+                    legendData: legendData,
+                };
+            }
 
-                for (let j = 0, jLen = values[i].values.length; j < jLen; j++) {
-                    let num = values[i].values[j];
-                    counts[num] = counts[num] ? counts[num]+1 : 1;
-                }                
+            let catDv: DataViewCategorical = dataView.categorical;
+            let series = catDv.values;
+            for (let i = 0, iLen = series.length; i < iLen; i++) {
+                let counts = [];
+                let values = series[i].values;
+                for (let j = 0, jLen = values.length; j < jLen; j++) {
+                    let idx = values[j];
+                    counts[idx] ? counts[idx]++ : counts[idx] = 1;
+                }
+
+                let legendText = series[i].source.displayName;
+                let color = colors.getColorByIndex(i).value;
+
                 let data = d3.entries(counts);
                 let min = d3.min(data, d => d.value);
                 let max = d3.max(data, d => d.value);
@@ -184,7 +204,7 @@ module powerbi.visuals.samples {
 
                 for (let k = 0, kLen = data.length; k < kLen; k++) {
                     let y = dotsScale(data[k].value);
-                    
+
                     for (let level = 0; level < y; level++) {
                         let id = SelectionIdBuilder
                             .builder()
@@ -236,9 +256,14 @@ module powerbi.visuals.samples {
             if (!this.svg) {
                 this.svg = d3.select(element.get(0)).append('svg');
             }
-
             if (!this.margin) {
                 this.margin = DotPlot.DefaultMargin;
+            }
+            if (!this.radius) {
+                this.radius = DotPlot.DefaultRadius;
+            }
+            if (!this.strokeWidth) {
+                this.strokeWidth = DotPlot.DefaultStrokeWidth;
             }
 
             this.svg.classed(DotPlot.VisualClassName, true);
@@ -255,8 +280,17 @@ module powerbi.visuals.samples {
         }
 
         public update(options: VisualUpdateOptions): void {
-            if (!options.dataViews || !options.dataViews[0]) return;
+            if (!options.dataViews || !options.dataViews[0]) {
+                return;
+            }
             let dataView = this.dataView = options.dataViews[0];
+            if (!dataView ||
+                !dataView.categorical ||
+                !dataView.categorical.values ||
+                !dataView.categorical.values[0] ||
+                !dataView.categorical.values[0].values) {
+                return;
+            }
             let viewport = this.viewport = options.viewport;
             this.svg
                 .attr({
@@ -293,7 +327,7 @@ module powerbi.visuals.samples {
                 .enter()
                 .append('circle')
                 .classed(DotPlot.Dot.class, true);
-            selection   
+            selection
                 .attr("cx", function(point: DotPlotDatapoint) {
                     return xScale(point.x) + xScale.rangeBand()/2;
                 })

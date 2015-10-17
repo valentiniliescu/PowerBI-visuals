@@ -279,6 +279,10 @@ module powerbi.visuals {
             createPlugin(plugins, powerbi.visuals.plugins.dotPlot, () => new samples.DotPlot({
                 animator: new BaseAnimator()
             }));
+            // Histogram
+            createPlugin(plugins, powerbi.visuals.plugins.histogram, () => new Histogram({
+                animator: new BaseAnimator()
+            }));
             // Timeline
             createPlugin(plugins, powerbi.visuals.plugins.timeline, () => new Timeline());
         }

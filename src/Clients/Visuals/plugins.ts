@@ -301,6 +301,12 @@ module powerbi.visuals.plugins {
         create: () => new samples.AsterPlot()
     };
 
+    export var sunburst: IVisualPlugin = {
+        name: 'sunburst',
+        capabilities: samples.Sunburst.capabilities,
+        create: () => new samples.Sunburst()
+    };
+
     export var owlGauge: IVisualPlugin = {
         name: 'owlGauge',
         watermarkKey: 'gauge',
@@ -325,6 +331,12 @@ module powerbi.visuals.plugins {
         name: 'dotPlot',
         capabilities: samples.DotPlot.capabilities,
         create: () => new samples.DotPlot()
+    };
+
+    export var histogram: IVisualPlugin = {
+        name: "histogram",
+        capabilities: Histogram.capabilities,
+        create: () => new Histogram()
     };
 
     export var timeline: IVisualPlugin = {
