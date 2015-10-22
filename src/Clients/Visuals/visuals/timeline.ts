@@ -287,7 +287,7 @@ module powerbi.visuals {
         }
 
         public renderCursors(cursors: D3.Selection, cursorDatapoints: CursorDatapoint[], timelineFormat: TimelineFormat) {
-                     cursors.attr('transform', function (d) {
+            cursors.attr('transform', function (d) {
                 return "translate(" + d.cursorPosition * timelineFormat.cellWidth + "," + (timelineFormat.cellHeight / 2 + timelineFormat.cellsYPosition) + ")";
             });
         }
@@ -422,7 +422,7 @@ module powerbi.visuals {
             class: 'selectionRange',
             selector: '.selectionRange'
         };
-       
+
         private svg: D3.Selection;
         private body: D3.Selection;
         private header: D3.Selection;
@@ -860,10 +860,13 @@ module powerbi.visuals {
         }
 
         public setData(options: VisualUpdateOptions, dataView: DataView, graType: string, graChanged: boolean) {
-
+            console.time("myCode");
             var data = this.data = Timeline.converter(dataView, this.timelineSelection, this.timelineFormat, graType, graChanged, this.interactivityService);
+            console.timeEnd("myCode");
             var dataPoints = data.timelineDatapoints;
+            console.time("render");
             var selection = this.render(options, data, this.timelineFormat, this.timelineSelection);
+            console.timeEnd("render");
             var timelineClear = this.body.select(Timeline.Clear.selector);
             var behaviorOptions: TimelineBehaviorOptions = {
                 timelineData: data,
@@ -883,13 +886,7 @@ module powerbi.visuals {
 
         private render(options: VisualUpdateOptions, timelineData: TimelineData, timelineFormat: TimelineFormat, timelineSelection: TimelineSelection): D3.UpdateSelection[] {
             var viewport = options.viewport;
-            //console.log(d3.select(".visualContainer").node().style.width);
-            if (d3.select(".visualContainer").node().style.width !== "") {
-                if (Number(d3.select(".visualContainer").node().style.width.replace("px", "")) < 300) {
-                    d3.select(".visualContainer").node().style.width = "300px";
-                    viewport.width = 300;
-                }
-            }          
+
             var aggList = timelineData.aggregatedList;
             if (this.timelineFormat.showHeader) {
                 this.headerTextContainer.style('display', 'block');
