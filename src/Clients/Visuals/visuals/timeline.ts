@@ -25,183 +25,312 @@
  */
 
 /// <reference path="../_references.ts"/>
-
 module powerbi.visuals {
-    export interface TimelineConstructorOptions {
-        svg?: D3.Selection;
-        animator?: IGenericAnimator;
-        margin?: IMargin;
-    }
-    
-    export enum MonthsEnum {
-        Jan, Feb, Mar, Apr,
-        May, Jun, Jul, Aug,
-        Sep, Oct, Nov, Dec
+
+    export interface TimelineData {
+        dragging: boolean;
+        categorySourceName: string;
+        cursorDatapoints: CursorDatapoint[];
+        timelineDatapoints: TimelineDatapoint[];
+        aggregatedList: AggregatedDatapoint[];
+        granularity: string;
+        graChanged: boolean;
     }
 
-    export enum DateGranularityEnum {
-        Year,
-        Month,
-        Day
+    export interface TimelineFormat {
+        showHeader: boolean;
+        leftMargin: number;
+        rightMargin: number;
+        topMargin: number;
+        bottomMargin: number;
+        timeRangeSize: number;
+        textSize: number;
+        cellWidth: number;
+        cellHeight: number;
+        cellsYPosition: number;
+        textYPosition: number;
+        cellColor: Fill;
     }
 
-    export interface TimelineLabel {
-        value: string;
-        date: Date;
+    export interface TimelineSelection {
+        startDate: number;
+        startMonth: number;
+        startQuarter: number;
+        startYear: number;
+        endDate: number;
+        endMonth: number;
+        endQuarter: number;
+        endYear: number;
+        allPeriod: boolean;
     }
 
-    export interface TimelineObjectShift {
-        dx: number;
-        dy: number;
-    }
-
-    export interface TimelineOptions {
-        widthCell: number;
-        heightCell: number;
-    }
-
-    export interface TimelineSettings {
-        minDate?: Date;
-        maxDate?: Date;
-        granularity: DateGranularityEnum;
-        displayName: string;
-        showHeader?: boolean;
-        labelColor: string;
-        cellColor: string;
-        cellSelectedColor: string;
-        cellBorderColor: string;
-        headerFontColor: string;
-    }
-
-    export interface TimelineCursor {
+    export interface CursorDatapoint {
         index: number;
-        date: Date;
-        position: number;
+        cursorPosition: number;
     }
 
-    export interface TimelineDataView {
-        countOfCells: number;
-        settings: TimelineSettings;
-        width: number;
-        cells: TimelineDateCell[];
-        legend: TimelineLegend[];
-        cursors: TimelineCursor[];
-        selectableCells: SelectableCell[];
-    }
-
-    export interface SelectableCell extends SelectableDataPoint {
-        value: Date;
-    }
-
-    export interface TimelineDateCell {
-        isSelected: boolean;
-        label: TimelineLabel;
-        globalLabel?: string;
-        width: number;
-        height: number;
+    export interface AggregatedDatapoint {
+        name: string;
+        granularity: number;
+        year: number;
+        quarter: number;
+        month: number;
+        date: number;
         index: number;
+        monthName: string;
+        timelineDatapoints: TimelineDatapoint[];
+        tooltipInfo: TooltipDataItem[];
     }
 
-    export interface TimelineLegendCells {
-        legend: TimelineLegend[];
-        cells: TimelineDateCell[];
-    }
-
-    export interface TimelineLegend {
-        value: string;
+    export interface TimelineDatapoint extends SelectableDataPoint {
+        label: string;
         index: number;
-        shift?: number;
-        cell: TimelineDateCell;
-    }
-
-    export interface TimelineSections {
-        legend: number;
-        labels: number;
-        cells: number;
+        value?: number;
     }
 
     export interface TimelineBehaviorOptions {
-        selectableCells: SelectableCell[];
-        leftDateBorder: Date;
-        rightDateBorder: Date;
+        rangeText: D3.Selection;
+        timeUnitCells: D3.Selection;
+        cursors: D3.Selection;
+        clearCatcher: D3.Selection;
+        timelineClear: D3.Selection;
+        mainGroup: D3.Selection;
+        timelineData: TimelineData;
+        timelineFormat: TimelineFormat;
+        timelineSelection: TimelineSelection;
+        interactivityService: IInteractivityService;
     }
 
     export class TimelineWebBehavior implements IInteractiveBehavior {
+        private timeUnitCells: D3.Selection;
+        private cursors: D3.Selection;
+        private rangeText: D3.Selection;
+        private timelineData: TimelineData;
+        private timelineFormat: TimelineFormat;
+
         public bindEvents(options: TimelineBehaviorOptions, selectionHandler: ISelectionHandler): void {
-            this.setSelection(selectionHandler, options.leftDateBorder, options.rightDateBorder, options.selectableCells);
-        }
+            var timeUnitCells = this.timeUnitCells = options.timeUnitCells;
+            var cursors = this.cursors = options.cursors;
+            this.rangeText = options.rangeText;
+            var timelineClear = options.timelineClear;
+            var timelineData = this.timelineData = options.timelineData;
+            var timelineFormat = this.timelineFormat = options.timelineFormat;
+            var cursorDatapoints = options.timelineData.cursorDatapoints;
+            var aggList = options.timelineData.aggregatedList;
+            var interactivityService = options.interactivityService;
+            var that = this;
 
-        public renderSelection(): void {}
+            if (timelineData.graChanged) {
+                this.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService);
+                this.adjustSelection(selectionHandler);
+                that.setRange(timelineData, options.timelineSelection);
+                timelineData.graChanged = false;
+            }
 
-        private setSelection(
-            selectionHandler: ISelectionHandler,
-            leftDateBorder: Date,
-            rightDateBorder: Date,
-            selectableCell: SelectableCell[]): void {
-            selectionHandler.handleClearSelection();
+            timeUnitCells.on("click", (d: AggregatedDatapoint) => {
+                d3.event.preventDefault();
 
-            selectableCell.forEach((item: SelectableCell) => {
-                let dateTimeInMs: number = item.value.getTime();
+                cursorDatapoints[0].cursorPosition = d.index;
+                cursorDatapoints[1].cursorPosition = d.index + 1;
+                that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService);
+                that.setRange(timelineData, options.timelineSelection);
+                that.renderCursors(cursors, cursorDatapoints, timelineFormat);
+                that.renderSelection(true);
+                that.renderRangeText(options.timelineData, options.timelineSelection);
+            });
+            var drag = d3.behavior.drag()
+                .origin(function (d) {
+                    return d;
+                })
+                .on("dragstart", dragstarted)
+                .on("drag", dragged)
+                .on("dragend", dragended);
 
-                if (dateTimeInMs >= leftDateBorder.getTime() && dateTimeInMs <= rightDateBorder.getTime()) {
-                    selectionHandler.handleSelection(item, true);
+            function dragstarted(d) {
+                d3.event.sourceEvent.stopPropagation();
+                d3.select(this).classed("dragging", true);
+                options.timelineData.dragging = true;
+                //console.log('dragstart' + options.timelineData.dragging)
+            }
+
+            function dragged(d) {
+                if (options.timelineData.dragging === true) {
+                    var xScale = 1;
+                    var yScale = 1;
+                    var container = d3.select(".displayArea");
+                    if (container !== undefined) {
+                        var transform = container.style("transform");
+                        if (transform !== undefined) {
+                            var str = transform.split("(")[1];
+                            xScale = Number(str.split(", ")[0]);
+                            yScale = Number(str.split(", ")[3]);
+                        }
+                    }
+
+                    var xCoord = (d3.event.sourceEvent.x - options.mainGroup.node().getBoundingClientRect().left) / xScale;
+                    if (Timeline.isIE()) {
+                        xCoord = d3.event.sourceEvent.x / xScale + (d3.select(".cellContainer").node().scrollLeft);
+                    }
+                    //console.log(d3.event.sourceEvent.x);
+                    //console.log(d3.select(".cellContainer").node().scrollLeft);
+                    var index = Math.round(xCoord / timelineFormat.cellWidth);
+                    if (index < 0) {
+                        index = 0;
+                    }
+                    if (index > aggList.length) {
+                        index = aggList.length;
+                    }
+                    if (d.cursorPosition !== index) {
+                        d.cursorPosition = index;
+
+                        if (d.index === 0) {
+                            if (d.cursorPosition >= cursorDatapoints[1].cursorPosition) {
+                                d.cursorPosition = cursorDatapoints[1].cursorPosition - 1;
+                            }
+                        } else {
+                            if (d.cursorPosition <= cursorDatapoints[0].cursorPosition) {
+                                d.cursorPosition = cursorDatapoints[0].cursorPosition + 1;
+                            }
+                        }                  
+                        //that.setSelection(selectionHandler,timelineData, options.timelineSelection,interactivityService);              
+                        that.setRange(timelineData, options.timelineSelection);
+                        that.renderCursors(cursors, cursorDatapoints, timelineFormat);
+                        that.renderSelection(true);
+                        that.renderRangeText(options.timelineData, options.timelineSelection);
+                    }
                 }
+            }
+
+            function dragended(d) {
+                d3.select(this).classed("dragging", false);
+                options.timelineData.dragging = false;
+                that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService);
+                that.setRange(timelineData, options.timelineSelection);
+                //that.renderRangeText(options.timelineData, options.timelineSelection);
+                //console.log("dragend" + options.timelineData.dragging);
+            }
+
+            cursors.call(drag);
+            
+            /*options.clearCatcher.on('click', () => {
+                selectionHandler.handleClearSelection();
+            });*/
+            timelineClear.on("click", (d: SelectableDataPoint) => {
+                //selectionHandler.handleClearSelection();
+                cursorDatapoints[0].cursorPosition = -1;
+                cursorDatapoints[1].cursorPosition = -1;
+                that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService);
+                that.setRange(timelineData, options.timelineSelection);
+                that.renderCursors(cursors, cursorDatapoints, timelineFormat);
+                that.renderSelection(false);
+                that.renderRangeText(options.timelineData, options.timelineSelection);
             });
         }
+        public adjustSelection(selectionHandler: ISelectionHandler) {
+
+        }
+        public setSelection(selectionHandler: ISelectionHandler, timelineData: TimelineData, timelineSelection: TimelineSelection, interactivityService: IInteractivityService) {
+            //d3.event.preventDefault();
+            var aggList = timelineData.aggregatedList;
+            var cursorDatapoints = timelineData.cursorDatapoints;
+            selectionHandler.handleClearSelection();
+            for (var i = cursorDatapoints[0].cursorPosition; i < cursorDatapoints[1].cursorPosition; i++) {
+                for (var j = 0; j < aggList[i].timelineDatapoints.length; j++) {
+                    selectionHandler.handleSelection(aggList[i].timelineDatapoints[j], true);
+                }
+            }
+
+        }
+        public setRange(timelineData: TimelineData, timelineSelection: TimelineSelection) {
+            var aggList = timelineData.aggregatedList;
+            var cursorDatapoints = timelineData.cursorDatapoints;
+            if (cursorDatapoints[0].cursorPosition < cursorDatapoints[1].cursorPosition) {
+                timelineSelection.allPeriod = false;
+                var minIndex = cursorDatapoints[0].cursorPosition;
+                var maxIndex = cursorDatapoints[1].cursorPosition - 1;
+                var minAggPoint = aggList[minIndex];
+                var maxAggPoint = aggList[maxIndex];
+                timelineSelection.startYear = minAggPoint.year;
+                timelineSelection.endYear = maxAggPoint.year;
+                if (timelineData.granularity === "day") {
+                    timelineSelection.startDate = minAggPoint.date;
+                    timelineSelection.startMonth = minAggPoint.month;
+                    timelineSelection.startQuarter = minAggPoint.quarter;
+                    timelineSelection.endDate = maxAggPoint.date;
+                    timelineSelection.endMonth = maxAggPoint.month;
+                    timelineSelection.endQuarter = maxAggPoint.quarter;
+                } else if (timelineData.granularity === "quarter") {
+                    timelineSelection.startDate = 1;
+                    timelineSelection.startMonth = (minAggPoint.quarter - 1) * 3 + 1;
+                    timelineSelection.startQuarter = minAggPoint.quarter;
+                    timelineSelection.endMonth = maxAggPoint.quarter * 3;
+                    timelineSelection.endQuarter = maxAggPoint.quarter;
+                    timelineSelection.endDate = new Date(maxAggPoint.year, maxAggPoint.month, 0).getDate();
+                } else if (timelineData.granularity === "year") {
+                    timelineSelection.startDate = 1;
+                    timelineSelection.startMonth = 1;
+                    timelineSelection.startQuarter = 1;
+                    timelineSelection.endDate = 31;
+                    timelineSelection.endMonth = 12;
+                    timelineSelection.endQuarter = 4;
+                } else {
+                    timelineSelection.startDate = 1;
+                    timelineSelection.startMonth = minAggPoint.month;
+                    timelineSelection.startQuarter = minAggPoint.quarter;
+                    timelineSelection.endQuarter = maxAggPoint.quarter;
+                    timelineSelection.endMonth = maxAggPoint.month;
+                    timelineSelection.endDate = new Date(maxAggPoint.year, maxAggPoint.month, 0).getDate();
+                }
+            } else {
+                timelineSelection.allPeriod = true;
+            }
+        }
+
+        public renderCursors(cursors: D3.Selection, cursorDatapoints: CursorDatapoint[], timelineFormat: TimelineFormat) {
+                     cursors.attr('transform', function (d) {
+                return "translate(" + d.cursorPosition * timelineFormat.cellWidth + "," + (timelineFormat.cellHeight / 2 + timelineFormat.cellsYPosition) + ")";
+            });
+        }
+
+        public renderSelection(hasSelection: boolean): void {
+            var timelineData = this.timelineData;
+            var timelineFormat = this.timelineFormat;
+            this.timeUnitCells.style('fill', d => Timeline.getCellColor(d, timelineData, timelineFormat));
+            //d3.event.stopPropagation();
+        }
+
+        public renderRangeText(timelineData: TimelineData, timelineSelection: TimelineSelection) {
+            var timeRangeText = Timeline.getTimeRangeText(timelineData, timelineSelection);
+            this.rangeText.select('text').text(timeRangeText);
+        }
+
     }
 
     export class Timeline implements IVisual {
-        private static Properties: any = {
-            header: {
-                show: <DataViewObjectPropertyIdentifier> {
-                    objectName: "header",
-                    propertyName: "show"
-                },
-                fontColor: <DataViewObjectPropertyIdentifier> {
-                    objectName: "header",
-                    propertyName: "fontColor"
-                }
-            },
-            dataPoint: {
-                fill: <DataViewObjectPropertyIdentifier> {
-                    objectName: "dataPoint",
-                    propertyName: "fill"
-                },
-                selectedColor: <DataViewObjectPropertyIdentifier> {
-                    objectName: "dataPoint",
-                    propertyName: "selectedColor"
-                }
-            },
-            labels: {
-                fontColor: <DataViewObjectPropertyIdentifier> {
-                    objectName: "labels",
-                    propertyName: "fontColor"
-                }
-            }
-        };
-
         public static capabilities: VisualCapabilities = {
             dataRoles: [{
-                    name: "Time",
-                    kind: powerbi.VisualDataRoleKind.Grouping,
-                    displayName: data.createDisplayNameGetter("Role_DisplayName_Values"),
-                }
-            ],
+                name: 'Time',
+                kind: powerbi.VisualDataRoleKind.Grouping,
+                displayName: 'Time',
+            }],
             dataViewMappings: [{
-                conditions: [{
-                        "Time": { max: 1 }
-                    }
+                conditions: [
+                    { 'Time': { max: 1 } }//,'Value': { max: 1 }}
                 ],
                 categorical: {
                     categories: {
-                        for: { in : "Time" },
+                        for: { in: 'Time' },
                         dataReductionAlgorithm: { top: {} }
-                    }
+                    },
+                    values: {
+                        select: []
+                    },
                 }
             }],
+
             objects: {
                 general: {
-                    displayName: data.createDisplayNameGetter("Visual_General"),
+                    displayName: data.createDisplayNameGetter('Visual_General'),
                     properties: {
                         formatString: {
                             type: {
@@ -209,1286 +338,830 @@ module powerbi.visuals {
                                     formatString: true
                                 }
                             },
-                        }
+                        },
                     },
                 },
                 header: {
-                    displayName: data.createDisplayNameGetter("Visual_Header"),
+                    displayName: data.createDisplayNameGetter('Visual_Header'),
                     properties: {
                         show: {
-                            displayName: data.createDisplayNameGetter("Visual_Show"),
-                            type: {
-                                bool: true
-                            }
+                            displayName: data.createDisplayNameGetter('Visual_Show'),
+                            type: { bool: true }
                         },
                         fontColor: {
-                            displayName: data.createDisplayNameGetter("Visual_FontColor"),
+                            displayName: data.createDisplayNameGetter('Visual_FontColor'),
                             type: { fill: { solid: { color: true } } }
                         },
                     }
                 },
-                dataPoint: {
-                    displayName: data.createDisplayNameGetter("Visual_DataPoint"),
+                granularity: {
+                    displayName: 'Granularity',
+                    properties: {
+                        types: {
+                            displayName: 'Type',
+                            type: { text: true }
+                        },
+                    }
+                },
+                timeRangeColor: {
+                    displayName: 'Time Range Text Color',
                     properties: {
                         fill: {
-                            displayName: data.createDisplayNameGetter("Visual_Fill"),
-                            type: { fill: { solid: { color: true } } }
-                        },
-                        selectedColor: {
-                            displayName: "Selection Color",
+                            displayName: 'Fill',
                             type: { fill: { solid: { color: true } } }
                         }
                     }
                 },
-                labels: {
-                    displayName: data.createDisplayNameGetter("Visual_DataPointsLabels"),
+                cellColor: {
+                    displayName: 'Selection Color',
                     properties: {
-                        fontColor: {
-                            displayName: data.createDisplayNameGetter("Visual_FontColor"),
+                        fill: {
+                            displayName: 'Fill',
                             type: { fill: { solid: { color: true } } }
                         }
                     }
-                }
-            },
-            supportsHighlight: true,
-            sorting: {
-                default: {},
-            },
-            drilldown: {
-                roles: ["Time"]
+                },
             }
         };
-
-        private static VisualClassName = "timeline";
+        private static monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        private static VisualClassName = 'timeline';
 
         private static TimelineContainer: ClassAndSelector = {
-            "class": "timelineContainer",
-            selector: ".timelineContainer"
+            class: 'timelineContainer',
+            selector: '.timelineContainer'
         };
-
         private static Header: ClassAndSelector = {
-            "class": "header",
-            selector: ".header"
+            class: 'header',
+            selector: '.header'
         };
-
-        private static Setting: ClassAndSelector = {
-            "class": "setting",
-            selector: ".setting"
+        private static CellContainer: ClassAndSelector = {
+            class: 'cellContainer',
+            selector: '.cellContainer'
         };
-
-        private static Body: ClassAndSelector = {
-            "class": "body",
-            selector: ".body"
+        private static CellTextLevel1: ClassAndSelector = {
+            class: 'cellTextLevel1',
+            selector: '.cellTextLevel1'
         };
-
-        private static Left: ClassAndSelector = {
-            "class": "left",
-            selector: ".left"
+        private static CellTextLevel2: ClassAndSelector = {
+            class: 'cellTextLevel2',
+            selector: '.cellTextLevel2'
         };
-
-        private static Right: ClassAndSelector = {
-            "class": "right",
-            selector: ".right"
-        };
-
-        private static Legend: ClassAndSelector = {
-            "class": "legend",
-            selector: ".legend"
-        };
-
-        private static LegendItem: ClassAndSelector = {
-            "class": "legend-item",
-            selector: ".legend-item"
-        };
-
-        private static Label: ClassAndSelector = {
-            "class": "label",
-            selector: ".label"
-        };
-
-        private static Labels: ClassAndSelector = {
-            "class": "labels",
-            selector: ".labels"
-        };
-
-        private static Cursors: ClassAndSelector = {
-            "class": "cursors",
-            selector: ".cursors"
-        };
-
         private static Cursor: ClassAndSelector = {
-            "class": "cursor",
-            selector: ".cursor"
+            class: 'cursor',
+            selector: '.cursor'
         };
-
-        private static Cells: ClassAndSelector = {
-            "class": "cells",
-            selector: ".cells"
-        };
-
         private static Cell: ClassAndSelector = {
-            "class": "cell",
-            selector: ".cell"
+            class: 'cell',
+            selector: '.cell'
         };
-
-        private static Drag: ClassAndSelector = {
-            "class": "drag",
-            selector: ".drag"
-        };
-
-        private static SelectionRange: ClassAndSelector = {
-            "class": "selectionRange",
-            selector: ".selectionRange"
-        };
-
         private static Clear: ClassAndSelector = {
-            "class": "clear",
-            selector: ".clear"
+            class: 'clear',
+            selector: '.clear'
         };
-
-        private static GranularityDropdown: ClassAndSelector = {
-            "class": "granularity-dropdown",
-            selector: ".granularity-dropdown"
+        private static SelectionRange: ClassAndSelector = {
+            class: 'selectionRange',
+            selector: '.selectionRange'
         };
-
-        private static CursorResize: ClassAndSelector = {
-            "class": "cursor-resize",
-            selector: ".cursor-resize"
-        };
-
-        private static DefaultRangeText: string = "All periods";
-        private static RangeSeparator: string = " - ";
-
-        private static DefaultTimeLineSettings: TimelineSettings = {
-            displayName: "Timeline",
-            granularity: DateGranularityEnum.Year,
-            showHeader: true,
-            labelColor: "#777",
-            cellColor: "LightGray",
-            cellSelectedColor: "rgb(253, 98, 94)",
-            cellBorderColor: "#333",
-            headerFontColor: "#777"
-        };
-
-        private root: D3.Selection;
-        private container: D3.Selection;
-        private header: D3.Selection;
-        private controls: D3.Selection;
-        private body: D3.Selection;
-        private granularityDropdown: D3.Selection;
-        private rangeText: D3.Selection;
-        private clear: D3.Selection;
-
+       
         private svg: D3.Selection;
-        private main: D3.Selection;
-        private cells: D3.Selection;
-        private labels: D3.Selection;
-        private legend: D3.Selection;
-        private cursors: D3.Selection;
-
-        private viewport: IViewport;
-        private widthSvg: number;
-
-        private visualUpdateOptions: VisualUpdateOptions;
+        private body: D3.Selection;
+        private header: D3.Selection;
+        private headerTextContainer: D3.Selection;
+        private rangeText: D3.Selection;
+        private mainGroupElement: D3.Selection;
+        private cursorGroupElement: D3.Selection;
+        public timelineFormat: TimelineFormat;
+        public timelineSelection: TimelineSelection;
         private dataView: DataView;
         private interactivityService: IInteractivityService;
-
         private behavior: TimelineWebBehavior;
+        private data: TimelineData;
+        private clearCatcher: D3.Selection;
+        private dropdownbox: D3.Selection;
+        private options: VisualUpdateOptions;
+        private graType: string;
+        private graChanged: boolean;
 
-        private settings: TimelineSettings;
-        private timelineDataView: TimelineDataView;
-
-        private colors: IDataColorPalette;
-        private hostServices: IVisualHostServices;
-
-        private scrollToLeft: number = 0;
-
-        private margin: IMargin = {
-            top: 10,
-            right: 15,
-            bottom: 10,
-            left: 15
-        };
-
-        private sections: TimelineSections = {
-            legend: 20,
-            labels: 15,
-            cells: 50
-        };
-
-        private options: TimelineOptions = {
-            widthCell: 40,
-            heightCell: 25
-        };
-
-        constructor(timelineConstructorOptions?: TimelineConstructorOptions) {
-            if (timelineConstructorOptions) {
-                this.svg = timelineConstructorOptions.svg || this.svg;
-                this.margin = timelineConstructorOptions.margin || this.margin;
+        public static isIE(): boolean {
+            var ua = navigator.userAgent, tem,
+                M = ua.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
+            if (/trident/i.test(M[1])) {
+                tem = /\brv[ :]+(\d+)/g.exec(ua) || [];
+                return true;//'IE '+(tem[1] || '');
             }
+            if (M[1] === 'Chrome') {
+                tem = ua.match(/\b(OPR|Edge)\/(\d+)/);
+                if (tem !== null) return tem.slice(1).join(' ').replace('OPR', 'Opera');
+            }
+            M = M[2] ? [M[1], M[2]] : [navigator.appName, navigator.appVersion, '-?'];
+            if ((tem = ua.match(/version\/(\d+)/i)) !== null) M.splice(1, 1, tem[1]);
+            return false;//M.join(' ');
         }
-
-        public init(visualInitOptions: VisualInitOptions): void {
-            let style: IVisualStyle = visualInitOptions.style;
-
-            this.colors = style && style.colorPalette 
-                ? style.colorPalette.dataColors
-                : new DataColorPalette();
-
-            if (this.container) {
-                this.root = this.container;
-            } else {
-                this.root = d3.select(visualInitOptions.element.get(0))
-                    .append("div");
+        public init(options: VisualInitOptions): void {
+            var msie = Timeline.isIE();
+            var element = options.element;
+            this.timelineFormat = {
+                showHeader: true,
+                leftMargin: 10,
+                rightMargin: 10,
+                topMargin: 8,
+                bottomMargin: 10,
+                timeRangeSize: 11,
+                textSize: 11,
+                cellWidth: 40,
+                cellHeight: 25,
+                textYPosition: 0,
+                cellsYPosition: 0,
+                cellColor: { solid: { color: '#ADD8E6' } }
+            };
+            if (msie) {
+                this.timelineFormat.bottomMargin = 25;
             }
 
-            this.hostServices = visualInitOptions.host;
+            this.timelineFormat.textYPosition = this.timelineFormat.topMargin * 2 + this.timelineFormat.timeRangeSize;
+            this.timelineFormat.cellsYPosition = this.timelineFormat.topMargin * 3 + this.timelineFormat.textSize * 2 + this.timelineFormat.timeRangeSize;
+            this.timelineSelection = {
+                startDate: -1,
+                startMonth: -1,
+                startQuarter: -1,
+                startYear: -1,
+                endDate: -1,
+                endMonth: -1,
+                endQuarter: -1,
+                endYear: -1,
+                allPeriod: true
+            };
+            var timelineContainer = d3.select(element.get(0)).append('div').classed(Timeline.TimelineContainer.class, true);
+            var header = this.header = timelineContainer.append('div').classed(Timeline.Header.class, true);
+            //var middle = this.middle =  timelineContainer.append('div').style({"z-index": 99999});
+            var body = this.body = timelineContainer.append('div').classed(Timeline.CellContainer.class, true);
+            this.rangeText = body.append('div')
+                .style({
+                    'float': 'left',
+                    'position': 'absolute',
+                    'left': '10px'
+                });
+            this.body.append('span')
+                .classed(Timeline.Clear.class, true)
+                .attr('title', 'clear')
+                .style({
+                    'position': 'absolute',
+                    'right': '10px',
+                    'background-image': "url(\"https://raw.githubusercontent.com/Microsoft/PowerBI-visuals/master/src/Clients/Visuals/images/sprite-src/slicer_reset.png\")",
+                    'background-position': '0px 0px',
+                    'width': '13px',
+                    'height': '12px',
+                    'float': 'right',
+                    'margin': '4px 2px',
+                    'cursor': 'pointer'
+                });
+            var dropdownbox = this.dropdownbox = body.append("div")
+                .attr("x", 10)
+                .attr("y", 20)
+                .style({
+                    'float': 'right',
+                    "z-index": 99999,
+                    'position': 'absolute',
+                    'right': '30px'
+                })
+                .append('select')
+                .attr('id', 'granularity')
+                .style({
+                    "background": "transparent",
+                    "width": "80px",
+                    //"padding": "5px",
+                    "font-size": "11px",
+                    "line-height": 1,
+                    "border-radius": "1px",
+                    "height": "20px"
+                });
+            dropdownbox.append('option')
+                .attr('value', 'day')
+                .style("margin-top", "-2em")
+                .text('day');
+            dropdownbox.append('option')
+                .attr('value', 'month')
+                .attr('selected', 'selected')
+                .style("margin-top", "-2em")
+                .text('month');
+            dropdownbox.append('option')
+                .attr('value', 'quarter')
+                .style("margin-top", "-2em")
+                .text('quarter');
+            dropdownbox.append('option')
+                .attr('value', 'year')
+                .style("margin-top", "-2em")
+                .text('year');
+            var that = this;
+            this.graType = "month";
+            this.graChanged = false;
+            dropdownbox.on("change", function () {
+                that.graType = this.options[this.selectedIndex].value;
+                that.graChanged = true;
+                that.setData(that.options, that.dataView, that.graType, true);
+            });
 
-            this.root
-                .classed(Timeline.TimelineContainer["class"], true)
-                .classed(Timeline.CursorResize["class"], false);
-
-            this.header = this.root
-                .append("div")
-                .classed(Timeline.Header["class"], true);
-
-            this.controls = this.root
-                .append("div")
-                .classed(Timeline.Setting["class"], true);
-
-            this.body = this.root
-                .append("div")
-                .classed(Timeline.Body["class"], true);
-
-            this.svg = this.body
-                .append("svg")
+            var svg = this.svg = body
+                .append('svg')
                 .classed(Timeline.VisualClassName, true);
-
-            this.main = this.svg
-                .append("g");
-
-            this.cells = this.main
-                .append("g")
-                .classed(Timeline.Cells["class"], true);
-
-            this.labels = this.main
-                .append("g")
-                .classed(Timeline.Labels["class"], true);
-
-            this.legend = this.main
-                .append("g")
-                .classed(Timeline.Legend["class"], true);
-
-            this.cursors = this.main
-                .append("g")
-                .classed(Timeline.Cursors["class"], true);
-
-            this.rangeText = this.controls
-                .append("div")
-                .classed(Timeline.SelectionRange["class"], true)
-                .classed(Timeline.Left["class"], true);
-
-            this.clear = this.controls
-                .append("div")
-                .classed(Timeline.Clear["class"], true)
-                .classed(Timeline.Right["class"], true);
-
-            this.granularityDropdown = this.controls
-                .append("select")
-                .classed(Timeline.GranularityDropdown["class"], true)
-                .classed(Timeline.Right["class"], true);
-
             this.behavior = new TimelineWebBehavior();
-
             if (this.behavior) {
-                this.interactivityService = createInteractivityService(this.hostServices);
+                this.interactivityService = createInteractivityService(options.host);
+                this.clearCatcher = this.svg.append("rect").classed("clearCatcher", true).attr({
+                    'height': '100%',
+                    'width': '100%'
+                });
             }
 
-            this.renderDropdown([
-                DateGranularityEnum.Year,
-                DateGranularityEnum.Month,
-                DateGranularityEnum.Day
-            ]);
-
-            this.setEvents();
-        }
-
-        private renderDropdown(granularityEnum: DateGranularityEnum[]): void {
-            let dropdownSelection: D3.UpdateSelection,
-                dropdownElements: D3.Selection = this.controls
-                    .select(Timeline.GranularityDropdown.selector)
-                    .selectAll("option");
-
-            dropdownSelection = dropdownElements.data(granularityEnum);
-
-            dropdownSelection
-                .enter()
-                .append("option");
-
-            dropdownSelection
-                .attr("value", (item: DateGranularityEnum) => item)
-                .text((item: DateGranularityEnum) => DateGranularityEnum[item]);
-
-            dropdownSelection
-                .exit()
-                .remove();
-        }
-
-        private setEvents(): void {
-            this.setOnClearEvent();
-            this.setDropdownOnChange();
-            this.setBodyOnScroll();
-        }
-
-        private setOnClearEvent(): void {
-            let self: Timeline = this;
-
-            this.clear.on("click", () => {
-                d3.event.stopPropagation();
-                
-                if (!this.timelineDataView ||
-                    !this.timelineDataView.cells) {
-                    return;
-                }
-
-                self.updateSelectedCells(
-                    this.timelineDataView.cells[0],
-                    this.timelineDataView.cells[this.timelineDataView.cells.length - 1]);
-
-                self.updateInteractivityService();
-            });
-        }
-
-        private setDropdownOnChange(): void {
-            let self: Timeline = this;
-
-            this.granularityDropdown.on("change", function () {
-                let elementId: number = Number(this.options[this.options.selectedIndex].value);
-
-                self.updateAfterChangeGranularity(elementId);
-            });
-        }
-
-        private setBodyOnScroll(): void {
-            let self: Timeline = this;
-
-            this.body.on("scroll.scroller", function () {
-                self.onScroll(this);
-            });
-        }
-
-        private onScroll(event: any): void {
-            let scrollToLeft: number = event.scrollLeft;
-
-            this.scrollToLeft = scrollToLeft;
-
-            this.updateAfterScroll(scrollToLeft);
-        }
-
-        public update(visualUpdateOptions: VisualUpdateOptions) {
-            if (!visualUpdateOptions ||
-                !visualUpdateOptions.dataViews ||
-                !visualUpdateOptions.dataViews[0] ||
-                !visualUpdateOptions.viewport) {
-                return;
-            }
-
-            let height: number =
-                this.sections.legend +
-                this.sections.labels + 
-                this.sections.cells;
-
-            this.visualUpdateOptions = visualUpdateOptions;
-
-            this.setSize(visualUpdateOptions.viewport);
-            this.updateElement(height, visualUpdateOptions.viewport.width);
-
-            this.dataView = visualUpdateOptions.dataViews[0];
-            
-            this.updateObjects();
-        }
-
-        private updateObjects(isUpdateDataView: boolean = false): void {
-            let timelineDataView: TimelineDataView = this.converter(this.dataView);
-
-            if (!timelineDataView) {
-                return;
-            }
-
-            this.timelineDataView = timelineDataView;
-
-            this.updateAfterScroll(this.scrollToLeft);
-        }
-
-        public converter(dataView: DataView): TimelineDataView {
-            if (!dataView ||
-                !dataView.categorical ||
-                !dataView.categorical.categories ||
-                !dataView.categorical.categories[0] ||
-                !dataView.categorical.categories[0].values ||
-                !(dataView.categorical.categories[0].values.length > 0) ||
-                !dataView.categorical.categories[0].source) {
-                return null;
-            }
-
-            let legendCells: TimelineLegendCells,
-                settings: TimelineSettings;
-
-            this.dataView = dataView;
-            settings = this.parseSettings(dataView);
-
-            if (!settings) {
-                return null;
-            }
-
-            if (this.settings &&
-                this.timelineDataView &&
-                this.settings.granularity === settings.granularity &&
-                this.settings.minDate.getTime() === settings.minDate.getTime() &&
-                this.settings.maxDate.getTime() === settings.maxDate.getTime()) {
-                this.timelineDataView.settings = settings;
-
-                this.updateSelectableCells();
-
-                return this.timelineDataView;
-            }
-
-            this.settings = settings;
-
-            legendCells = this.generateCells(
-                this.settings.minDate,
-                this.settings.maxDate,
-                this.settings.granularity,
-                dataView.categorical.categories[0]);
-
-            return {
-                settings: this.settings,
-                width: this.options.widthCell,
-                countOfCells: legendCells.cells.length,
-                cells: legendCells.cells,
-                legend: legendCells.legend,
-                cursors: [{
-                    index: legendCells.cells[0].index,
-                    date: legendCells.cells[0].label.date,
-                    position: 0
-                }, {
-                    index: legendCells.cells[legendCells.cells.length - 1].index,
-                    date: legendCells.cells[legendCells.cells.length - 1].label.date,
-                    position: 0
-                }],
-                selectableCells: this.generateSelectableCells(dataView.categorical.categories[0])
-            };
-        }
-
-        private generateSelectableCells(categories: DataViewCategoryColumn): SelectableCell[] {
-            return categories.values.map((item: Date, index: number) => {
-                return {
-                    value: item,
-                    selected: false,
-                    identity: SelectionId.createWithId(categories.identity[index])
-                };
-            });
-        }
-
-        private updateSelectableCells(): void {
-            if (this.interactivityService &&
-                this.timelineDataView &&
-                this.timelineDataView.selectableCells) {
-                this.interactivityService.applySelectionStateToData(this.timelineDataView.selectableCells);
-            }
-        }
-
-        private parseSettings(dataView: DataView): TimelineSettings {
-            let values: Date[] = dataView.categorical.categories[0].values,
-                minDate: Date,
-                maxDate: Date,
-                granularity: DateGranularityEnum,
-                objects: DataViewObjects = this.getObjectsFromDataView(dataView);
-
-            minDate = d3.min<Date>(values);
-            maxDate = d3.max<Date>(values);
-            granularity = this.getGranularity();
-
-            if (!(minDate instanceof Date) ||
-                !(maxDate instanceof Date)) {
-                return null;
-            }
-
-            minDate.setMonth(0, 1);
-
-            if (values.length < 2) {
-                maxDate = this.getDate(minDate, 1);
-            }
-
-            maxDate.setMonth(11, 31);
-
-            return {
-                minDate: minDate,
-                maxDate: maxDate,
-                granularity: granularity,
-                displayName: dataView.categorical.categories[0].source.displayName || Timeline.DefaultTimeLineSettings.displayName,
-                cellColor: this.getColor(Timeline.Properties.dataPoint.fill, Timeline.DefaultTimeLineSettings.cellColor, objects),
-                cellSelectedColor: this.getColor(Timeline.Properties.dataPoint.selectedColor, Timeline.DefaultTimeLineSettings.cellSelectedColor, objects),
-                cellBorderColor: "#333",
-                showHeader: DataViewObjects.getValue(objects, Timeline.Properties.header.show, Timeline.DefaultTimeLineSettings.showHeader),
-                labelColor: this.getColor(Timeline.Properties.labels.fontColor, Timeline.DefaultTimeLineSettings.labelColor, objects),
-                headerFontColor: this.getColor(Timeline.Properties.header.fontColor, Timeline.DefaultTimeLineSettings.headerFontColor, objects)
-            };
-        }
-
-        private getObjectsFromDataView(dataView: DataView): DataViewObjects {
-            if (!dataView ||
-                !dataView.metadata ||
-                !dataView.metadata.columns ||
-                !dataView.metadata.objects) {
-                    return null;
-                }
-
-            return dataView.metadata.objects;
-        }
-
-        private getColor(properties: any, defaultColor: string, objects: DataViewObjects): string {
-            let colorHelper: ColorHelper;
-
-            colorHelper = new ColorHelper(this.colors, properties, defaultColor);
-            
-            return colorHelper.getColorForMeasure(objects, "");
-        }
-
-        private getGranularity(): DateGranularityEnum {
-            let element: Element = this.granularityDropdown.node(),
-                granularity: number =
-                    Number(element["options"][element["options"]["selectedIndex"]].value);
-
-            return granularity;
-        }
-
-        private generateCells(minDate: Date, maxDate: Date, granularity: DateGranularityEnum, categories: DataViewCategoryColumn): TimelineLegendCells {
-            let timelineLegendCells: TimelineLegendCells = {
-                    cells: [],
-                    legend: []
-                },
-                currentDate: Date = this.getDate(minDate),
-                step: number = 0,
-                index: number = 0,
-                previousGlobalLabel: string = null;
-
-            do {
-                let label: TimelineLabel = this.getLabel(currentDate, granularity, step),
-                    globalLabel: string = this.labelFormatter(label.date, granularity),
-                    cell: TimelineDateCell;
-
-                cell = {
-                    globalLabel: globalLabel,
-                    isSelected: true,
-                    label: label,
-                    width: this.options.widthCell,
-                    height: this.options.heightCell,
-                    index: index
-                };
-
-                if (globalLabel !== previousGlobalLabel) {
-                    timelineLegendCells.legend.push({
-                        value: globalLabel,
-                        cell: cell,
-                        index: index
-                    });
-
-                    previousGlobalLabel = globalLabel;
-                }
-
-                timelineLegendCells.cells.push(cell);
-
-                step = 1;
-                index++;
-                currentDate = this.getDate(label.date);
-            } while (!this.compareDates(currentDate, maxDate, granularity));
-
-            return timelineLegendCells;
-        }
-
-        private compareDates(firstDate: Date, secondDate: Date, granularity: DateGranularityEnum): boolean {
-            let isEqual: boolean = false;
-
-            switch (granularity) {
-                case DateGranularityEnum.Year: {
-                    isEqual = firstDate.getFullYear() === secondDate.getFullYear()
-                        ? true
-                        : false;
-                    break;
-                }
-                case DateGranularityEnum.Month: {
-                    isEqual = (firstDate.getFullYear() === secondDate.getFullYear()) &&
-                        (firstDate.getMonth() === secondDate.getMonth())
-                        ? true
-                        : false;
-                    break;
-                }
-                case DateGranularityEnum.Day: {
-                    isEqual = (firstDate.getFullYear() === secondDate.getFullYear()) &&
-                        (firstDate.getMonth() === secondDate.getMonth()) &&
-                        (firstDate.getDate() === secondDate.getDate())
-                        ? true
-                        : false;
-                    break;
-                }
-            }
-
-            return isEqual;
-        }
-
-        private getLabel(date: Date, granularity: DateGranularityEnum, step: number): TimelineLabel {
-            let currentDate: Date;
-
-            switch (this.settings.granularity) {
-                case DateGranularityEnum.Year: {
-                    currentDate = this.getDate(date, step);
-
-                    break;
-                }
-                case DateGranularityEnum.Month: {
-                    currentDate = this.getDate(date, 0, step);
-
-                    break;
-                }
-                case DateGranularityEnum.Day: {
-                    currentDate = this.getDate(date, 0, 0, step);
-                    break;
-                }
-            }
-
-            return {
-                date: currentDate,
-                value: this.getStringLabelByDate(currentDate, this.settings.granularity)
-            };
-        }
-
-        private getStringLabelByDate(date: Date, granularity: DateGranularityEnum): string {
-            switch (granularity) {
-                case DateGranularityEnum.Year: {
-                    return date.getFullYear().toString();
-                }
-                case DateGranularityEnum.Month: {
-                    return MonthsEnum[date.getMonth()];
-                }
-                case DateGranularityEnum.Day: {
-                    return date.getDate().toString();
-                }
-                default: {
-                    return "";
-                }
-            }
-        }
-
-        private labelFormatter(date: Date, granularity: DateGranularityEnum): string {
-            switch (granularity) {
-                case DateGranularityEnum.Year: {
-                    return null;
-                }
-                case DateGranularityEnum.Month: {
-                    return this.getStringLabelByDate(date, DateGranularityEnum.Year);
-                }
-                case DateGranularityEnum.Day: {
-                    return `${this.getStringLabelByDate(date, DateGranularityEnum.Year)}  ${this.getStringLabelByDate(date, DateGranularityEnum.Month)}`;
-                }
-                default: {
-                    return "";
-                }
-            }
-        }
-
-        private getDate(date: Date, year: number = 0, month: number = 0, day: number = 0) {
-            return new Date(
-                date.getFullYear() + year,
-                date.getMonth() + month,
-                date.getDate() + day,
-                date.getHours(),
-                date.getMinutes(),
-                date.getSeconds(),
-                date.getMilliseconds());
-        }
-
-        private updateAfterChangeGranularity(granularity: DateGranularityEnum): void {
-            this.updateObjects();
-        }
-
-        private updateAfterScroll(scrollToLeft: number): void {
-            let timelineDataView: TimelineDataView,
-                countOfVisibleCells: number,
-                startIndex: number,
-                endIndex: number;
-
-            countOfVisibleCells = Math.ceil(this.viewport.width / this.options.widthCell) + 2;
-            startIndex = Math.max(0, Math.ceil(scrollToLeft / this.options.widthCell));
-
-            endIndex = startIndex + countOfVisibleCells;
-
-            timelineDataView = this.getDataViewByIndexes(this.timelineDataView, startIndex, endIndex);
-
-            this.updatePositionMainElement(scrollToLeft);
-
-            this.render(timelineDataView);
-        }
-
-        private getDataViewByIndexes(timelineDataView: TimelineDataView, startIndex: number, endIndex: number): TimelineDataView {
-            if (!timelineDataView ||
-                !timelineDataView.cells ||
-                !(timelineDataView.cells.length > 0)) {
-                return null;
-            }
-
-            let cells: TimelineDateCell[] = timelineDataView.cells.slice(startIndex, endIndex),
-                legend: TimelineLegend[] = timelineDataView.legend.filter((item: TimelineLegend) => {
-                    if (item.index >= startIndex && item.index <= endIndex) {
-                        item.shift = item.index - startIndex;
-
-                        return true;
-                    }
-
-                    return false;
+            var hederTextContainer = this.headerTextContainer = this.header.append('div');
+            hederTextContainer.append('g')
+                .attr('transform', "translate(0,10)")
+                .append('text')
+                .attr({
+                    'x': 10,
+                    'y': 10
                 });
 
+            //this.colors = options.style.colorPalette.dataColors;
+            this.mainGroupElement = svg.append('g');
+            this.cursorGroupElement = svg.append('g');
+
+        }
+
+        public static initAggList(granularity: string, catValues: any[]): AggregatedDatapoint[] {
+            var aggregatedDatapoints: AggregatedDatapoint[] = [];
+
+            var min = new Date(catValues[0]).getTime();
+            var max = min;
+            for (var i = 0, len = catValues.length; i < len; i++) {
+                var d = new Date(catValues[i]).getTime();
+                if (min > d) {
+                    min = d;
+                }
+                if (max < d) {
+                    max = d;
+                }
+            }
+            var minDate = new Date(min);
+            var minYear = minDate.getFullYear();
+            var maxDate = new Date(max);
+            var maxYear = maxDate.getFullYear();
+
+            if (granularity === 'day') {
+                for (var i = minYear; i <= maxYear; i++) {
+                    for (var j = 1; j <= 12; j++) {
+                        var numDays = new Date(i, j, 0).getDate();
+                        for (var k = 1; k <= numDays; k++) {
+                            aggregatedDatapoints.push({
+                                name: "" + k,
+                                year: i,
+                                quarter: Math.floor((j - 1) / 3 + 1),
+                                month: j,
+                                date: k,
+                                monthName: Timeline.monthNames[j - 1],
+                                granularity: 0,
+                                timelineDatapoints: [],
+                                index: -1,
+                                tooltipInfo: null
+                            });
+                        }
+                    }
+                }
+            } else if (granularity === 'quarter') {
+                for (var i = minYear; i <= maxYear; i++) {
+                    for (var j = 1; j <= 4; j++) {
+                        aggregatedDatapoints.push({
+                            name: "Q" + j,
+                            year: i,
+                            quarter: j,
+                            month: -1,
+                            date: -1,
+                            monthName: null,
+                            granularity: 2,
+                            timelineDatapoints: [],
+                            index: -1,
+                            tooltipInfo: null
+                        });
+                    }
+                }
+            } else if (granularity === 'year') {
+                for (var i = minYear; i <= maxYear; i++) {
+                    aggregatedDatapoints.push({
+                        name: "" + i,
+                        year: i,
+                        quarter: -1,
+                        month: -1,
+                        date: -1,
+                        monthName: null,
+                        granularity: 3,
+                        timelineDatapoints: [],
+                        index: -1,
+                        tooltipInfo: null
+                    });
+                }
+            } else {
+                for (var i = minYear; i <= maxYear; i++) {
+                    for (var j = 1; j <= 12; j++) {
+                        aggregatedDatapoints.push({
+                            name: Timeline.monthNames[j - 1],
+                            year: i,
+                            quarter: Math.floor((j - 1) / 3 + 1),
+                            month: j,
+                            monthName: Timeline.monthNames[j - 1],
+                            date: -1,
+                            granularity: 1,
+                            timelineDatapoints: [],
+                            index: -1,
+                            tooltipInfo: null
+                        });
+                    }
+                }
+            }
+            for (var i = 0; i < aggregatedDatapoints.length; i++) {
+                aggregatedDatapoints[i].index = i;
+            }
+            return aggregatedDatapoints;
+        }
+
+        public static pushAggregatedDatapoints(granularity: string, dataPoint: TimelineDatapoint, aggList: AggregatedDatapoint[]) {
+            var thisDay = new Date(dataPoint.label);
+            var thisYear = thisDay.getFullYear();
+            var thisMonth = thisDay.getMonth() + 1;
+            var thisDate = thisDay.getDate();
+            var thisQuarter = Math.floor((thisMonth - 1) / 3 + 1);
+
+            if (granularity === 'day') {
+                for (var i = 0; i < aggList.length; i++) {
+                    if (aggList[i].year === thisYear && aggList[i].month === thisMonth && aggList[i].date === thisDate) {
+                        aggList[i].timelineDatapoints.push(dataPoint);
+                        break;
+                    }
+                }
+            } else if (granularity === 'quarter') {
+                var startYear = aggList[0].year;
+                var index = (thisYear - startYear) * 4 + (thisQuarter - 1);
+                //console.log(index+","+thisYear+","+startYear+","+thisQuarter);
+                aggList[index].timelineDatapoints.push(dataPoint);
+            } else if (granularity === 'year') {
+                var startYear = aggList[0].year;
+                var index = thisYear - startYear;
+                aggList[index].timelineDatapoints.push(dataPoint);
+            } else {
+                var startYear = aggList[0].year;
+                var index = (thisYear - startYear) * 12 + (thisMonth - 1);
+                aggList[index].timelineDatapoints.push(dataPoint);
+            }
+        }
+
+        public static aggregate(granularity: string, dataView: DataView): { aggList: AggregatedDatapoint[]; timelineDatapoint: TimelineDatapoint[] } {
+            var catDv: DataViewCategorical = dataView.categorical;
+            var cat = catDv.categories[0];
+            var catValues = cat.values;
+            var aggregatedDatapoints = Timeline.initAggList(granularity, catValues);
+            var dataPoints: TimelineDatapoint[] = [];
+
+            for (var i = 0, len = catValues.length; i < len; i++) {
+                var datapoint = {
+                    label: catValues[i],
+                    identity: SelectionId.createWithId(cat.identity[i]),
+                    index: i,
+                    selected: false,
+                };
+                dataPoints.push(datapoint);
+                Timeline.pushAggregatedDatapoints(granularity, datapoint, aggregatedDatapoints);
+            }
+
+            return { aggList: aggregatedDatapoints, timelineDatapoint: dataPoints };
+        }
+        public static converter(dataView: DataView, timelineSelection: TimelineSelection, timelineFormat: TimelineFormat, graType: string, graChanged: boolean, interactivityService: IInteractivityService): TimelineData {
+            var showHeader = false;
+            if (dataView && dataView.metadata.objects) {
+                var header = dataView.metadata.objects['header'];
+                if (header && header['show'] !== undefined) {
+                    showHeader = <boolean>header['show'];
+                }
+            }
+            timelineFormat.showHeader = showHeader;
+
+            var rangeTextColor: Fill = { solid: { color: '#333' } };
+            if (dataView && dataView.metadata.objects) {
+                var label = dataView.metadata.objects['timeRangeColor'];
+                if (label && label['fill']) {
+                    rangeTextColor = <Fill>label['fill'];
+                }
+            }
+            var cellColor: Fill = { solid: { color: '#ADD8E6' } };
+            if (dataView && dataView.metadata.objects) {
+                var cellColorObj = dataView.metadata.objects['cellColor'];
+                if (cellColorObj && cellColorObj['fill']) {
+                    cellColor = <Fill>cellColorObj['fill'];
+                }
+            }
+            timelineFormat.cellColor = cellColor;
+
+            var lists = Timeline.aggregate(graType, dataView);
+            var dataPoints = lists.timelineDatapoint;
+            var aggList = lists.aggList;
+
+            if (interactivityService) {
+                interactivityService.applySelectionStateToData(dataPoints);
+            }
+
+            var cursorDatapoints = Timeline.getCursorsPosition(timelineSelection, aggList, graType);
+
             return {
-                settings: timelineDataView.settings,
-                width: timelineDataView.width,
-                cells: cells,
-                legend: legend,
-                cursors: timelineDataView.cursors,
-                countOfCells: timelineDataView.countOfCells,
-                selectableCells: timelineDataView.selectableCells
+                dragging: false,
+                granularity: graType,
+                categorySourceName: dataView.categorical.categories[0].source.displayName,
+                cursorDatapoints: cursorDatapoints,
+                aggregatedList: aggList,
+                timelineDatapoints: dataPoints,
+                graChanged: graChanged
             };
         }
 
-        private updatePositionMainElement(shift: number = 0): void {
-            this.main.attr("transform", SVGUtil.translate(
-                this.margin.left + shift,
-                this.margin.top
-            ));
-        }
-
-        private render(timelineDataView: TimelineDataView): void {
-            if (!timelineDataView ||
-                !timelineDataView.cells) {
-                return;
-            }
-
-            this.updateSvgWidth();
-
-            this.renderCells(timelineDataView);
-            this.renderLabels(timelineDataView);
-            this.renderLegend(timelineDataView);
-            this.renderCursors(timelineDataView);
-            this.renderHeader(timelineDataView);
-            this.renderRangeText(timelineDataView);
-        }
-
-        private renderCells(timelineDataView: TimelineDataView): void {
-            let self: Timeline = this,
-                settings: TimelineSettings = timelineDataView.settings,
-                cells: TimelineDateCell[] = timelineDataView.cells,
-                cellsSelection: D3.UpdateSelection,
-                cellsElements: D3.Selection = this.main
-                    .select(Timeline.Cells.selector)
-                    .selectAll(Timeline.Cell.selector);
-
-            cellsSelection = cellsElements.data(cells);
-
-            cellsSelection
-                .enter()
-                .append("svg:rect");
-
-            cellsSelection
-                .attr("x", 0)
-                .attr("y", 0)
-                .attr("transform", (item: TimelineDateCell, index: number) => {
-                    return SVGUtil.translate(item.width * index, 0);
-                })
-                .attr("fill", (item: TimelineDateCell) => {
-                    if (item.isSelected) {
-                        return settings.cellSelectedColor;
-                    } else {
-                        return settings.cellColor;
-                    }
-                })
-                .attr("stroke", (item: TimelineDateCell) => settings.cellBorderColor)
-                .attr("height", (item: TimelineDateCell) => item.height)
-                .attr("width", (item: TimelineDateCell) => item.width)
-                .attr("value", (item: TimelineDateCell) => item.globalLabel)
-                .on("click", (item: TimelineDateCell, index: number) => {
-                    self.updateSelectedCells(item, item);
-
-                    self.updateInteractivityService();
-                })
-                .classed(Timeline.Cell["class"], true);
-
-            cellsSelection
-                .exit()
-                .remove();
-        }
-
-        private renderLabels(timelineDataView: TimelineDataView): void {
-            let cells: TimelineDateCell[] = timelineDataView.cells,
-                settings: TimelineSettings = timelineDataView.settings,
-                labelsSelection: D3.UpdateSelection,
-                labelsElements: D3.Selection = this.main
-                    .select(Timeline.Labels.selector)
-                    .selectAll(Timeline.Label.selector);
-
-            labelsSelection = labelsElements.data(cells);
-
-            labelsSelection
-                .enter()
-                .append("svg:text");
-
-            labelsSelection
-                .attr("x", 0)
-                .attr("y", 0)
-                .attr("transform", (item: TimelineDateCell, index: number) => {
-                    let shift: number = item.width * index + item.width / 2;
-
-                    return SVGUtil.translate(shift, 0);
-                })
-                .style("fill", settings.labelColor)
-                .text((item: TimelineDateCell) => item.label.value)
-                .classed(Timeline.Label["class"], true);
-
-            labelsSelection
-                .exit()
-                .remove();
-        }
-
-        private renderLegend(timelineDataView: TimelineDataView): void {
-            let settings: TimelineSettings = timelineDataView.settings,
-                legend: TimelineLegend[] = timelineDataView.legend,
-                legendSelection: D3.UpdateSelection,
-                legendElements: D3.Selection = this.main
-                    .select(Timeline.Legend.selector)
-                    .selectAll(Timeline.LegendItem.selector);
-
-            legendSelection = legendElements.data(legend);
-
-            legendSelection
-                .enter()
-                .append("svg:text");
-
-            legendSelection
-                .attr("x", 0)
-                .attr("y", 0)
-                .attr("transform", (item: TimelineLegend) => {
-                    let shift: number = item.cell.width * item.shift + item.cell.width / 2;
-
-                    return SVGUtil.translate(shift, 0);
-                })
-                .style("fill", settings.labelColor)
-                .text((item: TimelineLegend) => item.value)
-                .classed(Timeline.LegendItem["class"], true);
-
-            legendSelection
-                .exit()
-                .remove();
-        }
-
-        private renderHeader(timelineDataView: TimelineDataView): void {
-            let settings: TimelineSettings = timelineDataView.settings,
-                headerText: string = timelineDataView.settings.displayName;
-
-            if (timelineDataView.settings.showHeader) {
-                this.header.style("display", null);
+        public static getCursorsPosition(timelineSelection: TimelineSelection, aggList: AggregatedDatapoint[], graType: string): CursorDatapoint[] {
+            var cursorDatapoints = [];
+            if (timelineSelection.allPeriod) {
+                cursorDatapoints.push({
+                    index: 0,
+                    cursorPosition: -1
+                });
+                cursorDatapoints.push({
+                    index: 1,
+                    cursorPosition: -1
+                });
             } else {
-                this.header.style("display", "none");
-            }
-
-            this.header
-                .style("color", settings.headerFontColor)
-                .text(headerText);
-        }
-
-        private renderRangeText(timelineDataView: TimelineDataView): void {
-            this.rangeText
-                .style("color", timelineDataView.settings.labelColor)
-                .text(this.getRangeText(timelineDataView));
-        }
-
-        private getRangeText(timelineDataView: TimelineDataView): string {
-            let cursors: TimelineCursor[] = timelineDataView.cursors,
-                granularity: DateGranularityEnum = timelineDataView.settings.granularity;
-
-            if (cursors[0].index === 0 && cursors[1].index === timelineDataView.countOfCells - 1) {
-                return Timeline.DefaultRangeText;
-            }
-
-            let dateFirst: Date = cursors[0].date,
-                dateSecond: Date = cursors[1].date,
-                years: string[] = this.formatYear(dateFirst, dateSecond),
-                months: string[] = this.formatMonth(dateFirst, dateSecond);
-
-            switch (granularity) {
-                case DateGranularityEnum.Year: {
-                    if (dateFirst.getFullYear() === dateSecond.getFullYear()) {
-                        return years[0];
-                    }
-
-                    return years.join(Timeline.RangeSeparator);
-                }
-                case DateGranularityEnum.Month: {
-                    if (dateFirst.getFullYear() === dateSecond.getFullYear()) {
-                        if (dateFirst.getMonth() === dateSecond.getMonth()) {
-                            return `${months[0]} ${years[0]}`;
-                        } else {
-                            return `${months[0]} ${Timeline.RangeSeparator} ${months[1]} ${years[0]}`;
+                var startIndex = -1;
+                var endIndex = -1;
+                if (graType === "day") {
+                    for (var i = 0; i < aggList.length; i++) {
+                        if (aggList[i].date === timelineSelection.startDate && aggList[i].month === timelineSelection.startMonth && aggList[i].year === timelineSelection.startYear) {
+                            startIndex = i;
                         }
-                    } else {
-                        return `${months[0]} ${years[0]} ${Timeline.RangeSeparator} ${months[1]} ${years[1]}`;
+                    }
+                    for (var i = 0; i < aggList.length; i++) {
+                        if (aggList[i].date === timelineSelection.endDate && aggList[i].month === timelineSelection.endMonth && aggList[i].year === timelineSelection.endYear) {
+                            endIndex = i;
+                        }
+                    }
+                } else if (graType === "quarter") {
+                    for (var i = 0; i < aggList.length; i++) {
+                        if (aggList[i].quarter === timelineSelection.startQuarter && aggList[i].year === timelineSelection.startYear) {
+                            startIndex = i;
+                        }
+                    }
+                    for (var i = 0; i < aggList.length; i++) {
+                        if (aggList[i].quarter === timelineSelection.endQuarter && aggList[i].year === timelineSelection.endYear) {
+                            endIndex = i;
+                        }
+                    }
+                } else if (graType === "year") {
+                    for (var i = 0; i < aggList.length; i++) {
+                        if (aggList[i].year === timelineSelection.startYear) {
+                            startIndex = i;
+                        }
+                    }
+                    for (var i = 0; i < aggList.length; i++) {
+                        if (aggList[i].year === timelineSelection.endYear) {
+                            endIndex = i;
+                        }
+                    }
+                } else {
+                    for (var i = 0; i < aggList.length; i++) {
+                        if (aggList[i].month === timelineSelection.startMonth && aggList[i].year === timelineSelection.startYear) {
+                            startIndex = i;
+                        }
+                    }
+                    for (var i = 0; i < aggList.length; i++) {
+                        if (aggList[i].month === timelineSelection.endMonth && aggList[i].year === timelineSelection.endYear) {
+                            endIndex = i;
+                        }
                     }
                 }
-                case DateGranularityEnum.Day: {
-                    let days: string[] = [`${this.getStringLabelByDate(cursors[0].date, DateGranularityEnum.Day)}`, ""];
+                cursorDatapoints.push({
+                    index: 0,
+                    cursorPosition: startIndex
+                });
+                cursorDatapoints.push({
+                    index: 1,
+                    cursorPosition: endIndex + 1
+                });
+            }
+            return cursorDatapoints;
+        }
 
-                    if (cursors[0].date.getDate() !== cursors[1].date.getDate()) {
-                        days[1] = `${this.getStringLabelByDate(cursors[1].date, DateGranularityEnum.Day)}`;
-                    }
+        public update(options: VisualUpdateOptions) {
+            this.options = options;
+            if (!options.dataViews || !options.dataViews[0]) return; // or clear the view, display an error, etc.
+            
+            var dataView = this.dataView = options.dataViews[0];
+            this.setData(options, dataView, this.graType, false);
+        }
 
-                    if (dateFirst.getFullYear() === dateSecond.getFullYear()) {
-                        if (dateFirst.getMonth() === dateSecond.getMonth()) {
-                            if (dateFirst.getDate() === dateSecond.getDate()) {
-                                return `${days[0]} ${months[0]} ${years[0]}`;
+        public setData(options: VisualUpdateOptions, dataView: DataView, graType: string, graChanged: boolean) {
+
+            var data = this.data = Timeline.converter(dataView, this.timelineSelection, this.timelineFormat, graType, graChanged, this.interactivityService);
+            var dataPoints = data.timelineDatapoints;
+            var selection = this.render(options, data, this.timelineFormat, this.timelineSelection);
+            var timelineClear = this.body.select(Timeline.Clear.selector);
+            var behaviorOptions: TimelineBehaviorOptions = {
+                timelineData: data,
+                timelineFormat: this.timelineFormat,
+                timelineSelection: this.timelineSelection,
+                mainGroup: this.mainGroupElement,
+                timeUnitCells: selection[0],
+                cursors: selection[1],
+                rangeText: this.rangeText,
+                timelineClear: timelineClear,
+                clearCatcher: this.clearCatcher,
+                interactivityService: this.interactivityService,
+            };
+
+            this.interactivityService.bind(dataPoints, this.behavior, behaviorOptions);
+        }
+
+        private render(options: VisualUpdateOptions, timelineData: TimelineData, timelineFormat: TimelineFormat, timelineSelection: TimelineSelection): D3.UpdateSelection[] {
+            var viewport = options.viewport;
+            //console.log(d3.select(".visualContainer").node().style.width);
+            if (d3.select(".visualContainer").node().style.width !== "") {
+                if (Number(d3.select(".visualContainer").node().style.width.replace("px", "")) < 300) {
+                    d3.select(".visualContainer").node().style.width = "300px";
+                    viewport.width = 300;
+                }
+            }          
+            var aggList = timelineData.aggregatedList;
+            if (this.timelineFormat.showHeader) {
+                this.headerTextContainer.style('display', 'block');
+                this.headerTextContainer
+                    .style({
+                        'color': this.getHeaderFill(this.dataView).solid.color,
+                        'font-size': timelineFormat.timeRangeSize + 'px',
+                        'border-style': "solid",
+                        'border-width': "0px 0px 2px",
+                        'border-color': "black"
+                    }).text(timelineData.categorySourceName)
+                    .attr({
+                        'height': timelineFormat.topMargin + timelineFormat.textSize + timelineFormat.bottomMargin,
+                        'width': viewport.width - timelineFormat.rightMargin
+                    });
+            } else {
+                this.headerTextContainer.style('display', 'none');
+            }
+
+            this.renderTimeRangeText(timelineData, timelineFormat, timelineSelection);
+
+            var bodyHeight = timelineFormat.topMargin * 3 + timelineFormat.timeRangeSize + timelineFormat.cellHeight + timelineFormat.textSize * 2 + timelineFormat.bottomMargin;
+
+            this.body.attr({
+                'height': bodyHeight,
+                'width': viewport.width,
+                'drag-resize-disabled': true
+            })
+                .style({
+                    'overflow-x': 'auto'
+                });
+            this.svg
+                .attr({
+                    'height': bodyHeight,
+                    'width': timelineFormat.leftMargin + timelineFormat.cellWidth * aggList.length + timelineFormat.rightMargin
+                });
+            this.mainGroupElement.attr('transform', "translate(" + timelineFormat.leftMargin + "," + timelineFormat.topMargin + ")");
+            this.cursorGroupElement.attr('transform', "translate(" + timelineFormat.leftMargin + "," + timelineFormat.topMargin + ")");
+
+            var cellSelection = this.renderCells(options, timelineData, timelineFormat);
+            var cellTextSelection = this.renderCellLabels(timelineData, timelineFormat);
+            var cursorSelection = this.renderCursors(timelineData, timelineFormat);
+
+            return [cellSelection, cursorSelection];
+        }
+        public static getTimeRangeText(timelineData: TimelineData, timelineSelection: TimelineSelection): string {
+            var timeRangeText = "All period";
+            if (timelineSelection.allPeriod === false) {
+                var minDate = timelineSelection.startDate;
+                var minMonth = timelineSelection.startMonth - 1;
+                var minQuarter = timelineSelection.startQuarter;
+                var minYear = timelineSelection.startYear;
+                var maxDate = timelineSelection.endDate;
+                var maxMonth = timelineSelection.endMonth - 1;
+                var maxYear = timelineSelection.endYear;
+                var maxQuarter = timelineSelection.endQuarter;
+                if (timelineData.granularity === 'day') {
+                    if (minYear === maxYear) {
+                        if (minMonth === maxMonth) {
+                            if (minDate === maxDate) {
+                                timeRangeText = Timeline.monthNames[minMonth] + " " + maxDate + " " + maxYear;
                             } else {
-                                return `${days[0]} ${Timeline.RangeSeparator} ${days[1]} ${months[0]} ${years[0]}`;
+                                timeRangeText = Timeline.monthNames[minMonth] + " " + minDate + " - " + maxDate + " " + maxYear;
                             }
                         } else {
-                            return `${days[0]} ${months[0]} ${Timeline.RangeSeparator} ${days[1]} ${months[1]} ${years[0]}`;
+                            timeRangeText = Timeline.monthNames[minMonth] + " " + minDate + " - " + Timeline.monthNames[maxMonth] + " " + maxDate + " " + maxYear;
                         }
                     } else {
-                        return `${days[0]} ${months[0]} ${years[1]} ${Timeline.RangeSeparator} ${days[1]} ${months[1]} ${years[1]}`;
+                        timeRangeText = Timeline.monthNames[minMonth] + " " + minDate + " " + minYear + " - " + Timeline.monthNames[maxMonth] + " " + maxDate + " " + maxYear;
+                    }
+                } else if (timelineData.granularity === 'quarter') {
+                    if (minYear === maxYear) {
+                        if (minQuarter === maxQuarter) {
+                            timeRangeText = "Q" + minQuarter + " " + minYear;
+                        } else {
+                            timeRangeText = "Q" + minQuarter + " - " + "Q" + maxQuarter + " " + maxYear;
+                        }
+                    } else {
+                        timeRangeText = "Q" + minQuarter + " " + minYear + " - " + "Q" + maxQuarter + " " + maxYear;;
+                    }
+                } else if (timelineData.granularity === 'year') {
+                    if (minYear === maxYear) {
+                        timeRangeText = "" + minYear;
+                    } else {
+                        timeRangeText = minYear + " - " + maxYear;;
+                    }
+                } else {
+                    if (minYear === maxYear) {
+                        if (minMonth === maxMonth) {
+                            timeRangeText = Timeline.monthNames[minMonth] + " " + minYear;
+                        } else {
+                            timeRangeText = Timeline.monthNames[minMonth] + " - " + Timeline.monthNames[maxMonth] + " " + maxYear;
+                        }
+                    } else {
+                        timeRangeText = Timeline.monthNames[minMonth] + " " + minYear + " - " + Timeline.monthNames[maxMonth] + " " + maxYear;;
                     }
                 }
             }
-
-            return "";
+            return timeRangeText;
         }
 
-        private formatYear(dateFirst: Date, dateSecond: Date): string[] {
-            let years: string[] = [`${this.getStringLabelByDate(dateFirst, DateGranularityEnum.Year)}`, ""];
-
-            if (dateFirst.getFullYear() !== dateSecond.getFullYear()) {
-                years[1] = `${this.getStringLabelByDate(dateSecond, DateGranularityEnum.Year)}`;
-            }
-
-            return years;
+        public renderTimeRangeText(timelineData: TimelineData, timelineFormat: TimelineFormat, timelineSelection: TimelineSelection) {
+            var timeRangeText = Timeline.getTimeRangeText(timelineData, timelineSelection);
+            this.rangeText.selectAll(Timeline.SelectionRange.selector).remove();
+            this.rangeText.append('text').classed(Timeline.SelectionRange.class, true).style({
+                'font-size': timelineFormat.timeRangeSize + 'px',
+                'color': this.getTimeRangeColorFill(this.dataView).solid.color
+            })
+                .text(timeRangeText);
         }
 
-        private formatMonth(dateFirst: Date, dateSecond: Date): string[] {
-            let month: string[] = [`${this.getStringLabelByDate(dateFirst, DateGranularityEnum.Month)}`, ""];
+        public renderCells(options: VisualUpdateOptions, timelineData: TimelineData, timelineFormat: TimelineFormat): D3.UpdateSelection {
+            var duration = options.suppressAnimations ? 0 : AnimatorCommon.MinervaAnimationDuration;
+            var dataPoints = timelineData.aggregatedList;
+            this.mainGroupElement.selectAll(Timeline.Cell.selector).remove();
+            var cellSelection = this.mainGroupElement.selectAll(Timeline.Cell.selector)
+                .data(dataPoints);
 
-            if (dateFirst.getMonth() !== dateSecond.getMonth()) {
-                month[1] = `${this.getStringLabelByDate(dateSecond, DateGranularityEnum.Month)}`;
-            }
-
-            return month;
+            cellSelection.enter()
+                .append('rect').attr('stroke', '#333')
+                .classed(Timeline.Cell.class, true)
+                .attr('fill', d => Timeline.getCellColor(d, timelineData, timelineFormat))
+                .transition().duration(duration)
+                .attr('height', timelineFormat.cellHeight)
+                .attr('width', timelineFormat.cellWidth)
+                .attr('x', d => (timelineFormat.cellWidth * d.index))
+                .attr('y', timelineFormat.cellsYPosition);
+            cellSelection.exit().remove();
+            return cellSelection;
         }
-
-        private updateCursors(leftCell: TimelineDateCell, rightCell: TimelineDateCell): void {
-            if (!this.timelineDataView ||
-                !this.timelineDataView.cursors ||
-                !(this.timelineDataView.cursors.length === 2) ||
-                !this.timelineDataView.settings) {
-                return;
-            }
-
-            let cursors: TimelineCursor[] = this.timelineDataView.cursors,
-                year: number = rightCell.label.date.getFullYear(),
-                month: number = rightCell.label.date.getMonth(),
-                date: number = rightCell.label.date.getDate();
-
-            cursors[0].index = leftCell.index;
-            cursors[0].date = leftCell.label.date;
-
-            cursors[1].index = rightCell.index;
-
-            switch (this.timelineDataView.settings.granularity) {
-                
-                case DateGranularityEnum.Year: {
-                    cursors[1].date = new Date(year, 11, 31);
-                    break;
-                }
-                case DateGranularityEnum.Month: {
-                    cursors[1].date = new Date(year, month + 1, 0);
-                    break;
-                }
-                case DateGranularityEnum.Day: {
-                    cursors[1].date = new Date(year, month, date);
-                    break;
-                }
-            }
-
-            cursors[1].date.setHours(23);
-            cursors[1].date.setMinutes(59);
-            cursors[1].date.setSeconds(59);
-        }
-
-        private updateSelectedCellsByCursors(cursors: TimelineCursor[]): void {
-            if (!this.timelineDataView ||
-                !this.timelineDataView.cells ||
-                !cursors ||
-                !(cursors.length === 2)) {
-                return;
-            }
-
-            this.updateSelectedCells(
-                this.timelineDataView.cells[cursors[0].index],
-                this.timelineDataView.cells[cursors[1].index]);
-        }
-
-        private updateSelectedCells(leftCell: TimelineDateCell, rightCell: TimelineDateCell): void {
-            if (!this.timelineDataView ||
-                !this.timelineDataView.cells ||
-                !this.timelineDataView.cursors) {
-                return;
-            }
-
-            let cells: TimelineDateCell[] = this.timelineDataView.cells;
-
-            this.updateCursors(leftCell, rightCell);
-
-            cells.forEach((item: TimelineDateCell) => {
-                if (item.index >= leftCell.index && item.index <= rightCell.index) {
-                    item.isSelected = true;
+        public static getCellColor(d: AggregatedDatapoint, timelineData: TimelineData, timelineFormat: TimelineFormat) {
+            var cursorData = timelineData.cursorDatapoints;
+            var cellColor = timelineFormat.cellColor;
+            if (cursorData[0].cursorPosition !== cursorData[1].cursorPosition) {
+                if (d.index >= cursorData[0].cursorPosition && d.index < cursorData[1].cursorPosition) {
+                    return cellColor.solid.color;
                 } else {
-                    item.isSelected = false;
+                    return "LightGray";
                 }
-            });
+            } else {
+                return cellColor.solid.color;
+            }
+        }
+        public renderCellLabels(timelineData: TimelineData, timelineFormat: TimelineFormat): D3.UpdateSelection {
+            var dataPoints = timelineData.aggregatedList;
+            this.mainGroupElement.selectAll(Timeline.CellTextLevel1.selector).remove();
+            var cellTextSelection = this.mainGroupElement.selectAll(Timeline.CellTextLevel1.selector).data(dataPoints);
+            var timeLineData = this.data;
+            cellTextSelection.enter()
+                .append('text')
+                .classed(Timeline.CellTextLevel1.class, true)
+                .text(function (d) {
+                    if (timeLineData.granularity === 'day') {
+                        if (d.date === 1) {
+                            return d.monthName + " " + d.year;
+                        } else {
+                            return "";
+                        }
+                    } else if (timeLineData.granularity === 'quarter') {
+                        if (d.quarter === 1) {
+                            return d.year;
+                        } else {
+                            return "";
+                        }
+                    } else if (timeLineData.granularity !== 'year') {
+                        if (d.month === 1) {
+                            return d.year;
+                        } else {
+                            return "";
+                        }
+                    }
+                })
+                .attr({ 'x': d => (timelineFormat.cellWidth * (d.index + 0.5)), 'y': timelineFormat.textYPosition })
+                .attr('text-anchor', "middle")
+                .style({ 'font-size': timelineFormat.textSize + 'px', 'fill': '#777777' });
+            cellTextSelection.exit().remove();
 
-            this.updateAfterScroll(this.scrollToLeft);
+            this.mainGroupElement.selectAll(Timeline.CellTextLevel2.selector).remove();
+            var cellTextLevel2Selection = this.mainGroupElement.selectAll(Timeline.CellTextLevel2.selector).data(dataPoints);
+            cellTextLevel2Selection.enter().append('text').classed(Timeline.CellTextLevel2.class, true)
+                .text(function (d) {
+                    //console.log(d.name);
+                    return d.name;
+                })
+                .attr({ 'x': d => (timelineFormat.cellWidth * (d.index + 0.5)), 'y': timelineFormat.topMargin + timelineFormat.textSize + timelineFormat.textYPosition })
+                .attr('text-anchor', "middle")
+                .style({ 'font-size': timelineFormat.textSize + 'px', 'fill': '#777777' });
+            cellTextLevel2Selection.exit().remove();
+            return cellTextSelection;
         }
 
-        private renderCursors(timelineDataView: TimelineDataView): void {
-            let self: Timeline = this,
-                cursors: TimelineCursor[] = timelineDataView.cursors,
-                cursorsSelection: D3.UpdateSelection,
-                cursorsElements: D3.Selection = this.main
-                    .select(Timeline.Cursors.selector)
-                    .selectAll(Timeline.Cursor.selector),
-                dragEvent: D3.Behavior.Drag;
+        public renderCursors(timelineData: TimelineData, timelineFormat: TimelineFormat): D3.UpdateSelection {
+            this.cursorGroupElement.selectAll(Timeline.Cursor.selector).remove();
+            var cursorSelection = this.cursorGroupElement.selectAll(Timeline.Cursor.selector).data(timelineData.cursorDatapoints);
 
-            dragEvent = d3.behavior.drag()
-                .on("dragstart", () => {
-                    d3.event.sourceEvent.stopPropagation();
-
-                    self.svg.classed(Timeline.Drag["class"], true);
-                })
-                .on("drag", function drag(item: TimelineCursor, index: number) {
-                    let dx: TimelineObjectShift = self.getCursorShiftByAxes(item, self.scrollToLeft),
-                        shift: TimelineObjectShift = self.getCursorShiftByAxes(item, dx.dx - d3.event.x + self.scrollToLeft);
-
-                    item = self.updateCursorPosition(item, shift.dx);
-
-                    self.updateSelectedCellsByCursors(cursors);
-                })
-                .on("dragend", () => {
-                    self.svg.classed(Timeline.Drag["class"], false);
-
-                    self.updateInteractivityService();
-                });
-
-            cursorsSelection = cursorsElements.data(cursors);
-
-            cursorsSelection
-                .enter()
-                .append("svg:path");
-
-            cursorsSelection
-                .attr("d", d3.svg.arc()
+            cursorSelection.enter().append('path').classed(Timeline.Cursor.class, true).attr("d",
+                d3.svg.arc()
                     .innerRadius(0)
-                    .outerRadius(this.options.heightCell / 2)
-                    .startAngle((item: TimelineCursor, index: number) => index * Math.PI + Math.PI)
-                    .endAngle((item: TimelineCursor, index: number) => index * Math.PI + 2 * Math.PI)
+                    .outerRadius(timelineFormat.cellHeight / 2)
+                    .startAngle(d=> d.index * Math.PI + Math.PI) //converting from degs to radians
+                    .endAngle(d=> d.index * Math.PI + 2 * Math.PI)
                 )
-                .attr("transform", (item: TimelineCursor, index: number) => {
-                    let shift: TimelineObjectShift = self.getCursorShiftByAxes(item, self.scrollToLeft);
-
-                    shift.dx += self.options.widthCell * index;
-
-                    item.position = shift.dx;
-
-                    return SVGUtil.translate(shift.dx, shift.dy);
-                })
-                .attr("fill", "grey")
-                .call(dragEvent)
-                .classed(Timeline.Drag["class"], true)
-                .classed(Timeline.Cursor["class"], true);
-
-            cursorsSelection
-                .exit()
-                .remove();
+                .attr('fill', 'grey')
+                .attr("transform", function (d) {
+                    //console.log("translate(" + d.cursorPosition * timelineFormat.cellWidth + "," + (timelineFormat.cellHeight / 2 + timelineFormat.timelineYPosition) + ")");
+                    return "translate(" + d.cursorPosition * timelineFormat.cellWidth + "," + (timelineFormat.cellHeight / 2 + timelineFormat.cellsYPosition) + ")";
+                });//.call(drag);
+                
+            cursorSelection.exit().remove();
+            return cursorSelection;
         }
 
-        private updateInteractivityService(): void {
-            this.interactivityService.bind(this.timelineDataView.selectableCells, this.behavior, <TimelineBehaviorOptions> {
-                leftDateBorder: this.timelineDataView.cursors[0].date,
-                rightDateBorder: this.timelineDataView.cursors[1].date,
-                selectableCells: this.timelineDataView.selectableCells
-            });
+        public onClearSelection(): void {
+            if (this.interactivityService)
+                this.interactivityService.clearSelection();
+        }
+        public getTimeRangeColorFill(dataView: DataView): Fill {
+            if (dataView && dataView.metadata.objects) {
+                var label = dataView.metadata.objects['timeRangeColor'];
+                if (label) {
+                    return <Fill>label['fill'];
+                }
+            }
+            return { solid: { color: '#333' } };
         }
 
-        private updateCursorPosition(cursor: TimelineCursor, shiftByAxisX: number): TimelineCursor {
-            if (!this.timelineDataView ||
-                !this.timelineDataView.cursors ||
-                !this.timelineDataView.cells) {
-                return cursor;
+        public getHeaderFill(dataView: DataView): Fill {
+            var headerColor: Fill = { solid: { color: '#333' } };
+            if (dataView && dataView.metadata.objects) {
+                var header = dataView.metadata.objects['header'];
+                if (header && header['fontColor']) {
+                    headerColor = header['fontColor'];
+                }
             }
 
-            let leftCursor: TimelineCursor = this.timelineDataView.cursors[0],
-                rightCursor: TimelineCursor = this.timelineDataView.cursors[1],
-                quntityOfCells: number = this.timelineDataView.cells.length - 1;
-
-            if (cursor.position > shiftByAxisX) {
-                cursor.index--;
-            } else if (cursor.position < shiftByAxisX) {
-                cursor.index++;
-            }
-
-            if (cursor === leftCursor) {
-                cursor.index = cursor.index > rightCursor.index 
-                    ? rightCursor.index
-                    : cursor.index;
-            } else if (cursor === rightCursor) {
-                cursor.index = cursor.index < leftCursor.index 
-                    ? leftCursor.index
-                    : cursor.index;
-            }
-
-            cursor.index = cursor.index <= 0
-                ? 0
-                : cursor.index;
-
-            cursor.index = cursor.index >= quntityOfCells
-                ? quntityOfCells
-                : cursor.index;
-
-            return cursor;
+            return headerColor;
         }
 
-        private getCursorShiftByAxes(cursor: TimelineCursor, shift: number): TimelineObjectShift {
-            let dx: number = this.options.widthCell * Math.ceil(shift / this.options.widthCell);
-
-            return {
-                dx: cursor.index * this.options.widthCell - dx,
-                dy: this.options.heightCell / 2
-            };
-        }
-
-        private setSize(viewport: IViewport): void {
-            let height: number,
-                width: number;
-
-            height =
-                viewport.height -
-                this.margin.top -
-                this.margin.bottom;
-
-            width =
-                viewport.width -
-                this.margin.left -
-                this.margin.right;
-
-            this.viewport = {
-                height: height,
-                width: width
-            };
-        }
-
-        private updateElement(height: number, width: number): void {
-            let translateForCellsAndCursors: string = 
-                SVGUtil.translate(0, this.sections.labels + this.sections.legend);
-            
-            this.svg.attr({
-                height: height,
-                width: width
-            });
-
-            this.updatePositionMainElement();
-
-            this.legend.attr("transform", SVGUtil.translate(0, 0));
-
-            this.labels.attr("transform", SVGUtil.translate(
-                0,
-                this.sections.legend
-            ));
-
-            this.cells.attr("transform", translateForCellsAndCursors);
-
-            this.cursors.attr("transform", translateForCellsAndCursors);
-        }
-
-        private updateSvgWidth(): void {
-            let width: number = 
-                this.timelineDataView.cells.length * this.options.widthCell + this.options.widthCell;
-
-            this.widthSvg = width;
-
-            this.svg.attr("width", width);
-        }
-
+        // This function retruns the values to be displayed in the property pane for each object.
+        // Usually it is a bind pass of what the property pane gave you, but sometimes you may want to do
+        // validation and return other values/defaults
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] {
-            var instances: VisualObjectInstance[] = [],
-                settings: TimelineSettings;
-
-            if (!this.timelineDataView ||
-                !this.timelineDataView.settings) {
-                return instances;
-            }
-
-            settings = this.timelineDataView.settings;
-
+            var instances: VisualObjectInstance[] = [];
             switch (options.objectName) {
-                case "header": {
-                    let header: VisualObjectInstance  = {
-                        objectName: "header",
-                        displayName: "header",
+                case 'cellColor':
+                    var cellColor: VisualObjectInstance = {
+                        objectName: 'cellColor',
+                        displayName: 'Selection Color',
                         selector: null,
                         properties: {
-                            show: settings.showHeader,
-                            fontColor: settings.headerFontColor
+                            fill: this.timelineFormat.cellColor
                         }
                     };
-
-                    instances.push(header);
+                    instances.push(cellColor);
                     break;
-                }
-                case "dataPoint": {
-                    let dataPoint: VisualObjectInstance = {
-                        objectName: "dataPoint",
-                        displayName: "dataPoint",
+                case 'timeRangeColor':
+                    var timeRangeColor: VisualObjectInstance = {
+                        objectName: 'timeRangeColor',
+                        displayName: 'Time Range Text Color',
                         selector: null,
                         properties: {
-                            fill: settings.cellColor,
-                            selectedColor: settings.cellSelectedColor
+                            fill: this.getTimeRangeColorFill(this.dataView)
                         }
                     };
-
-                    instances.push(dataPoint);
+                    instances.push(timeRangeColor);
                     break;
-                }
-                case "labels": {
-                    let labels: VisualObjectInstance = {
-                        objectName: "labels",
-                        displayName: "labels",
-                        selector: null,
-                        properties: {
-                            fontColor: settings.labelColor
-                        }
-                    };
-
-                    instances.push(labels);
-                    break;
-                }
+                /*case 'header':
+                    instances.push(this.enumerateHeader(this.dataView));
+                    break;*/
             }
 
             return instances;
-        }
-
-        public destroy(): void {
-            this.root = null;
         }
     }
 }
