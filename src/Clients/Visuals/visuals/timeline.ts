@@ -1,28 +1,28 @@
 /*
- *  Power BI Visualizations
- *
- *  Copyright (c) Microsoft Corporation
- *  All rights reserved. 
+*  Power BI Visualizations
+*
+*  Copyright (c) Microsoft Corporation
+*  All rights reserved. 
  *  MIT License
- *
- *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the ""Software""), to deal
- *  in the Software without restriction, including without limitation the rights
- *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *  copies of the Software, and to permit persons to whom the Software is
- *  furnished to do so, subject to the following conditions:
- *
- *  The above copyright notice and this permission notice shall be included in 
+*
+*  Permission is hereby granted, free of charge, to any person obtaining a copy
+*  of this software and associated documentation files (the ""Software""), to deal
+*  in the Software without restriction, including without limitation the rights
+*  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+*  copies of the Software, and to permit persons to whom the Software is
+*  furnished to do so, subject to the following conditions:
+*
+*  The above copyright notice and this permission notice shall be included in 
  *  all copies or substantial portions of the Software.
- *
- *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+*
+*  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
  *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
  *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
  *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- *  THE SOFTWARE.
- */
+*  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+*  THE SOFTWARE.
+*/
 
 /// <reference path="../_references.ts"/>
 module powerbi.visuals {
@@ -30,6 +30,7 @@ module powerbi.visuals {
     export interface TimelineData {
         dragging: boolean;
         categorySourceName: string;
+        columnIdentity: powerbi.data.SQExpr;
         cursorDatapoints: CursorDatapoint[];
         timelineDatapoints: TimelineDatapoint[];
         aggregatedList: AggregatedDatapoint[];
@@ -99,6 +100,7 @@ module powerbi.visuals {
         timelineFormat: TimelineFormat;
         timelineSelection: TimelineSelection;
         interactivityService: IInteractivityService;
+        hostServices: IVisualHostServices;
     }
 
     export class TimelineWebBehavior implements IInteractiveBehavior {
@@ -121,7 +123,7 @@ module powerbi.visuals {
             var that = this;
 
             if (timelineData.graChanged) {
-                this.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService);
+                this.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService, options);
                 this.adjustSelection(selectionHandler);
                 that.setRange(timelineData, options.timelineSelection);
                 timelineData.graChanged = false;
@@ -132,7 +134,7 @@ module powerbi.visuals {
 
                 cursorDatapoints[0].cursorPosition = d.index;
                 cursorDatapoints[1].cursorPosition = d.index + 1;
-                that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService);
+                that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService, options);
                 that.setRange(timelineData, options.timelineSelection);
                 that.renderCursors(cursors, cursorDatapoints, timelineFormat);
                 that.renderSelection(true);
@@ -147,13 +149,15 @@ module powerbi.visuals {
                 .on("dragend", dragended);
 
             function dragstarted(d) {
+                console.time('Function dragstart');
                 d3.event.sourceEvent.stopPropagation();
                 d3.select(this).classed("dragging", true);
                 options.timelineData.dragging = true;
-                //console.log('dragstart' + options.timelineData.dragging)
+                console.timeEnd('Function dragstart');
             }
 
             function dragged(d) {
+                console.time('Function #1');
                 if (options.timelineData.dragging === true) {
                     var xScale = 1;
                     var yScale = 1;
@@ -166,13 +170,12 @@ module powerbi.visuals {
                             yScale = Number(str.split(", ")[3]);
                         }
                     }
-
+                    console.timeEnd('Function #1');
+                    console.time('Function #1.5');
                     var xCoord = (d3.event.sourceEvent.x - options.mainGroup.node().getBoundingClientRect().left) / xScale;
                     if (Timeline.isIE()) {
                         xCoord = d3.event.sourceEvent.x / xScale + (d3.select(".cellContainer").node().scrollLeft);
                     }
-                    //console.log(d3.event.sourceEvent.x);
-                    //console.log(d3.select(".cellContainer").node().scrollLeft);
                     var index = Math.round(xCoord / timelineFormat.cellWidth);
                     if (index < 0) {
                         index = 0;
@@ -180,6 +183,9 @@ module powerbi.visuals {
                     if (index > aggList.length) {
                         index = aggList.length;
                     }
+                    console.timeEnd('Function #1.5');
+                    console.time('Function #2');
+
                     if (d.cursorPosition !== index) {
                         d.cursorPosition = index;
 
@@ -191,35 +197,31 @@ module powerbi.visuals {
                             if (d.cursorPosition <= cursorDatapoints[0].cursorPosition) {
                                 d.cursorPosition = cursorDatapoints[0].cursorPosition + 1;
                             }
-                        }                  
-                        //that.setSelection(selectionHandler,timelineData, options.timelineSelection,interactivityService);              
+                        }
                         that.setRange(timelineData, options.timelineSelection);
                         that.renderCursors(cursors, cursorDatapoints, timelineFormat);
                         that.renderSelection(true);
                         that.renderRangeText(options.timelineData, options.timelineSelection);
                     }
+                    console.timeEnd('Function #2');
                 }
             }
 
             function dragended(d) {
+                console.time('Function dragend');
                 d3.select(this).classed("dragging", false);
                 options.timelineData.dragging = false;
-                that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService);
+                that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService, options);
                 that.setRange(timelineData, options.timelineSelection);
-                //that.renderRangeText(options.timelineData, options.timelineSelection);
-                //console.log("dragend" + options.timelineData.dragging);
+                console.timeEnd('Function dragend');
             }
 
             cursors.call(drag);
-            
-            /*options.clearCatcher.on('click', () => {
-                selectionHandler.handleClearSelection();
-            });*/
+
             timelineClear.on("click", (d: SelectableDataPoint) => {
-                //selectionHandler.handleClearSelection();
                 cursorDatapoints[0].cursorPosition = -1;
                 cursorDatapoints[1].cursorPosition = -1;
-                that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService);
+                that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService, options);
                 that.setRange(timelineData, options.timelineSelection);
                 that.renderCursors(cursors, cursorDatapoints, timelineFormat);
                 that.renderSelection(false);
@@ -229,17 +231,51 @@ module powerbi.visuals {
         public adjustSelection(selectionHandler: ISelectionHandler) {
 
         }
-        public setSelection(selectionHandler: ISelectionHandler, timelineData: TimelineData, timelineSelection: TimelineSelection, interactivityService: IInteractivityService) {
-            //d3.event.preventDefault();
+        public setSelection(selectionHandler: ISelectionHandler, timelineData: TimelineData, timelineSelection: TimelineSelection, interactivityService: IInteractivityService, options: TimelineBehaviorOptions) {
             var aggList = timelineData.aggregatedList;
             var cursorDatapoints = timelineData.cursorDatapoints;
-            selectionHandler.handleClearSelection();
-            for (var i = cursorDatapoints[0].cursorPosition; i < cursorDatapoints[1].cursorPosition; i++) {
-                for (var j = 0; j < aggList[i].timelineDatapoints.length; j++) {
-                    selectionHandler.handleSelection(aggList[i].timelineDatapoints[j], true);
+            var startIndex = cursorDatapoints[0].cursorPosition;
+            if (startIndex < 0)
+                return;
+            var startPoint = aggList[startIndex];
+            var startMonth = startPoint.month - 1;
+            if (startPoint.month < 0) {
+                if (startPoint.quarter > 0) {
+                    startMonth = (startPoint.quarter - 1) * 3;
+                } else {
+                    startMonth = 0;
                 }
             }
 
+            var startDate = new Date(startPoint.year, startMonth, startPoint.date > 0 ? startPoint.date : 1);
+            var endIndex = cursorDatapoints[1].cursorPosition - 1;
+            var endPoint = aggList[endIndex];
+            var endMonth = endPoint.month - 1;
+            if (endPoint.month < 0) {
+                if (endPoint.quarter > 0) {
+                    endMonth = (endPoint.quarter) * 3 - 1;
+                } else {
+                    endMonth = 11;
+                }
+            }
+            var endDate = new Date(endPoint.year, endMonth, endPoint.date > 0 ? endPoint.date : new Date(endPoint.year, endMonth + 1, 0).getDate());
+            var filterExpr = powerbi.data.SQExprBuilder.between(timelineData.columnIdentity, powerbi.data.SQExprBuilder.dateTime(startDate), powerbi.data.SQExprBuilder.dateTime(endDate));
+            var filter = powerbi.data.SemanticFilter.fromSQExpr(filterExpr);
+
+            var objects: VisualObjectInstancesToPersist = {
+                merge: [
+                    <VisualObjectInstance> {
+                        objectName: "general",
+                        selector: undefined,
+                        properties: {
+                            "filter": filter
+                        }
+                    }
+                ]
+            };
+
+            options.hostServices.persistProperties(objects);
+            options.hostServices.onSelect({ data: [] });
         }
         public setRange(timelineData: TimelineData, timelineSelection: TimelineSelection) {
             var aggList = timelineData.aggregatedList;
@@ -320,7 +356,7 @@ module powerbi.visuals {
                 categorical: {
                     categories: {
                         for: { in: 'Time' },
-                        dataReductionAlgorithm: { top: {} }
+                        dataReductionAlgorithm: { sample: {} }
                     },
                     values: {
                         select: []
@@ -338,6 +374,18 @@ module powerbi.visuals {
                                     formatString: true
                                 }
                             },
+                        },
+                        selected: {
+                            type: { bool: true }
+                        },
+                        filter: {
+                            type: { filter: {} },
+                            rule: {
+                                output: {
+                                    property: 'selected',
+                                    selector: ['Time'],
+                                }
+                            }
                         },
                     },
                 },
@@ -441,6 +489,7 @@ module powerbi.visuals {
         private options: VisualUpdateOptions;
         private graType: string;
         private graChanged: boolean;
+        private hostServices: IVisualHostServices;
 
         public static isIE(): boolean {
             var ua = navigator.userAgent, tem,
@@ -458,6 +507,8 @@ module powerbi.visuals {
             return false;//M.join(' ');
         }
         public init(options: VisualInitOptions): void {
+            this.hostServices = options.host;
+
             var msie = Timeline.isIE();
             var element = options.element;
             this.timelineFormat = {
@@ -773,6 +824,7 @@ module powerbi.visuals {
                 dragging: false,
                 granularity: graType,
                 categorySourceName: dataView.categorical.categories[0].source.displayName,
+                columnIdentity: dataView.categorical.categories[0].identityFields[0],
                 cursorDatapoints: cursorDatapoints,
                 aggregatedList: aggList,
                 timelineDatapoints: dataPoints,
@@ -860,13 +912,10 @@ module powerbi.visuals {
         }
 
         public setData(options: VisualUpdateOptions, dataView: DataView, graType: string, graChanged: boolean) {
-            console.time("myCode");
+
             var data = this.data = Timeline.converter(dataView, this.timelineSelection, this.timelineFormat, graType, graChanged, this.interactivityService);
-            console.timeEnd("myCode");
             var dataPoints = data.timelineDatapoints;
-            console.time("render");
             var selection = this.render(options, data, this.timelineFormat, this.timelineSelection);
-            console.timeEnd("render");
             var timelineClear = this.body.select(Timeline.Clear.selector);
             var behaviorOptions: TimelineBehaviorOptions = {
                 timelineData: data,
@@ -879,6 +928,7 @@ module powerbi.visuals {
                 timelineClear: timelineClear,
                 clearCatcher: this.clearCatcher,
                 interactivityService: this.interactivityService,
+                hostServices: this.hostServices,
             };
 
             this.interactivityService.bind(dataPoints, this.behavior, behaviorOptions);
@@ -886,7 +936,6 @@ module powerbi.visuals {
 
         private render(options: VisualUpdateOptions, timelineData: TimelineData, timelineFormat: TimelineFormat, timelineSelection: TimelineSelection): D3.UpdateSelection[] {
             var viewport = options.viewport;
-
             var aggList = timelineData.aggregatedList;
             if (this.timelineFormat.showHeader) {
                 this.headerTextContainer.style('display', 'block');
@@ -1157,7 +1206,6 @@ module powerbi.visuals {
                     instances.push(this.enumerateHeader(this.dataView));
                     break;*/
             }
-
             return instances;
         }
     }
