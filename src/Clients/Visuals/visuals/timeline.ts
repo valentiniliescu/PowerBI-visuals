@@ -23,7 +23,6 @@
 *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 *  THE SOFTWARE.
 */
-
 /// <reference path="../_references.ts"/>
 module powerbi.visuals {
 
@@ -109,7 +108,7 @@ module powerbi.visuals {
         private rangeText: D3.Selection;
         private timelineData: TimelineData;
         private timelineFormat: TimelineFormat;
-
+        private currentSelection: AggregatedDatapoint;
         public bindEvents(options: TimelineBehaviorOptions, selectionHandler: ISelectionHandler): void {
             var timeUnitCells = this.timeUnitCells = options.timeUnitCells;
             var cursors = this.cursors = options.cursors;
@@ -132,13 +131,28 @@ module powerbi.visuals {
             timeUnitCells.on("click", (d: AggregatedDatapoint) => {
                 d3.event.preventDefault();
 
-                cursorDatapoints[0].cursorPosition = d.index;
-                cursorDatapoints[1].cursorPosition = d.index + 1;
+                if (event.shiftKey || event.altKey) {//d.granularity
+                    
+                    if (this.currentSelection.index > d.index) {
+                        cursorDatapoints[0].cursorPosition = d.index;
+                        cursorDatapoints[1].cursorPosition = this.currentSelection.index + 1;
+                    }
+                    else {
+                        cursorDatapoints[0].cursorPosition = this.currentSelection.index;
+                        cursorDatapoints[1].cursorPosition = d.index + 1;
+                    }
+
+                } else {
+                    cursorDatapoints[0].cursorPosition = d.index;
+                    cursorDatapoints[1].cursorPosition = d.index + 1;
+                    this.currentSelection = d;
+                }
                 that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService, options);
                 that.setRange(timelineData, options.timelineSelection);
                 that.renderCursors(cursors, cursorDatapoints, timelineFormat);
                 that.renderSelection(true);
                 that.renderRangeText(options.timelineData, options.timelineSelection);
+
             });
             var drag = d3.behavior.drag()
                 .origin(function (d) {
@@ -150,7 +164,8 @@ module powerbi.visuals {
 
             function dragstarted(d) {
                 console.time('Function dragstart');
-                d3.event.sourceEvent.stopPropagation();
+                if (d3.event.sourceEvent.stopPropagation)
+                    d3.event.sourceEvent.stopPropagation();
                 d3.select(this).classed("dragging", true);
                 options.timelineData.dragging = true;
                 console.timeEnd('Function dragstart');
@@ -164,7 +179,7 @@ module powerbi.visuals {
                     var container = d3.select(".displayArea");
                     if (container !== undefined) {
                         var transform = container.style("transform");
-                        if (transform !== undefined) {
+                        if (transform !== undefined && transform !== 'none') {
                             var str = transform.split("(")[1];
                             xScale = Number(str.split(", ")[0]);
                             yScale = Number(str.split(", ")[3]);
@@ -226,6 +241,19 @@ module powerbi.visuals {
                 that.renderCursors(cursors, cursorDatapoints, timelineFormat);
                 that.renderSelection(false);
                 that.renderRangeText(options.timelineData, options.timelineSelection);
+                var objects: VisualObjectInstancesToPersist = {
+                    merge: [
+                        <VisualObjectInstance> {
+                            objectName: "general",
+                            selector: undefined,
+                            properties: {
+                                "filter": undefined
+                            }
+                        }
+                    ]
+                };
+                options.hostServices.persistProperties(objects);
+                options.hostServices.onSelect({ data: [] });
             });
         }
         public adjustSelection(selectionHandler: ISelectionHandler) {
@@ -273,7 +301,6 @@ module powerbi.visuals {
                     }
                 ]
             };
-
             options.hostServices.persistProperties(objects);
             options.hostServices.onSelect({ data: [] });
         }
@@ -332,7 +359,8 @@ module powerbi.visuals {
             var timelineData = this.timelineData;
             var timelineFormat = this.timelineFormat;
             this.timeUnitCells.style('fill', d => Timeline.getCellColor(d, timelineData, timelineFormat));
-            //d3.event.stopPropagation();
+            if (d3.event.stopPropagation)
+                d3.event.stopPropagation();
         }
 
         public renderRangeText(timelineData: TimelineData, timelineSelection: TimelineSelection) {
@@ -513,8 +541,8 @@ module powerbi.visuals {
             var element = options.element;
             this.timelineFormat = {
                 showHeader: true,
-                leftMargin: 10,
-                rightMargin: 10,
+                leftMargin: 15,
+                rightMargin: 15,
                 topMargin: 8,
                 bottomMargin: 10,
                 timeRangeSize: 11,
@@ -663,36 +691,41 @@ module powerbi.visuals {
                     for (var j = 1; j <= 12; j++) {
                         var numDays = new Date(i, j, 0).getDate();
                         for (var k = 1; k <= numDays; k++) {
-                            aggregatedDatapoints.push({
-                                name: "" + k,
-                                year: i,
-                                quarter: Math.floor((j - 1) / 3 + 1),
-                                month: j,
-                                date: k,
-                                monthName: Timeline.monthNames[j - 1],
-                                granularity: 0,
-                                timelineDatapoints: [],
-                                index: -1,
-                                tooltipInfo: null
-                            });
+                            var date = new Date(i, j, k);
+                            if (date.getTime() >= min && date.getTime() <= max)
+                                aggregatedDatapoints.push({
+                                    name: "" + k,
+                                    year: i,
+                                    quarter: Math.floor((j - 1) / 3 + 1),
+                                    month: j,
+                                    date: k,
+                                    monthName: Timeline.monthNames[j - 1],
+                                    granularity: 0,
+                                    timelineDatapoints: [],
+                                    index: -1,
+                                    tooltipInfo: null
+                                });
                         }
                     }
                 }
             } else if (granularity === 'quarter') {
                 for (var i = minYear; i <= maxYear; i++) {
                     for (var j = 1; j <= 4; j++) {
-                        aggregatedDatapoints.push({
-                            name: "Q" + j,
-                            year: i,
-                            quarter: j,
-                            month: -1,
-                            date: -1,
-                            monthName: null,
-                            granularity: 2,
-                            timelineDatapoints: [],
-                            index: -1,
-                            tooltipInfo: null
-                        });
+                        var qStartDate = new Date(i, (j - 1) * 3, 1);
+                        var qEndDate = new Date(i, j * 3 - 1, new Date(i, j, 0).getDate());
+                        if (qEndDate.getTime() >= min && qStartDate.getTime() <= max)
+                            aggregatedDatapoints.push({
+                                name: "Q" + j,
+                                year: i,
+                                quarter: j,
+                                month: -1,
+                                date: -1,
+                                monthName: null,
+                                granularity: 2,
+                                timelineDatapoints: [],
+                                index: -1,
+                                tooltipInfo: null
+                            });
                     }
                 }
             } else if (granularity === 'year') {
@@ -713,18 +746,22 @@ module powerbi.visuals {
             } else {
                 for (var i = minYear; i <= maxYear; i++) {
                     for (var j = 1; j <= 12; j++) {
-                        aggregatedDatapoints.push({
-                            name: Timeline.monthNames[j - 1],
-                            year: i,
-                            quarter: Math.floor((j - 1) / 3 + 1),
-                            month: j,
-                            monthName: Timeline.monthNames[j - 1],
-                            date: -1,
-                            granularity: 1,
-                            timelineDatapoints: [],
-                            index: -1,
-                            tooltipInfo: null
-                        });
+
+                        var qStartDate = new Date(i, j - 1, 1);
+                        var qEndDate = new Date(i, j - 1, new Date(i, j, 0).getDate());
+                        if (qEndDate.getTime() >= min && qStartDate.getTime() <= max)
+                            aggregatedDatapoints.push({
+                                name: Timeline.monthNames[j - 1],
+                                year: i,
+                                quarter: Math.floor((j - 1) / 3 + 1),
+                                month: j,
+                                monthName: Timeline.monthNames[j - 1],
+                                date: -1,
+                                granularity: 1,
+                                timelineDatapoints: [],
+                                index: -1,
+                                tooltipInfo: null
+                            });
                     }
                 }
             }
@@ -750,17 +787,20 @@ module powerbi.visuals {
                 }
             } else if (granularity === 'quarter') {
                 var startYear = aggList[0].year;
-                var index = (thisYear - startYear) * 4 + (thisQuarter - 1);
-                //console.log(index+","+thisYear+","+startYear+","+thisQuarter);
-                aggList[index].timelineDatapoints.push(dataPoint);
+                for (var i = 0; i < aggList.length; i++)
+                    if (aggList[i].year === thisYear && aggList[i].quarter === thisQuarter) {
+                        aggList[i].timelineDatapoints.push(dataPoint);
+                    }
             } else if (granularity === 'year') {
                 var startYear = aggList[0].year;
                 var index = thisYear - startYear;
                 aggList[index].timelineDatapoints.push(dataPoint);
             } else {
-                var startYear = aggList[0].year;
-                var index = (thisYear - startYear) * 12 + (thisMonth - 1);
-                aggList[index].timelineDatapoints.push(dataPoint);
+                for (var i = 0; i < aggList.length; i++) {
+                    if (aggList[i].year === thisYear && aggList[i].month === thisMonth) {
+                        aggList[i].timelineDatapoints.push(dataPoint);
+                    }
+                }
             }
         }
 
@@ -848,24 +888,28 @@ module powerbi.visuals {
                 var endIndex = -1;
                 if (graType === "day") {
                     for (var i = 0; i < aggList.length; i++) {
-                        if (aggList[i].date === timelineSelection.startDate && aggList[i].month === timelineSelection.startMonth && aggList[i].year === timelineSelection.startYear) {
+                        if (aggList[i].date >= timelineSelection.startDate && aggList[i].month >= timelineSelection.startMonth && aggList[i].year >= timelineSelection.startYear) {
                             startIndex = i;
+                            break;
                         }
                     }
-                    for (var i = 0; i < aggList.length; i++) {
-                        if (aggList[i].date === timelineSelection.endDate && aggList[i].month === timelineSelection.endMonth && aggList[i].year === timelineSelection.endYear) {
+                    for (var i = aggList.length - 1; i >= 0; i--) {
+                        if (aggList[i].date <= timelineSelection.endDate && aggList[i].month <= timelineSelection.endMonth && aggList[i].year <= timelineSelection.endYear) {
                             endIndex = i;
+                            break;
                         }
                     }
                 } else if (graType === "quarter") {
                     for (var i = 0; i < aggList.length; i++) {
-                        if (aggList[i].quarter === timelineSelection.startQuarter && aggList[i].year === timelineSelection.startYear) {
+                        if (aggList[i].quarter >= timelineSelection.startQuarter && aggList[i].year >= timelineSelection.startYear) {
                             startIndex = i;
+                            break;
                         }
                     }
-                    for (var i = 0; i < aggList.length; i++) {
-                        if (aggList[i].quarter === timelineSelection.endQuarter && aggList[i].year === timelineSelection.endYear) {
+                    for (var i = aggList.length - 1; i >= 0; i--) {
+                        if (aggList[i].quarter <= timelineSelection.endQuarter && aggList[i].year <= timelineSelection.endYear) {
                             endIndex = i;
+                            break;
                         }
                     }
                 } else if (graType === "year") {
@@ -881,13 +925,15 @@ module powerbi.visuals {
                     }
                 } else {
                     for (var i = 0; i < aggList.length; i++) {
-                        if (aggList[i].month === timelineSelection.startMonth && aggList[i].year === timelineSelection.startYear) {
+                        if (aggList[i].month >= timelineSelection.startMonth && aggList[i].year === timelineSelection.startYear) {
                             startIndex = i;
+                            break;
                         }
                     }
-                    for (var i = 0; i < aggList.length; i++) {
-                        if (aggList[i].month === timelineSelection.endMonth && aggList[i].year === timelineSelection.endYear) {
+                    for (var i = aggList.length - 1; i >= 0; i--) {
+                        if (aggList[i].month <= timelineSelection.endMonth && aggList[i].year === timelineSelection.endYear) {
                             endIndex = i;
+                            break;
                         }
                     }
                 }
@@ -1210,3 +1256,4 @@ module powerbi.visuals {
         }
     }
 }
+
