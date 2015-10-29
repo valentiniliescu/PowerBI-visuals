@@ -28,6 +28,7 @@
 /// <reference path="typedefs/typedefs.obj.ts"/>
 
 /// <reference path="sampleDataViews/sampleDataViews.ts"/>
+/// <reference path="sampleDataViews/CarLogosData.ts"/>
 /// <reference path="sampleDataViews/DistrictSalesData.ts"/>
 /// <reference path="sampleDataViews/FileStorageData.ts"/>
 /// <reference path="sampleDataViews/ImageData.ts"/>

@@ -344,4 +344,10 @@ module powerbi.visuals.plugins {
         capabilities: samples.AreaRangeChart.capabilities,
         create: () => new samples.AreaRangeChart()
     };
+
+    export var chicletSlicer: IVisualPlugin = {
+        name: 'chicletSlicer',
+        capabilities: samples.ChicletSlicer.capabilities,
+        create: () => new samples.ChicletSlicer()
+    };
 }
