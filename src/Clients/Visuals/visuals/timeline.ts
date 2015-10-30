@@ -163,16 +163,13 @@ module powerbi.visuals {
                 .on("dragend", dragended);
 
             function dragstarted(d) {
-                console.time('Function dragstart');
                 if (d3.event.sourceEvent.stopPropagation)
                     d3.event.sourceEvent.stopPropagation();
                 d3.select(this).classed("dragging", true);
                 options.timelineData.dragging = true;
-                console.timeEnd('Function dragstart');
             }
 
             function dragged(d) {
-                console.time('Function #1');
                 if (options.timelineData.dragging === true) {
                     var xScale = 1;
                     var yScale = 1;
@@ -185,10 +182,8 @@ module powerbi.visuals {
                             yScale = Number(str.split(", ")[3]);
                         }
                     }
-                    console.timeEnd('Function #1');
-                    console.time('Function #1.5');
                     var xCoord = (d3.event.sourceEvent.x - options.mainGroup.node().getBoundingClientRect().left) / xScale;
-                    if (Timeline.isIE()) {
+                    if (Timeline.isIE() === true) {
                         xCoord = d3.event.sourceEvent.x / xScale + (d3.select(".cellContainer").node().scrollLeft);
                     }
                     var index = Math.round(xCoord / timelineFormat.cellWidth);
@@ -198,9 +193,6 @@ module powerbi.visuals {
                     if (index > aggList.length) {
                         index = aggList.length;
                     }
-                    console.timeEnd('Function #1.5');
-                    console.time('Function #2');
-
                     if (d.cursorPosition !== index) {
                         d.cursorPosition = index;
 
@@ -218,17 +210,14 @@ module powerbi.visuals {
                         that.renderSelection(true);
                         that.renderRangeText(options.timelineData, options.timelineSelection);
                     }
-                    console.timeEnd('Function #2');
                 }
             }
 
             function dragended(d) {
-                console.time('Function dragend');
                 d3.select(this).classed("dragging", false);
                 options.timelineData.dragging = false;
                 that.setSelection(selectionHandler, timelineData, options.timelineSelection, interactivityService, options);
                 that.setRange(timelineData, options.timelineSelection);
-                console.timeEnd('Function dragend');
             }
 
             cursors.call(drag);
@@ -691,7 +680,7 @@ module powerbi.visuals {
                     for (var j = 1; j <= 12; j++) {
                         var numDays = new Date(i, j, 0).getDate();
                         for (var k = 1; k <= numDays; k++) {
-                            var date = new Date(i, j, k);
+                            var date = new Date(i, j - 1, k);
                             if (date.getTime() >= min && date.getTime() <= max)
                                 aggregatedDatapoints.push({
                                     name: "" + k,
@@ -1256,4 +1245,3 @@ module powerbi.visuals {
         }
     }
 }
-
