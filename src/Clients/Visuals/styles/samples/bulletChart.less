@@ -1,0 +1,29 @@
+.bullet {
+    font-family: @regularFontFamily;
+    font: 12px;
+
+    .title {
+        font-size: 14px;
+        font-weight: bold;
+    }
+    .subtitle {
+        font-size: 11px;
+    }
+    .marker {
+        stroke-width: 2px;
+        z-index: 999;
+    }
+    .axis {
+        font-size: 11px;
+        path {
+            stroke-width: 0px;
+            fill: none;
+        }
+        line {
+            stroke-width: 0.5px;
+        }
+    }
+}
+.bullet-body {
+    overflow: auto;
+}
