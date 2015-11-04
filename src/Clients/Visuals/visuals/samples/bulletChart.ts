@@ -26,7 +26,7 @@
 
 /// <reference path="../../_references.ts"/>
 
-module powerbi.visuals.samples {    
+module powerbi.visuals.samples {
 
     export let bulletChartProps = {
         values: {
@@ -110,184 +110,185 @@ module powerbi.visuals.samples {
         width: number;
         height: number;
     }
-    
+
     export let bulletChartRoleNames = {
-			value: 'Value',
-			targetValue: 'TargetValue',
-			minValue: 'Minimum',
-			satisfactoryValue: 'Satisfactory',
-			goodValue: 'Good',
-			maxValue: 'Maximum'
-		};
+        value: 'Value',
+        targetValue: 'TargetValue',
+        minValue: 'Minimum',
+        satisfactoryValue: 'Satisfactory',
+        goodValue: 'Good',
+        maxValue: 'Maximum'
+    };
 
-    export class BulletChart implements IVisual {		
-		
+    export class BulletChart implements IVisual {
+
         public static capabilities: VisualCapabilities = {
-			dataRoles: [
-				{
-					name: 'Category',
-					kind: VisualDataRoleKind.Grouping,
-					displayName: 'Category',
-				},
-				{
-					name: 'Value',
-					kind: VisualDataRoleKind.Measure,
-					displayName: 'Value',
-				}, {
-					name: 'TargetValue',
-					kind: VisualDataRoleKind.Measure,
-					displayName: 'Target Value',
-				}, {
-					name: 'Minimum',
-					kind: VisualDataRoleKind.Measure,
-					displayName: 'Minimum',
-				}, {
-					name: 'Satisfactory',
-					kind: VisualDataRoleKind.Measure,
-					displayName: 'Satisfactory',
-				}, {
-					name: 'Good',
-					kind: VisualDataRoleKind.Measure,
-					displayName: 'Good',
-				}, {
-					name: 'Maximum',
-					kind: VisualDataRoleKind.Measure,
-					displayName: 'Maximum',
-				}
-			],
-			objects: {
-				general: {
-					displayName: data.createDisplayNameGetter('Visual_General'),
-					properties: {
-						formatString: {
-							type: { formatting: { formatString: true } },
-						},
+            dataRoles: [
+                {
+                    name: 'Category',
+                    kind: VisualDataRoleKind.Grouping,
+                    displayName: 'Category',
+                },
+                {
+                    name: 'Value',
+                    kind: VisualDataRoleKind.Measure,
+                    displayName: 'Value',
+                }, {
+                    name: 'TargetValue',
+                    kind: VisualDataRoleKind.Measure,
+                    displayName: 'Target Value',
+                }, {
+                    name: 'Minimum',
+                    kind: VisualDataRoleKind.Measure,
+                    displayName: 'Minimum',
+                }, {
+                    name: 'Satisfactory',
+                    kind: VisualDataRoleKind.Measure,
+                    displayName: 'Satisfactory',
+                }, {
+                    name: 'Good',
+                    kind: VisualDataRoleKind.Measure,
+                    displayName: 'Good',
+                }, {
+                    name: 'Maximum',
+                    kind: VisualDataRoleKind.Measure,
+                    displayName: 'Maximum',
+                }
+            ],
+            objects: {
+                general: {
+                    displayName: data.createDisplayNameGetter('Visual_General'),
+                    properties: {
+                        formatString: {
+                            type: { formatting: { formatString: true } },
+                        },
 
-					},
-				},
-				values: {
-					displayName: 'Data values',
-					properties: {
-						targetValue: {
-							displayName: 'Target Value',
-							type: { numeric: true }
-						},
-						minimumPercent: {
-							displayName: 'Minimum %',
-							type: { numeric: true }
-						},
-						satisfactoryPercent: {
-							displayName: 'Satisfactory %',
-							type: { numeric: true }
-						},
-						goodPercent: {
-							displayName: 'Good %',
-							type: { numeric: true }
-						},
-						maximumPercent: {
-							displayName: 'Maximum %',
-							type: { numeric: true }
-						},
-					}
-				},
-				orientation: {
-					displayName: 'Orientation',
-					properties: {
-						orientation: {
-							displayName: 'Orientation',
-							type: { text: true }
-						}
-					}
-				},
-				colors: {
-					displayName: 'Colors',
-					properties: {
-						badColor: {
-							type: { fill: { solid: { color: true } } },
-							displayName: 'Bad Color'
-						},
-						satisfactoryColor: {
-							type: { fill: { solid: { color: true } } },
-							displayName: 'Satisfactory Color'
-						},
-						goodColor: {
-							type: { fill: { solid: { color: true } } },
-							displayName: 'Good Color'
-						},
-						bulletColor: {
-							type: { fill: { solid: { color: true } } },
-							displayName: 'Bullet Color'
-						}
-					},
-				},
-				axis: {
-					displayName: 'Axis',
-					properties: {
-						axis: {
-							displayName: 'Axis',
-							type: { bool: true }
-						},
-						axisColor: {
-							type: { fill: { solid: { color: true } } },
-							displayName: 'Axis Color'
-						},
-						measureUnits: {
-							type: { text: true },
-							displayName: 'Measure Units '
-						},
-						unitsColor: {
-							type: { fill: { solid: { color: true } } },
-							displayName: 'Units Color'
-						},
-						measureColor: {
-							type: { fill: { solid: { color: true } } },
-							displayName: 'Measure Color'
-						},
-						labelsReservedArea: {
-							displayName: 'Labels Reserved Area',
-							type: { numeric: true }
-						}
-					}
-				}
-			},
-			dataViewMappings: [{
-				conditions: [
-					{
-						'Category': { max: 1 }, 'Value': { max: 1 }, 'TargetValue': { max: 1 }, 'Minimum': { max: 1 },
-						'Satisfactory': { max: 1 }, 'Good': { max: 1 }, 'Maximum': { max: 1 }
-					},
-				],
-				categorical: {
-					categories: {
-						for: { in: 'Category' },
-						dataReductionAlgorithm: { top: {} }
-					},
-					values: {
-						select: [
-							{ bind: { to: 'Value' } },
-							{ bind: { to: 'TargetValue' } },
-							{ bind: { to: 'Minimum' } },
-							{ bind: { to: 'Satisfactory' } },
-							{ bind: { to: 'Good' } },
-							{ bind: { to: 'Maximum' } },
-						]
-					},
-				},
-			}],
-			supportsHighlight: true,
-			sorting: {
-				default: {},
-			},
-			drilldown: {
-				roles: ['Category']
-			}
-		};      
+                    },
+                },
+                values: {
+                    displayName: 'Data values',
+                    properties: {
+                        targetValue: {
+                            displayName: 'Target Value',
+                            type: { numeric: true }
+                        },
+                        minimumPercent: {
+                            displayName: 'Minimum %',
+                            type: { numeric: true }
+                        },
+                        satisfactoryPercent: {
+                            displayName: 'Satisfactory %',
+                            type: { numeric: true }
+                        },
+                        goodPercent: {
+                            displayName: 'Good %',
+                            type: { numeric: true }
+                        },
+                        maximumPercent: {
+                            displayName: 'Maximum %',
+                            type: { numeric: true }
+                        },
+                    }
+                },
+                orientation: {
+                    displayName: 'Orientation',
+                    properties: {
+                        orientation: {
+                            displayName: 'Orientation',
+                            type: { text: true }
+                        }
+                    }
+                },
+                colors: {
+                    displayName: 'Colors',
+                    properties: {
+                        badColor: {
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Bad Color'
+                        },
+                        satisfactoryColor: {
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Satisfactory Color'
+                        },
+                        goodColor: {
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Good Color'
+                        },
+                        bulletColor: {
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Bullet Color'
+                        }
+                    },
+                },
+                axis: {
+                    displayName: 'Axis',
+                    properties: {
+                        axis: {
+                            displayName: 'Axis',
+                            type: { bool: true }
+                        },
+                        axisColor: {
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Axis Color'
+                        },
+                        measureUnits: {
+                            type: { text: true },
+                            displayName: 'Measure Units '
+                        },
+                        unitsColor: {
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Units Color'
+                        },
+                        measureColor: {
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Measure Color'
+                        },
+                        labelsReservedArea: {
+                            displayName: 'Labels Reserved Area',
+                            type: { numeric: true }
+                        }
+                    }
+                }
+            },
+            dataViewMappings: [{
+                conditions: [
+                    {
+                        'Category': { max: 1 }, 'Value': { max: 1 }, 'TargetValue': { max: 1 }, 'Minimum': { max: 1 },
+                        'Satisfactory': { max: 1 }, 'Good': { max: 1 }, 'Maximum': { max: 1 }
+                    },
+                ],
+                categorical: {
+                    categories: {
+                        for: { in: 'Category' },
+                        dataReductionAlgorithm: { top: {} }
+                    },
+                    values: {
+                        select: [
+                            { bind: { to: 'Value' } },
+                            { bind: { to: 'TargetValue' } },
+                            { bind: { to: 'Minimum' } },
+                            { bind: { to: 'Satisfactory' } },
+                            { bind: { to: 'Good' } },
+                            { bind: { to: 'Maximum' } },
+                        ]
+                    },
+                },
+            }],
+            supportsHighlight: true,
+            sorting: {
+                default: {},
+            },
+            drilldown: {
+                roles: ['Category']
+            }
+        };      
         //Variables
         private bulletBody: D3.Selection;
         private scrollContainer: D3.Selection;
         private model: BulletChartModel;
         private behavior: BulletWebBehavior;
         private interactivityService: IInteractivityService;
+        private clearCatcher: D3.Selection;
 
         public static DefaultStyleProperties(): BulletChartSettings {
             return {
@@ -372,7 +373,7 @@ module powerbi.visuals.samples {
                 let toolTipItems = [];
                 let category: string, value: number = undefined, targetValue: number = undefined, minimum: number = undefined, satisfactory: number = undefined,
                     good: number = undefined, maximum: number = undefined;
-                let highlight:boolean = false;
+                let highlight: boolean = false;
                 let categoryValue = categoryValues[idx];
                 category = valueFormatter.format(categoryValue, categoryFormatString);
                 let categoryIdentity = categories.identity ? categories.identity[idx] : null;
@@ -385,7 +386,7 @@ module powerbi.visuals.samples {
                     let currentVal = values[i].values[idx] || 0;
                     if (col && col.roles) {
                         if (col.roles[bulletChartRoleNames.value]) {
-                            if(values[i].highlights){
+                            if (values[i].highlights) {
                                 highlight = values[i].highlights[idx] !== null;
                             }
                             toolTipItems.push({ value: currentVal, metadata: values[i] });
@@ -419,45 +420,49 @@ module powerbi.visuals.samples {
                 if (maximum === undefined) {
                     maximum = defaultSettings.values.maximumPercent * targetValue / 100;
                 }
-				if (!isNaN(targetValue) && 
-				!isNaN(minimum) && 
-				!isNaN(satisfactory) &&
-				!isNaN(good) &&
-				!isNaN(maximum)) {
-					bulletDataPoints.push({
-						identity: SelectionId.createWithId(categoryIdentity),
-						category: category,
-						value: value,
-						targetValue: targetValue,
-						minimum: minimum,
-						satisfactory: satisfactory,
-						good: good,
-						maximum: maximum,
-						toolTipInfo: TooltipBuilder.createTooltipInfo(bulletChartProps.formatString, null, null, null, null, toolTipItems),
-						selected: false,
-						highlight: highlight
-					});
-				}               
+                if (!isNaN(targetValue) &&
+                    !isNaN(minimum) &&
+                    !isNaN(satisfactory) &&
+                    !isNaN(good) &&
+                    !isNaN(maximum)) {
+                    bulletDataPoints.push({
+                        identity: SelectionId.createWithId(categoryIdentity),
+                        category: category,
+                        value: value,
+                        targetValue: targetValue,
+                        minimum: minimum,
+                        satisfactory: satisfactory,
+                        good: good,
+                        maximum: maximum,
+                        toolTipInfo: TooltipBuilder.createTooltipInfo(bulletChartProps.formatString, null, null, null, null, toolTipItems),
+                        selected: false,
+                        highlight: highlight
+                    });
+                }
             }
-			bulletModel = {
-                    bulletChartSettings: defaultSettings,
-                    bulletDataPoints: bulletDataPoints,
-                    width: options.viewport.width,
-                    height: options.viewport.height
-                };
+            bulletModel = {
+                bulletChartSettings: defaultSettings,
+                bulletDataPoints: bulletDataPoints,
+                width: options.viewport.width,
+                height: options.viewport.height
+            };
             return bulletModel;
         }
 
         /* One time setup*/
         public init(options: VisualInitOptions): void {
-            this.bulletBody = d3.select(options.element.get(0))
+            let body = d3.select(options.element.get(0));
+
+            this.clearCatcher = appendClearCatcher(body);
+            this.bulletBody = this.clearCatcher
                 .append('div')
                 .classed('bullet-body', true);
+
             this.scrollContainer = this.bulletBody.append('div')
                 .classed('bullet-scroll-region', true);
-				
-			this.behavior = new BulletWebBehavior();
-			
+
+            this.behavior = new BulletWebBehavior();
+
             this.interactivityService = createInteractivityService(options.host);
         }
 
@@ -467,17 +472,17 @@ module powerbi.visuals.samples {
             let dataView = options.dataViews[0];
             let viewport = options.viewport;
             let model: BulletChartModel = BulletChart.converter(dataView, options);
-			if (!model) {
-				return;
-			}
-			if (this.interactivityService) {
+            if (!model) {
+                return;
+            }
+            if (this.interactivityService) {
                 this.interactivityService.applySelectionStateToData(model.bulletDataPoints);
             }
             this.model = model;
             let hasHighlights = this.hasHighlightValues(dataView, 0);
             let hasSelection = this.interactivityService.hasSelection();
             let bullet = (bullets: D3.Selection) => {
-                bullets.each(function (data: BulletDataPoint, index) {
+                bullets.each(function(data: BulletDataPoint, index) {
                     let svgBullet = d3.select(this);
 
                     let svgRotate = svgBullet
@@ -543,7 +548,7 @@ module powerbi.visuals.samples {
                             'height': vertical ? model.height : 50,
                             'width': vertical ? 100 : model.width
                         })
-                        .style('fill-opacity',(hasHighlights ||  hasSelection) ?  ( (!hasHighlights && data.selected) || data.highlight ? '1' :'0.4') : '1');
+                        .style('fill-opacity', (hasHighlights || hasSelection) ? ((!hasHighlights && data.selected) || data.highlight ? '1' : '0.4') : '1');
 
                     let targetValue = data.targetValue || 0;
                     let value = data.value || 0;
@@ -568,13 +573,13 @@ module powerbi.visuals.samples {
 
                     range.enter()
                         .append('rect')
-                        .attr('class', function (d, i) { return 'range s' + i; });
+                        .attr('class', function(d, i) { return 'range s' + i; });
 
                     range
                         .attr("x", (vertical ? scale : scale(data.minimum)))
-                        .attr('width', function (d) { return Math.abs(scale(d) - scale(data.minimum)); })
+                        .attr('width', function(d) { return Math.abs(scale(d) - scale(data.minimum)); })
                         .attr('height', height)
-                        .attr("fill", function (d) { return color(d); });
+                        .attr("fill", function(d) { return color(d); });
                     //Comparison measure
 
                     //Main measure
@@ -638,9 +643,10 @@ module powerbi.visuals.samples {
                 .call(bullet);
             let bullets = this.scrollContainer.selectAll("svg.bullet");
             if (this.interactivityService) {
-                
+
                 let behaviorOptions: BulletBehaviorOptions = {
                     bullets: bullets,
+                    clearCatcher: this.clearCatcher,
                     dataPoints: model.bulletDataPoints,
                     interactivityService: this.interactivityService,
                     bulletChartSettings: model.bulletChartSettings,
@@ -737,6 +743,7 @@ module powerbi.visuals.samples {
 
     export interface BulletBehaviorOptions {
         bullets: D3.Selection;
+        clearCatcher: D3.Selection;
         dataPoints: BulletDataPoint[];
         interactivityService: IInteractivityService;
         bulletChartSettings: BulletChartSettings;
@@ -749,16 +756,22 @@ module powerbi.visuals.samples {
         public bindEvents(options: BulletBehaviorOptions, selectionHandler: ISelectionHandler) {
             this.options = options;
             let bullets = options.bullets;
+            let clearCatcher = options.clearCatcher;
 
             bullets.selectAll(".wrap").on('click', (d: BulletDataPoint, i: number) => {
+                d3.event.stopPropagation();
                 selectionHandler.handleSelection(d, d3.event.ctrlKey);
+            });
+
+            clearCatcher.on('click', () => {
+                selectionHandler.handleClearSelection();
             });
         }
 
         public renderSelection(hasSelection: boolean) {
-            console.log(this.options.hasHighlights);
+            //console.log(this.options.hasHighlights);
             let options = this.options;
-            options.bullets.style("fill-opacity", (d: BulletDataPoint) => { 
+            options.bullets.style("fill-opacity", (d: BulletDataPoint) => {
                 return hasSelection ? (d.selected ? '1' : '0.4') : '1';
             });
         }
