@@ -316,7 +316,7 @@ module powerbi.visuals.samples {
                     measureUnits: '',
                     unitsColor: 'Grey',
                     measureColor: 'Black',
-                    labelsReservedArea: 40
+                    labelsReservedArea: 80
                 }
             };
         }
@@ -329,8 +329,8 @@ module powerbi.visuals.samples {
             }
 
             let dataViewCategorical = dataView.categorical;
-            if (dataViewCategorical === null || dataViewCategorical.categories === null || dataViewCategorical.categories.length === 0
-                || dataView.categorical.values.length === 0 || dataView.metadata === null || dataView.metadata.columns.length === 0)
+            if (dataViewCategorical === null || dataViewCategorical.categories === null
+                || dataViewCategorical.values.length === 0 || dataView.metadata === null || dataView.metadata.columns.length === 0)
                 return;
 
             let defaultSettings = this.DefaultStyleProperties();
@@ -364,25 +364,37 @@ module powerbi.visuals.samples {
                 defaultSettings.orientation.vertical = true;
             }
 
-            let categories = dataViewCategorical.categories[0];
-            let categoryValues = categories.values;
-            let categoryValuesLen = categoryValues.length;
+            let categories,
+                categoryValues,
+                categoryValuesLen = 1,
+                categoryFormatString;
+
+
+            if (dataViewCategorical.categories) {
+                categories = dataViewCategorical.categories[0];
+                categoryValues = categories.values;
+                categoryValuesLen = categoryValues.length;
+                categoryFormatString = valueFormatter.getFormatString(categories.source, bulletChartProps.formatString);
+            }
+
             let bulletDataPoints: BulletDataPoint[] = [];
-            let categoryFormatString = valueFormatter.getFormatString(categories.source, bulletChartProps.formatString);
+
             for (let idx = 0; idx < categoryValuesLen; idx++) {
                 let toolTipItems = [];
                 let category: string, value: number = undefined, targetValue: number = undefined, minimum: number = undefined, satisfactory: number = undefined,
                     good: number = undefined, maximum: number = undefined;
                 let highlight: boolean = false;
-                let categoryValue = categoryValues[idx];
-                category = valueFormatter.format(categoryValue, categoryFormatString);
-                let categoryIdentity = categories.identity ? categories.identity[idx] : null;
+                if (categoryValues) {
+                    let categoryValue = categoryValues[idx];
+                    category = valueFormatter.format(categoryValue, categoryFormatString);
+                    let categoryIdentity = categories.identity ? categories.identity[idx] : null;
+                }
                 let values = dataViewCategorical.values;
                 let metadataColumns = dataView.metadata.columns;
 
                 for (let i = 0; i < values.length; i++) {
 
-                    let col = metadataColumns[i + 1];  //+1 as first column is category column
+                    let col = metadataColumns[i];
                     let currentVal = values[i].values[idx] || 0;
                     if (col && col.roles) {
                         if (col.roles[bulletChartRoleNames.value]) {
@@ -497,18 +509,27 @@ module powerbi.visuals.samples {
                     let sortedRanges = ranges.sort(d3.descending);
 
                     let height = 25;
-                    let width = model.width - settings.axis.labelsReservedArea - 15;
+                    let maxRanges = d3.max(ranges).toString().length;
+                    let labelSize = d3.max([maxRanges * 5, settings.axis.labelsReservedArea]) + 10;
+
                     let reverse = settings.orientation.reverse, vertical = settings.orientation.vertical;
 
                     let labels = svgRotate.append('g')
                         .classed('labels', true);
 
+                    let width = model.width;
+
                     let svgTitle = labels
                         .append('text')
                         .classed('title', true)
                         .style('display', 'block')
-                        .text(data.category)
                         .attr("fill", settings.axis.measureColor);
+
+                    if (data.category) {
+                        width -= labelSize;
+
+                        svgTitle.text(data.category);
+                    }
 
                     let svgSubtitle = labels
                         .append('text')
@@ -518,8 +539,8 @@ module powerbi.visuals.samples {
                         .attr("fill", settings.axis.unitsColor);
 
                     if (vertical) {
-                        width = model.height - settings.axis.labelsReservedArea - 5;
-                        svgWrap.attr("transform", "rotate(90)translate(" + (reverse ? 0 : settings.axis.labelsReservedArea - 5) + "," + -75 + ")");
+                        width = model.height - labelSize;
+                        svgWrap.attr("transform", "rotate(90)translate(" + (reverse ? 0 : settings.axis.labelsReservedArea - 5) + "," + -1 * labelSize + ")");
                         svgTitle
                             .attr('transform', 'translate(62.5,' + (reverse ? width + 20 : settings.axis.labelsReservedArea - 30) + ')')
                             .style('text-anchor', 'middle');
@@ -540,13 +561,18 @@ module powerbi.visuals.samples {
                             .attr('x', (reverse ? width + 15 : 0))
                             .style('text-anchor', reverse ? 'start' : 'end')
                             .attr('width', settings.axis.labelsReservedArea);
-                        svgRotate.attr('transform', 'translate(' + (reverse ? 15 : settings.axis.labelsReservedArea) + ',5)');
+
+                        if (data.category) {
+                            svgRotate.attr('transform', 'translate(' + (reverse ? 15 : settings.axis.labelsReservedArea) + ',5)');
+                        } else {
+                            svgRotate.attr('transform', 'translate(15,5)');
+                        }
                     }
 
                     svgBullet
                         .attr({
                             'height': vertical ? model.height : 50,
-                            'width': vertical ? 100 : model.width
+                            'width': vertical ? 105 : model.width
                         })
                         .style('fill-opacity', (hasHighlights || hasSelection) ? ((!hasHighlights && data.selected) || data.highlight ? '1' : '0.4') : '1');
 
@@ -610,15 +636,19 @@ module powerbi.visuals.samples {
                     if (settings.axis.axis) {
                         let xAxis = d3.svg.axis();
                         xAxis.orient(vertical ? "left" : "bottom");
+                        let minTickSize = Math.round(Math.max(3, width / 100));
+                        xAxis.ticks(minTickSize);
                         let axis = svgRotate.selectAll("g.axis").data([0]);
                         axis.enter().append("g")
                             .attr("class", "axis")
-                            .attr('transform', 'translate(' + (vertical ? 50 : 0) + ',' + (vertical ? (reverse ? 0 : settings.axis.labelsReservedArea - 5) : height) + ')');
+                            .attr('transform', 'translate(' + (vertical ? 65 : 0) + ',' + (vertical ? (reverse ? 0 : labelSize) : height) + ')');
                         axis.call(xAxis.scale(scale));
                         axis.selectAll('line').style('stroke', settings.axis.axisColor);
                         axis.selectAll('text').style('fill', settings.axis.axisColor);
                     }
-                    TooltipManager.addTooltip(svgRotate, (tooltipEvent: TooltipEvent) => data.toolTipInfo);
+                    TooltipManager.addTooltip(svgRotate, (tooltipEvent: TooltipEvent) => {
+                        return tooltipEvent.data.toolTipInfo;
+                    });
                 });
             };
             this.scrollContainer.selectAll("svg").remove();
