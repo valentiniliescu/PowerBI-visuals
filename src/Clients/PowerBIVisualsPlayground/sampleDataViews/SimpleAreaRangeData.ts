@@ -43,25 +43,47 @@ module powerbi.visuals.sampleDataViews {
             ]
         ];
 
-        private sampleMin: number = 1;
-        private sampleMax: number = 10;
+        private sampleMin: number = 0;
+        private sampleMax: number = 9;
 
-        private categoryValues;
+        //private categoryValues;
 
         public getDataViews(): DataView[] {
 
             let fieldExpr = powerbi.data.SQExprBuilder.fieldExpr({ column: { schema: 's', entity: "table1", name: "country" } });
-
-            this.categoryValues = ["Australia", "Canada", "France", "Germany", "United Kingdom", "United States"];
-            let categoryIdentities = this.categoryValues.map(function(value) {
-                let expr = powerbi.data.SQExprBuilder.equal(fieldExpr, powerbi.data.SQExprBuilder.text(value));
+            /*
+            var tidelineScale = d3.time.scale.utc()
+                    .domain([new Date('2012-03-08T12:00:00.000Z'), new Date('2014-03-10T00:00:00.000Z')])
+                     .range([0, 100]);
+            
+            var categoryValues = tidelineScale.ticks(100);//(d3.time.months, 15);
+            
+            var categoryIdentities = categoryValues.map(function (value) {
+                var expr = powerbi.data.SQExprBuilder.equal(fieldExpr, powerbi.data.SQExprBuilder.dateTime(value));
                 return powerbi.data.createDataViewScopeIdentity(expr);
             });
 
+            */     
+            
+            var categoryValues = ["Australia", "Canada", "France", "Germany", "United Kingdom", "United States"];
+            let categoryIdentities = categoryValues.map(function(value) {
+                let expr = powerbi.data.SQExprBuilder.equal(fieldExpr, powerbi.data.SQExprBuilder.text(value));
+                return powerbi.data.createDataViewScopeIdentity(expr);
+            });
+            
             // Metadata, describes the data columns, and provides the visual with hints
             // so it can decide how to best represent the data
             let dataViewMetadata: powerbi.DataViewMetadata = {
                 columns: [
+                   /* {
+                        displayName: 'Date',
+                        queryName: 'Date',
+                        format: "d",
+                        type: powerbi.ValueType.fromDescriptor({ dateTime: true }),
+                        roles: {
+                            Category: true
+                        }
+                    },*/
                     {
                         displayName: 'Country',
                         queryName: 'Country',
@@ -70,6 +92,7 @@ module powerbi.visuals.sampleDataViews {
                             Category: true
                         }
                     },
+                
                     {
                         displayName: 'District',
                         queryName: 'District',
@@ -122,7 +145,7 @@ module powerbi.visuals.sampleDataViews {
                 categorical: {
                     categories: [{
                         source: dataViewMetadata.columns[0],
-                        values: this.categoryValues,
+                        values: categoryValues,
                         identity: categoryIdentities
                     }],
                     values: dataValues,
@@ -132,12 +155,14 @@ module powerbi.visuals.sampleDataViews {
         
         public randomize(): void {
 
-            this.sampleData = this.sampleData.map(series => {
-                return series.map(data => {
-                    return data.map(item => {
-                        return this.getRandomValue(this.sampleMin, this.sampleMax);
-                    });
-                });
+            this.sampleData = this.sampleData.map((item) => {
+                var values1 = [];
+                var values2 = [];
+                for (var i = 0; i < 6; i++) {
+                    values1.push(this.getRandomValue(this.sampleMin, this.sampleMax));
+                    values2.push(this.getRandomValue(this.sampleMin, this.sampleMax));
+                }
+                return [values1, values2];
             });
         }
     }

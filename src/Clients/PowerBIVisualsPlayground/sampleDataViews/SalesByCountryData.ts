@@ -50,9 +50,25 @@ module powerbi.visuals.sampleDataViews {
 
             var fieldExpr = powerbi.data.SQExprBuilder.fieldExpr({ column: { schema: 's', entity: "table1", name: "country" } });
 
-            var categoryValues = ["Australia", "Canada", "France", "Germany", "United Kingdom", "United States"];
+            //var categoryValues = ["Australia", "Canada", "France", "Germany", "United Kingdom", "United States"];
+            this.sampleData = this.sampleData.map((item) => {
+                //return item.map(() => this.getRandomValue(this.sampleMin, this.sampleMax));
+                var values = [];
+                for (var i = 0; i < 100; i++) {
+                    values.push(this.getRandomValue(this.sampleMin, this.sampleMax));
+                }
+                return values;
+            });
+            
+            
+            var tidelineScale = d3.time.scale.utc()
+                    .domain([new Date('2012-03-08T12:00:00.000Z'), new Date('2014-03-10T00:00:00.000Z')])
+                     .range([0, 100]);
+            
+            var categoryValues = tidelineScale.ticks(100);//(d3.time.months, 15);
+            
             var categoryIdentities = categoryValues.map(function (value) {
-                var expr = powerbi.data.SQExprBuilder.equal(fieldExpr, powerbi.data.SQExprBuilder.text(value));
+                var expr = powerbi.data.SQExprBuilder.equal(fieldExpr, powerbi.data.SQExprBuilder.dateTime(value));
                 return powerbi.data.createDataViewScopeIdentity(expr);
             });
         
@@ -61,9 +77,10 @@ module powerbi.visuals.sampleDataViews {
             var dataViewMetadata: powerbi.DataViewMetadata = {
                 columns: [
                     {
-                        displayName: 'Country',
-                        queryName: 'Country',
-                        type: powerbi.ValueType.fromDescriptor({ text: true })
+                        displayName: 'Date',
+                        queryName: 'Date',
+                        format: "d",
+                        type: powerbi.ValueType.fromDescriptor({ dateTime: true })
                     },
                     {
                         displayName: 'Sales Amount (2014)',
