@@ -322,6 +322,8 @@ module powerbi.visuals {
             createPlugin(plugins, powerbi.visuals.plugins.areaRangeChart, () => new samples.AreaRangeChart({
                 animator: new BaseAnimator()
             }));
+            // Timeline
+            createPlugin(plugins, powerbi.visuals.plugins.timeline, () => new samples.Timeline());
         }
 
         export class MinervaVisualPluginService extends VisualPluginService {

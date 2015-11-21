@@ -344,4 +344,10 @@ module powerbi.visuals.plugins {
         capabilities: samples.AreaRangeChart.capabilities,
         create: () => new samples.AreaRangeChart()
     };
+
+    export var timeline: IVisualPlugin = {
+        name: 'timeline',
+        capabilities: samples.Timeline.capabilities,
+        create: () => new samples.Timeline()
+    };
 }
