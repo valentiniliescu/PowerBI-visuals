@@ -30,7 +30,7 @@ module powerbi.visuals.samples {
 
     export interface MyViewModel { };
 
-    export class Plotly3dSurface implements IVisual {
+    export class Plotly3DSurface implements IVisual {
 		public static capabilities: VisualCapabilities = {
             dataRoles: [
                 {
@@ -55,7 +55,11 @@ module powerbi.visuals.samples {
             return {};
         }
 
+        private element: JQuery;
+
         public init(options: VisualInitOptions): void {
+            this.element = options.element;
+
             var data = [
                 {
                     z: [
@@ -90,14 +94,19 @@ module powerbi.visuals.samples {
             ];
             var layout = {
                 title: 'Mt Bruno Elevation',
-                autosize: false
+                autosize: true
 
             };
 
-            Plotly.plot(<HTMLDivElement>options.element[0], data, layout);
+            Plotly.plot(<HTMLDivElement>this.element[0], data, layout);
         }
 
         public update(options: VisualUpdateOptions) {
+            // the div does not seem to resize when viewport changes
+            this.element.height(options.viewport.height + 'px');
+            this.element.width(options.viewport.width + 'px');
+
+            Plotly.Plots.resize(<HTMLDivElement>this.element[0]);
         }
 
         public destroy() {
@@ -106,9 +115,9 @@ module powerbi.visuals.samples {
 }
 
 module powerbi.visuals.plugins {
-    export var plotly_3d_surface: IVisualPlugin = {
-        name: 'plotly_3d_surface',
-        capabilities: samples.Plotly3dSurface.capabilities,
-        create: () => new samples.Plotly3dSurface()
+    export var plotly3DSurface: IVisualPlugin = {
+        name: 'plotly3DSurface',
+        capabilities: samples.Plotly3DSurface.capabilities,
+        create: () => new samples.Plotly3DSurface()
     };
 }
