@@ -27,7 +27,7 @@
 /// <reference path="../../_references.ts"/>
 
 declare module Plotly {
-    function plot(element: HTMLDivElement, data: any, layout: any): void;
+    function plot(element: HTMLDivElement, data: any, layout: any, options?: any): void;
     function redraw(element: HTMLDivElement): void;
 
     var Plots: {
@@ -38,7 +38,7 @@ declare module Plotly {
 //TODO: find a better way for dealing with third-party libraries
 if (!('Plotly' in window))
     $.ajax({
-        url: 'https://cdn.plot.ly/plotly-1.1.0.min.js',
+        url: 'https://cdn.plot.ly/plotly-1.1.1.min.js',
         dataType: 'script',
         cache: true
     });
@@ -105,7 +105,7 @@ module powerbi.visuals.samples {
                     autosize: true
                 };
 
-                Plotly.plot(divElement, data, layout);
+                Plotly.plot(divElement, data, layout, { displayModeBar: false });
 
                 this.firstUpdate = false;
             } else if (surfaceData !== divElement['data'][0].z) {
