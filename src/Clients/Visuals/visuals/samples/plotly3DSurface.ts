@@ -85,7 +85,7 @@ module powerbi.visuals.samples {
                     autosize: true
                 };
 
-                Plotly.plot(divElement, data, layout);
+                Plotly.plot(divElement, data, layout, { displayModeBar: false });
 
                 this.firstUpdate = false;
             } else if (surfaceData !== divElement['data'][0].z) {
