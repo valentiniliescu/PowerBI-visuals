@@ -26,6 +26,15 @@
 
 /// <reference path="../../_references.ts"/>
 
+declare module Plotly {
+    function plot(element: HTMLDivElement, data: any, layout: any): void;
+    function redraw(element: HTMLDivElement): void;
+
+    var Plots: {
+        resize: (element: HTMLDivElement) => void;
+    };
+}
+
 module powerbi.visuals.samples {
 
     interface Plotly3DSurfaceDataViewObjects extends DataViewObjects {
@@ -51,6 +60,19 @@ module powerbi.visuals.samples {
 
         private element: JQuery;
         private firstUpdate: boolean = true;
+
+        constructor() {
+            this.loadPlotlyIfNeeded();
+        }
+
+        private loadPlotlyIfNeeded(): void {
+            if (!Plotly)
+                $.ajax({
+                    url: 'https://cdn.plot.ly/plotly-1.1.0.min.js',
+                    dataType: 'script',
+                    cache: true
+                });
+        }
 
         public init(options: VisualInitOptions): void {
             this.element = options.element;

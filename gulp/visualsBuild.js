@@ -76,8 +76,7 @@ var externalsPath = [
     "src/Clients/Externals/ThirdPartyIP/LoDash/lodash.min.js",
     "src/Clients/Externals/ThirdPartyIP/GlobalizeJS/globalize.min.js",
     "src/Clients/Externals/ThirdPartyIP/GlobalizeJS/globalize.culture.en-US.js",
-    "src/Clients/Externals/ThirdPartyIP/jqueryui/1.11.4/jquery-ui.min.js",
-    "src/Clients/Externals/ThirdPartyIP/PlotlyJS/plotly.min.js"];
+    "src/Clients/Externals/ThirdPartyIP/jqueryui/1.11.4/jquery-ui.min.js"];
 
 module.exports.load = function (options) {
     var isRelease = Boolean(cliParser.cliOptions.release);
