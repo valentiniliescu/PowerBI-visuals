@@ -27,7 +27,7 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals.sampleDataViews {
-    
+
     export class Plotly3DSurfaceData extends SampleDataViews implements ISampleDataViewsMethods {
 
         public name: string = "Plotly3DSurfaceData";
@@ -64,7 +64,7 @@ module powerbi.visuals.sampleDataViews {
         ];
 
         private sampleLabel = 'Mt Bruno Elevation';
-    
+
         public getDataViews(): DataView[] {
             return [{
                 metadata: {
@@ -80,8 +80,102 @@ module powerbi.visuals.sampleDataViews {
         }
 
         public randomize(): void {
-            //TODO: generate random terrain using diamond-square algorithm
+            this.sample3DSurfaceData = SurfaceGenerator.generateHeightMap(5, 2);
+            this.sampleLabel = 'Terrain';
         }
-        
+
+    }
+
+    class SurfaceGenerator {
+        private size: number;
+        private heightMap: number[][];
+
+        constructor(detail: number) {
+            this.size = Math.pow(2, detail) + 1;
+            this.heightMap = new Array<number[]>(this.size);
+
+            for (let row = 0; row < this.size; row++) {
+                this.heightMap[row] = new Array<number>(this.size);
+            }
+        }
+
+        public static generateHeightMap(detail: number, roughness: number): number[][] {
+            const generator = new SurfaceGenerator(detail);
+
+            generator.generate(roughness);
+
+            return generator.heightMap;
+        }
+
+        private get(x: number, y: number): number {
+            return (0 <= x && x < this.size && 0 <= y && y < this.size)
+                ? this.heightMap[x][y]
+                : NaN;
+        }
+
+        private set(x: number, y: number, value: number): void {
+            this.heightMap[x][y] = value;
+        }
+
+        private generate(roughness: number): void {
+            const max = this.size - 1;
+            const scale = roughness * this.size;
+
+            this.set(0, 0, Math.random() * scale);
+            this.set(max, 0, Math.random() * scale);
+            this.set(max, max, Math.random() * scale);
+            this.set(0, max, Math.random() * scale);
+
+            this.divide(max, roughness);
+        };
+
+        private divide(size: number, roughness: number): void {
+            let x: number, y: number;
+            const half = size / 2;
+            if (half < 1)
+                return;
+
+            const scale = roughness * size;
+
+            for (y = half; y < this.size - 1; y += size) {
+                for (x = half; x < this.size - 1; x += size) {
+                    this.square(x, y, half, Math.random() * scale * 2 - scale);
+                }
+            }
+            for (y = 0; y < this.size; y += half) {
+                for (x = (y + half) % size; x < this.size; x += size) {
+                    this.diamond(x, y, half, Math.random() * scale * 2 - scale);
+                }
+            }
+            this.divide(half, roughness);
+        }
+
+        private static average(values: number[]): number {
+            const valid = values.filter(val => !isNaN(val));
+            const total = valid.reduce((sum, val) => sum + val, 0);
+            return total / valid.length;
+        }
+
+        private square(x: number, y: number, size: number, offset: number): void {
+            const ave = SurfaceGenerator.average([
+                this.get(x - size, y - size),
+                this.get(x + size, y - size),
+                this.get(x + size, y + size),
+                this.get(x - size, y + size)
+            ]);
+
+            this.set(x, y, ave + offset);
+        }
+
+        private diamond(x: number, y: number, size: number, offset: number): void {
+            const ave = SurfaceGenerator.average([
+                this.get(x, y - size),
+                this.get(x + size, y),
+                this.get(x, y + size),
+                this.get(x - size, y)
+            ]);
+
+            this.set(x, y, ave + offset);
+        }
     }
 }

@@ -54,8 +54,6 @@ module powerbi.visuals.samples {
 
         public init(options: VisualInitOptions): void {
             this.element = options.element;
-
-            
         }
 
         public update(options: VisualUpdateOptions) {
@@ -73,7 +71,9 @@ module powerbi.visuals.samples {
             const surfaceData = objects.general.surfaceData;
             const label = objects.general.label;
 
+            // TODO: handle changes in all VisualUpdateOptions properties
             if (this.firstUpdate) {
+                // first update
                 const data = [
                     {
                         z: surfaceData,
@@ -88,14 +88,22 @@ module powerbi.visuals.samples {
                 Plotly.plot(divElement, data, layout);
 
                 this.firstUpdate = false;
+            } else if (surfaceData !== divElement['data'][0].z) {
+                // data changed
+
+                divElement['data'][0].z = surfaceData;
+                divElement['layout'].title = label;
+
+                Plotly.redraw(divElement);
             } else {
+                // resize 
+
                 // the div does not seem to resize when viewport changes
                 this.element.height(options.viewport.height + 'px');
                 this.element.width(options.viewport.width + 'px');
 
                 Plotly.Plots.resize(divElement);
             }
-            
         }
 
         public destroy() {
