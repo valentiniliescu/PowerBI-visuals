@@ -35,6 +35,14 @@ declare module Plotly {
     };
 }
 
+//TODO: find a better way for dealing with third-party libraries
+if (!('Plotly' in window))
+    $.ajax({
+        url: 'https://cdn.plot.ly/plotly-1.1.0.min.js',
+        dataType: 'script',
+        cache: true
+    });
+
 module powerbi.visuals.samples {
 
     interface Plotly3DSurfaceDataViewObjects extends DataViewObjects {
@@ -61,24 +69,14 @@ module powerbi.visuals.samples {
         private element: JQuery;
         private firstUpdate: boolean = true;
 
-        constructor() {
-            this.loadPlotlyIfNeeded();
-        }
-
-        private loadPlotlyIfNeeded(): void {
-            if (!Plotly)
-                $.ajax({
-                    url: 'https://cdn.plot.ly/plotly-1.1.0.min.js',
-                    dataType: 'script',
-                    cache: true
-                });
-        }
-
         public init(options: VisualInitOptions): void {
             this.element = options.element;
         }
 
         public update(options: VisualUpdateOptions) {
+            if (!('Plotly' in window))
+                return;
+
             const divElement = <HTMLDivElement>this.element[0];
 
             const dataViews = options.dataViews;
