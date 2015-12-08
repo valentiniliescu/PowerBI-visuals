@@ -45,25 +45,21 @@ if (!('Plotly' in window))
 
 module powerbi.visuals.samples {
 
-    interface Plotly3DSurfaceDataViewObjects extends DataViewObjects {
-        general: Plotly3DSurfaceDataViewObject;
-    }
-
-    interface Plotly3DSurfaceDataViewObject extends DataViewObject {
-        surfaceData: string;
-        label: string;
-    }
-
     export class Plotly3DSurface implements IVisual {
         public static capabilities: VisualCapabilities = {
-            objects: {
-                general: {
-                    properties: {
-                        surfaceData: { type: { /*TODO*/ } },
-                        label: { type: { text: true } }
-                    }
-                }
-            }
+            dataRoles: [{
+                name: 'Values',
+                kind: VisualDataRoleKind.GroupingOrMeasure
+            }],
+            dataViewMappings: [{
+                table: {
+                    rows: {
+                        for: { in: 'Values' },
+                        dataReductionAlgorithm: { top: {} }
+                    },
+                    rowCount: { preferred: { min: 1 } }
+                },
+            }]
         };
 
         private element: JQuery;
@@ -83,13 +79,10 @@ module powerbi.visuals.samples {
             if (!dataViews || dataViews.length === 0)
                 return;
 
-            const objects = <Plotly3DSurfaceDataViewObjects>dataViews[0].metadata.objects;
-            if (!objects || !objects.general)
+            if (!dataViews[0].table)
                 return;
 
-            //TODO: validate surfaceData
-            const surfaceData = objects.general.surfaceData;
-            const label = objects.general.label;
+            const surfaceData = dataViews[0].table.rows;
 
             // TODO: handle changes in all VisualUpdateOptions properties
             if (this.firstUpdate) {
@@ -101,7 +94,6 @@ module powerbi.visuals.samples {
                     }
                 ];
                 const layout = {
-                    title: label,
                     autosize: true
                 };
 
@@ -112,7 +104,6 @@ module powerbi.visuals.samples {
                 // data changed
 
                 divElement['data'][0].z = surfaceData;
-                divElement['layout'].title = label;
 
                 Plotly.redraw(divElement);
             } else {
