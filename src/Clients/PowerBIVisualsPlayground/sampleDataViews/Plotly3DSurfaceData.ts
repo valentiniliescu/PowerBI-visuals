@@ -35,7 +35,7 @@ module powerbi.visuals.sampleDataViews {
 
         public visuals: string[] = ['plotly3DSurface'];
 
-        private sample3DSurfaceData = [
+        private sampleHeightMap = [
             [27.80985, 49.61936, 83.08067, 116.6632, 130.414, 150.7206, 220.1871, 156.1536, 148.6416, 203.7845, 206.0386, 107.1618, 68.36975, 45.3359, 49.96142, 21.89279, 17.02552, 11.74317, 14.75226, 13.6671, 5.677561, 3.31234, 1.156517, -0.147662],
             [27.71966, 48.55022, 65.21374, 95.27666, 116.9964, 133.9056, 152.3412, 151.934, 160.1139, 179.5327, 147.6184, 170.3943, 121.8194, 52.58537, 33.08871, 38.40972, 44.24843, 69.5786, 4.019351, 3.050024, 3.039719, 2.996142, 2.967954, 1.999594],
             [30.4267, 33.47752, 44.80953, 62.47495, 77.43523, 104.2153, 102.7393, 137.0004, 186.0706, 219.3173, 181.7615, 120.9154, 143.1835, 82.40501, 48.47132, 74.71461, 60.0909, 7.073525, 6.089851, 6.53745, 6.666096, 7.306965, 5.73684, 3.625628],
@@ -63,25 +63,28 @@ module powerbi.visuals.sampleDataViews {
             [0, 5.626141, 7.676256, 63.16226, 45.99762, 79.56688, 227.311, 203.9287, 172.5618, 177.1462, 140.4554, 123.9905, 110.346, 65.12319, 34.31887, 24.5278, 9.561069, 3.334991, 5.590495, 5.487353, 5.909499, 5.868994, 5.833817, 3.568177]
         ];
 
-        private sampleLabel = 'Mt Bruno Elevation';
-
         public getDataViews(): DataView[] {
+            const columns = new Array<DataViewMetadataColumn>(this.sampleHeightMap[0].length);
+
+            for (let col = 0; col < columns.length; col++) {
+                columns[col] = {
+                    displayName: `Column$(col)`,
+                    type: powerbi.ValueType.fromDescriptor({ numeric: true }),
+                    isMeasure: true
+                }
+            };
+
             return [{
-                metadata: {
-                    columns: [],
-                    objects: {
-                        general: {
-                            surfaceData: this.sample3DSurfaceData,
-                            label: this.sampleLabel
-                        }
-                    }
+                metadata: { columns: columns },
+                table: {
+                    columns: columns,
+                    rows: this.sampleHeightMap
                 }
             }];
         }
 
         public randomize(): void {
-            this.sample3DSurfaceData = SurfaceGenerator.generateHeightMap(5, 2);
-            this.sampleLabel = 'Terrain';
+            this.sampleHeightMap = SurfaceGenerator.generateHeightMap(5, 2);
         }
 
     }
