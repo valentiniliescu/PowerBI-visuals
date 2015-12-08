@@ -38,7 +38,7 @@ declare module Plotly {
 //TODO: find a better way for dealing with third-party libraries
 if (!('Plotly' in window))
     $.ajax({
-        url: 'https://cdn.plot.ly/plotly-1.1.1.min.js',
+        url: 'https://cdn.plot.ly/plotly-1.2.0.min.js',
         dataType: 'script',
         cache: true
     });
