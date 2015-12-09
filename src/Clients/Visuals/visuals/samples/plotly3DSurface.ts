@@ -64,6 +64,10 @@ module powerbi.visuals.samples {
 
             const surfaceData = dataViews[0].table.rows;
 
+            // the div does not seem to resize when viewport changes
+            this.element.height(options.viewport.height + 'px');
+            this.element.width(options.viewport.width + 'px');
+
             // TODO: handle changes in all VisualUpdateOptions properties
             if (this.firstUpdate) {
                 // first update
@@ -78,6 +82,7 @@ module powerbi.visuals.samples {
                 };
 
                 Plotly.plot(divElement, data, layout, { displayModeBar: false });
+                Plotly.Plots.resize(divElement);
 
                 this.firstUpdate = false;
             } else if (surfaceData !== divElement['data'][0].z) {
@@ -88,10 +93,6 @@ module powerbi.visuals.samples {
                 Plotly.redraw(divElement);
             } else {
                 // resize 
-
-                // the div does not seem to resize when viewport changes
-                this.element.height(options.viewport.height + 'px');
-                this.element.width(options.viewport.width + 'px');
 
                 Plotly.Plots.resize(divElement);
             }
