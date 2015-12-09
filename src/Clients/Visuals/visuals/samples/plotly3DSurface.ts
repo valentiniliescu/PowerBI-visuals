@@ -78,6 +78,12 @@ module powerbi.visuals.samples {
                     }
                 ];
                 const layout = {
+                    margin: {
+                        l: 10,
+                        r: 10,
+                        t: 10,
+                        b: 10
+                    },
                     autosize: true
                 };
 
