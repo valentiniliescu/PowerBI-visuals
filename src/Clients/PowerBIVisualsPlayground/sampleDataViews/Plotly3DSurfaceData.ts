@@ -64,21 +64,39 @@ module powerbi.visuals.sampleDataViews {
         ];
 
         public getDataViews(): DataView[] {
-            const columns = new Array<DataViewMetadataColumn>(this.sampleHeightMap[0].length);
+            const rows: number[][] = [];
 
-            for (let col = 0; col < columns.length; col++) {
-                columns[col] = {
-                    displayName: `Column$(col)`,
-                    type: powerbi.ValueType.fromDescriptor({ numeric: true }),
-                    isMeasure: true
+            for (let x = 0; x < this.sampleHeightMap.length; x++) {
+                for (let y = 0; y < this.sampleHeightMap[x].length; y++) {
+                    rows.push([x, y, this.sampleHeightMap[x][y]]);
                 }
+            }
+
+            let dataViewMetadata: powerbi.DataViewMetadata = {
+                columns: [
+                    {
+                        displayName: 'X',
+                        type: powerbi.ValueType.fromDescriptor({ numeric: true }),
+                        isMeasure: true
+                    },
+                    {
+                        displayName: 'Y',
+                        type: powerbi.ValueType.fromDescriptor({ numeric: true }),
+                        isMeasure: true
+                    },
+                    {
+                        displayName: 'Z',
+                        type: powerbi.ValueType.fromDescriptor({ numeric: true }),
+                        isMeasure: true
+                    }
+                ]
             };
 
             return [{
-                metadata: { columns: columns },
+                metadata: dataViewMetadata,
                 table: {
-                    columns: columns,
-                    rows: this.sampleHeightMap
+                    columns: dataViewMetadata.columns,
+                    rows: rows
                 }
             }];
         }
