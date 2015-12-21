@@ -28,20 +28,48 @@
 
 module powerbi.visuals.samples {
 
+    interface Plotly3DSurfaceViewModel {
+        x: number[];
+        y: number[];
+        z: number[][];
+    }
+
+    interface Map<T> {
+        [key: number]: T;
+    }
+
     export class Plotly3DSurface implements IVisual {
         public static capabilities: VisualCapabilities = {
-            dataRoles: [{
-                name: 'Values',
-                kind: VisualDataRoleKind.GroupingOrMeasure
-            }],
+            dataRoles: [
+                {
+                    name: 'X',
+                    kind: VisualDataRoleKind.Measure,
+                    displayName: 'X'
+
+                }, {
+                    name: 'Y',
+                    kind: VisualDataRoleKind.Measure,
+                    displayName: 'Y'
+                }, {
+                    name: 'Z',
+                    kind: VisualDataRoleKind.Measure,
+                    displayName: 'Z'
+                }
+            ],
             dataViewMappings: [{
+                conditions: [
+                    { 'X': { max: 1 }, 'Y': { max: 1 }, 'Z': { max: 1 } }
+                ],
                 table: {
                     rows: {
-                        for: { in: 'Values' },
-                        dataReductionAlgorithm: { top: {} }
+                        select: [
+                            { bind: { to: 'X' } },
+                            { bind: { to: 'Y' } },
+                            { bind: { to: 'Z' } },
+                        ]
                     },
                     rowCount: { preferred: { min: 1 } }
-                },
+                }
             }]
         };
 
@@ -62,7 +90,10 @@ module powerbi.visuals.samples {
             if (!dataViews[0].table)
                 return;
 
-            const surfaceData = dataViews[0].table.rows;
+            const viewModel = Plotly3DSurface.converter(dataViews[0].table);
+
+            if (!viewModel)
+                return;
 
             // the div does not seem to resize when viewport changes
             this.element.height(options.viewport.height + 'px');
@@ -73,7 +104,9 @@ module powerbi.visuals.samples {
                 // first update
                 const data = [
                     {
-                        z: surfaceData,
+                        x: viewModel.x,
+                        y: viewModel.y,
+                        z: viewModel.z,
                         type: 'surface'
                     }
                 ];
@@ -91,10 +124,12 @@ module powerbi.visuals.samples {
                 Plotly.Plots.resize(divElement);
 
                 this.firstUpdate = false;
-            } else if (surfaceData !== divElement['data'][0].z) {
+            } else if (viewModel.z !== divElement['data'][0].z) {
                 // data changed
 
-                divElement['data'][0].z = surfaceData;
+                divElement['data'][0].x = viewModel.x;
+                divElement['data'][0].y = viewModel.y;
+                divElement['data'][0].z = viewModel.z;
 
                 Plotly.redraw(divElement);
             } else {
@@ -105,6 +140,58 @@ module powerbi.visuals.samples {
         }
 
         public destroy() {
+        }
+
+        private static converter(table: DataViewTable): Plotly3DSurfaceViewModel {
+
+            const map: Map<Map<number>> = {};
+
+            if (!table || !table.rows || table.rows.length === 0) {
+                return null;
+            }
+
+            for (let i = 0; i < table.rows.length; i++) {
+                if (table.rows[i].length !== 3) {
+                    return null;
+                }
+
+                const x = table.rows[i][0];
+                const y = table.rows[i][1];
+                const z = table.rows[i][2];
+
+                if (!map[x]) {
+                    map[x] = {};
+                }
+
+                map[x][y] = z;
+            }
+
+            const xs: number[] = Object.keys(map).map(k => parseInt(k, 10)).sort((a, b) => a - b);
+            const ys: number[] = Object.keys(map[xs[0]]).map(k => parseInt(k, 10)).sort((a, b) => a - b);
+            const zs: number[][] = new Array<number[]>(xs.length);
+
+            for (let xi = 0; xi < xs.length; xi++) {
+                const x: number = xs[xi];
+
+                if (Object.keys(map[x]).length !== ys.length) {
+                    return null;
+                }
+
+                zs[xi] = new Array<number>(ys.length);
+
+                for (let yi = 0; yi < ys.length; yi++) {
+                    const y: number = ys[yi];
+                    const z: number = map[x][y];
+
+                    if (z === undefined) {
+                        return null;
+                    }
+
+                    zs[xi][yi] = z;
+                }
+            }
+
+            return { x: xs, y: ys, z: zs };
         }
     }
 }
