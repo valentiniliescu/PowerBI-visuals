@@ -107,6 +107,7 @@ module powerbi.visuals.samples {
                         x: viewModel.x,
                         y: viewModel.y,
                         z: viewModel.z,
+                        zauto: true,
                         type: 'surface'
                     }
                 ];
@@ -124,7 +125,7 @@ module powerbi.visuals.samples {
                 Plotly.Plots.resize(divElement);
 
                 this.firstUpdate = false;
-            } else if (viewModel.z !== divElement['data'][0].z) {
+            } else if (!_.isEqual(viewModel.z, divElement['data'][0].z)) {
                 // data changed
 
                 divElement['data'][0].x = viewModel.x;
