@@ -27,7 +27,7 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var funnelChartCapabilities: VisualCapabilities = {
+    export const funnelChartCapabilities: VisualCapabilities = {
         dataRoles: [
             {
                 name: 'Category',
@@ -38,12 +38,14 @@ module powerbi.visuals {
                 name: 'Y',
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_Values'),
-                description: data.createDisplayNameGetter('Role_DisplayName_ValuesDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_ValuesDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }, {
                 name: 'Gradient',
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_Gradient'),
-                description: data.createDisplayNameGetter('Role_DisplayName_GradientDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_GradientDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }
         ],
         dataViewMappings: [{
@@ -113,17 +115,44 @@ module powerbi.visuals {
                     },
                     labelPosition: {
                         displayName: data.createDisplayNameGetter('Visual_Position'),
-                        type: { enumeration: labelPosition.type }
+                        type: { enumeration: labelPosition.type },
+                        suppressFormatPainterCopy: true,
                     },
                     labelDisplayUnits: {
                         displayName: data.createDisplayNameGetter('Visual_DisplayUnits'),
                         description: data.createDisplayNameGetter('Visual_DisplayUnitsDescription'),
-                        type: { formatting: { labelDisplayUnits: true } }
+                        type: { formatting: { labelDisplayUnits: true } },
+                        suppressFormatPainterCopy: true,
                     },
                     labelPrecision: {
                         displayName: data.createDisplayNameGetter('Visual_Precision'),
                         description: data.createDisplayNameGetter('Visual_PrecisionDescription'),
-                        type: { numeric: true }
+                        placeHolderText: data.createDisplayNameGetter('Visual_Precision_Auto'),
+                        type: { numeric: true },
+                        suppressFormatPainterCopy: true,
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
+                    },
+                }
+            },
+            percentBarLabel: {
+                displayName: data.createDisplayNameGetter('Visual_PercentBarLabel'),
+                description: data.createDisplayNameGetter('Visual_PercentBarLabelDescription'),
+                properties: {
+                    show: {
+                        displayName: data.createDisplayNameGetter('Visual_Show'),
+                        type: { bool: true }
+                    },
+                    color: {
+                        displayName: data.createDisplayNameGetter('Visual_LabelsFill'),
+                        description: data.createDisplayNameGetter('Visual_LabelsFillDescription'),
+                        type: { fill: { solid: { color: true } } }
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
                     },
                 }
             },
@@ -137,7 +166,7 @@ module powerbi.visuals {
         },
     };
 
-    export var funnelChartProps = {
+    export const funnelChartProps = {
         general: {
             formatString: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'formatString' },
         },

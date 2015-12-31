@@ -37,7 +37,7 @@ module powerbitests {
 
     describe("VisualFactory", () => {
 
-        var dataViewMetadataTwoColumn: powerbi.DataViewMetadata = {
+        let dataViewMetadataTwoColumn: powerbi.DataViewMetadata = {
             columns: [
                 {
                     displayName: "col1",
@@ -53,11 +53,11 @@ module powerbitests {
             ],
         };
 
-        var categoryColumnRef = powerbi.data.SQExprBuilder.fieldDef({ schema: "s", entity: "e", column: "col1" });
+        let categoryColumnRef = powerbi.data.SQExprBuilder.fieldDef({ schema: "s", entity: "e", column: "col1" });
 
         function initVisual(v: powerbi.IVisual): void {
-            var hostServices = powerbitests.mocks.createVisualHostServices();
-            var element = powerbitests.helpers.testDom("500", "500");
+            let hostServices = powerbitests.mocks.createVisualHostServices();
+            let element = powerbitests.helpers.testDom("500", "500");
 
             v.init({
                 element: element,
@@ -74,6 +74,7 @@ module powerbitests {
         }
 
         function setData(v: powerbi.IVisual, objectDescs: DataViewObjectDescriptors): void {
+            
             // full
             changeData(v, objectDescs, [{
                 metadata: dataViewMetadataTwoColumn,
@@ -205,16 +206,16 @@ module powerbitests {
             }
 
             if (visual.enumerateObjectInstances && objectDescs) {
-                for (var objectName in objectDescs)
+                for (let objectName in objectDescs)
                     visual.enumerateObjectInstances({ objectName: objectName });
             }
         }
 
         it("VisualFactory.getVisuals - categorical - various dataViews", () => {
-            var allVisuals = powerbi.visuals.visualPluginFactory.create().getVisuals();
+            let allVisuals = powerbi.visuals.visualPluginFactory.create().getVisuals();
 
-            for (var i = 0; i < allVisuals.length; i++) {
-                var exception = null,
+            for (let i = 0; i < allVisuals.length; i++) {
+                let exception = null,
                     visualPlugin: powerbi.IVisualPlugin = allVisuals[i];
 
                 if (visualPlugin.name !== "categoricalFilter" &&
@@ -224,7 +225,7 @@ module powerbitests {
                     visualPlugin.capabilities.dataViewMappings &&
                     visualPlugin.capabilities.dataViewMappings.length > 0 &&
                     visualPlugin.capabilities.dataViewMappings[0].categorical) {
-                    var visual: powerbi.IVisual = visualPlugin.create();
+                    let visual: powerbi.IVisual = visualPlugin.create();
 
                     try {
                         initVisual(visual);

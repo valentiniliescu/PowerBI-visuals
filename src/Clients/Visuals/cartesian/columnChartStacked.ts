@@ -27,6 +27,8 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
+    import PixelConverter = jsCommon.PixelConverter;
+
     export class StackedColumnChartStrategy implements IColumnChartStrategy {
         private static classes = {
             item: {
@@ -53,7 +55,6 @@ module powerbi.visuals {
         private interactivityService: IInteractivityService;
         private viewportHeight: number;
         private viewportWidth: number;
-        private static validLabelPositions: RectLabelPosition[] = [RectLabelPosition.InsideCenter, RectLabelPosition.InsideEnd, RectLabelPosition.InsideBase];
         private layout: IColumnLayout;
 
         public setupVisualProps(columnChartProps: ColumnChartContext): void {
@@ -98,18 +99,34 @@ module powerbi.visuals {
 
         public setYScale(is100Pct: boolean, forcedTickCount?: number, forcedYDomain?: any[], axisScaleType?: string, axisDisplayUnits?: number, axisPrecision?: number): IAxisProperties {
             let height = this.viewportHeight;
-            let yProps = this.yProps = StackedUtil.getValueAxis(
-                this.data,
-                is100Pct,
-                height,
-                [height, 0],
-                forcedTickCount,
-                forcedYDomain,
-                axisScaleType,
-                axisDisplayUnits,
-                axisPrecision);
+            let valueDomain = StackedUtil.calcValueDomain(this.data.series, is100Pct);
+            let valueDomainArr = [valueDomain.min, valueDomain.max];
+            let combinedDomain = AxisHelper.combineDomain(forcedYDomain, valueDomainArr);
+            let shouldClamp = AxisHelper.scaleShouldClamp(combinedDomain, valueDomainArr);
+            let metadataColumn = this.data.valuesMetadata[0];
+            let formatString = is100Pct ?
+                this.graphicsContext.hostService.getLocalizedString('Percentage')
+                : valueFormatter.getFormatString(metadataColumn, columnChartProps.general.formatString);
 
-            return yProps;
+            this.yProps = AxisHelper.createAxis({
+                pixelSpan: height,
+                dataDomain: combinedDomain,
+                metaDataColumn: metadataColumn,
+                formatString: formatString,
+                outerPadding: 0,
+                isScalar: true,
+                isVertical: true,
+                forcedTickCount: forcedTickCount,
+                useTickIntervalForDisplayUnits: true,
+                isCategoryAxis: false,
+                scaleType: axisScaleType,
+                axisDisplayUnits: axisDisplayUnits,
+                axisPrecision: axisPrecision,
+                is100Pct: is100Pct,
+                shouldClamp: shouldClamp,
+            });
+
+            return this.yProps;
         }
 
         public drawColumns(useAnimation: boolean): ColumnChartDrawInfo {
@@ -260,9 +277,12 @@ module powerbi.visuals {
 
             for (let currentSeries of series) {
                 let labelSettings = currentSeries.labelSettings ? currentSeries.labelSettings : data.labelSettings;
+                if (!labelSettings.show)
+                    continue;
+
                 let axisFormatter: number = NewDataLabelUtils.getDisplayUnitValueFromAxisFormatter(this.yProps.formatter, labelSettings);
                 for (let dataPoint of currentSeries.data) {
-                    if ((this.interactivityService && this.interactivityService.hasSelection() && !dataPoint.selected) || (data.hasHighlights && !dataPoint.highlight)) {
+                    if ((data.hasHighlights && !dataPoint.highlight) || dataPoint.value == null) {
                         continue;
                     }
 
@@ -289,11 +309,11 @@ module powerbi.visuals {
                     let properties: TextProperties = {
                         text: text,
                         fontFamily: NewDataLabelUtils.LabelTextProperties.fontFamily,
-                        fontSize: NewDataLabelUtils.LabelTextProperties.fontSize,
+                        fontSize: PixelConverter.fromPoint(labelSettings.fontSize || NewDataLabelUtils.DefaultLabelFontSizeInPt),
                         fontWeight: NewDataLabelUtils.LabelTextProperties.fontWeight,
                     };
                     let textWidth = TextMeasurementService.measureSvgTextWidth(properties);
-                    let textHeight = TextMeasurementService.estimateSvgTextHeight(properties);
+                    let textHeight = TextMeasurementService.estimateSvgTextHeight(properties, true /* tightFitForNumeric */);
 
                     labelDataPoints.push({
                         isPreferred: true,
@@ -304,13 +324,14 @@ module powerbi.visuals {
                         },
                         outsideFill: labelSettings.labelColor ? labelSettings.labelColor : NewDataLabelUtils.defaultLabelColor,
                         insideFill: labelSettings.labelColor ? labelSettings.labelColor : NewDataLabelUtils.defaultInsideLabelColor,
-                        isParentRect: true,
+                        parentType: LabelDataPointParentType.Rectangle,
                         parentShape: {
                             rect: parentRect,
                             orientation: dataPoint.value >= 0 ? NewRectOrientation.VerticalBottomBased : NewRectOrientation.VerticalTopBased,
-                            validPositions: StackedColumnChartStrategy.validLabelPositions,
+                            validPositions: ColumnChart.stackedValidLabelPositions,
                         },
                         identity: dataPoint.identity,
+                        fontSize: labelSettings.fontSize || NewDataLabelUtils.DefaultLabelFontSizeInPt,
                     });
                 }
             }
@@ -344,7 +365,6 @@ module powerbi.visuals {
         private interactivityService: IInteractivityService;
         private viewportHeight: number;
         private viewportWidth: number;
-        private static validLabelPositions: RectLabelPosition[] = [RectLabelPosition.InsideCenter, RectLabelPosition.InsideEnd, RectLabelPosition.InsideBase];
         private layout: IColumnLayout;
 
         public setupVisualProps(barChartProps: ColumnChartContext): void {
@@ -390,22 +410,37 @@ module powerbi.visuals {
         public setXScale(is100Pct: boolean, forcedTickCount?: number, forcedXDomain?: any[], axisScaleType?: string, axisDisplayUnits?: number, axisPrecision?: number): IAxisProperties {
             debug.assert(forcedTickCount === undefined, 'Cannot have stacked bar chart as combo chart.');
 
-            let height = this.viewportHeight;
+            let width = this.width;
+            let valueDomain = StackedUtil.calcValueDomain(this.data.series, is100Pct);
+            let valueDomainArr = [valueDomain.min, valueDomain.max];
+            let combinedDomain = AxisHelper.combineDomain(forcedXDomain, valueDomainArr);
+            let shouldClamp = AxisHelper.scaleShouldClamp(combinedDomain, valueDomainArr);
+            let metadataColumn = this.data.valuesMetadata[0];
+            let formatString = is100Pct ?
+                this.graphicsContext.hostService.getLocalizedString('Percentage')
+                : valueFormatter.getFormatString(metadataColumn, columnChartProps.general.formatString);
 
-            let xProps = this.xProps = StackedUtil.getValueAxis(
-                this.data,
-                is100Pct,
-                this.width,
-                [0, this.width],
-                undefined,
-                forcedXDomain,
-                axisScaleType,
-                axisDisplayUnits,
-                axisPrecision);
+            this.xProps = AxisHelper.createAxis({
+                pixelSpan: width,
+                dataDomain: combinedDomain,
+                metaDataColumn: metadataColumn,
+                formatString: formatString,
+                outerPadding: 0,
+                isScalar: true,
+                isVertical: false,
+                forcedTickCount: forcedTickCount,
+                useTickIntervalForDisplayUnits: true,
+                isCategoryAxis: false,
+                scaleType: axisScaleType,
+                axisDisplayUnits: axisDisplayUnits,
+                axisPrecision: axisPrecision,
+                is100Pct: is100Pct,
+                shouldClamp: shouldClamp,
+            });
 
-            xProps.axis.tickSize(-height, 0);
+            this.xProps.axis.tickSize(-this.viewportHeight, 0);
 
-            return xProps;
+            return this.xProps;
         }
 
         public drawColumns(useAnimation: boolean): ColumnChartDrawInfo {
@@ -520,28 +555,28 @@ module powerbi.visuals {
             let xScale = axisOptions.xScale;
             let yScale = axisOptions.yScale;
             let scaledX0 = xScale(0);
-            let xScaleOffset = 0;
-
+            let yScaleOffset = 0;
+            
             if (isScalar)
-                xScaleOffset = columnWidth / 2;
+                yScaleOffset = columnWidth / 2;
 
             return {
                 shapeLayout: {
                     width: (d: ColumnChartDataPoint) => -StackedUtil.getSize(xScale, d.valueAbsolute),
                     x: (d: ColumnChartDataPoint) => scaledX0 + AxisHelper.diffScaled(xScale, d.position - d.valueAbsolute, 0),
-                    y: (d: ColumnChartDataPoint) => yScale(isScalar ? d.categoryValue : d.categoryIndex) - xScaleOffset,
+                    y: (d: ColumnChartDataPoint) => yScale(isScalar ? d.categoryValue : d.categoryIndex) - yScaleOffset,
                     height: (d: ColumnChartDataPoint) => columnWidth,
                 },
                 shapeLayoutWithoutHighlights: {
                     width: (d: ColumnChartDataPoint) => -StackedUtil.getSize(xScale, d.originalValueAbsolute),
                     x: (d: ColumnChartDataPoint) => scaledX0 + AxisHelper.diffScaled(xScale, d.originalPosition - d.originalValueAbsolute, 0),
-                    y: (d: ColumnChartDataPoint) => yScale(isScalar ? d.categoryValue : d.categoryIndex) - xScaleOffset,
+                    y: (d: ColumnChartDataPoint) => yScale(isScalar ? d.categoryValue : d.categoryIndex) - yScaleOffset,
                     height: (d: ColumnChartDataPoint) => columnWidth,
                 },
                 zeroShapeLayout: {
                     width: (d: ColumnChartDataPoint) => 0,
                     x: (d: ColumnChartDataPoint) => scaledX0 + AxisHelper.diffScaled(xScale, d.position - d.valueAbsolute, 0),
-                    y: (d: ColumnChartDataPoint) => yScale(isScalar ? d.categoryValue : d.categoryIndex) - xScaleOffset,
+                    y: (d: ColumnChartDataPoint) => yScale(isScalar ? d.categoryValue : d.categoryIndex) - yScaleOffset,
                     height: (d: ColumnChartDataPoint) => columnWidth,
                 },
             };
@@ -556,9 +591,12 @@ module powerbi.visuals {
 
             for (let currentSeries of series) {
                 let labelSettings = currentSeries.labelSettings ? currentSeries.labelSettings : data.labelSettings;
+                if (!labelSettings.show)
+                    continue;
+
                 let axisFormatter: number = NewDataLabelUtils.getDisplayUnitValueFromAxisFormatter(this.yProps.formatter, labelSettings);
                 for (let dataPoint of currentSeries.data) {
-                    if ((this.interactivityService && this.interactivityService.hasSelection() && !dataPoint.selected) || (data.hasHighlights && !dataPoint.highlight)) {
+                    if ((this.interactivityService && this.interactivityService.hasSelection() && !dataPoint.selected) || (data.hasHighlights && !dataPoint.highlight) || dataPoint.value == null) {
                         continue;
                     }
 
@@ -577,11 +615,11 @@ module powerbi.visuals {
                     let properties: TextProperties = {
                         text: text,
                         fontFamily: NewDataLabelUtils.LabelTextProperties.fontFamily,
-                        fontSize: NewDataLabelUtils.LabelTextProperties.fontSize,
+                        fontSize: PixelConverter.fromPoint(labelSettings.fontSize || NewDataLabelUtils.DefaultLabelFontSizeInPt),
                         fontWeight: NewDataLabelUtils.LabelTextProperties.fontWeight,
                     };
                     let textWidth = TextMeasurementService.measureSvgTextWidth(properties);
-                    let textHeight = TextMeasurementService.estimateSvgTextHeight(properties);
+                    let textHeight = TextMeasurementService.estimateSvgTextHeight(properties, true /* tightFitForNumeric */);
 
                     // Calculate parent rectangle
                     let parentRect: IRect = {
@@ -600,13 +638,14 @@ module powerbi.visuals {
                         },
                         outsideFill: labelSettings.labelColor ? labelSettings.labelColor : NewDataLabelUtils.defaultLabelColor,
                         insideFill: labelSettings.labelColor ? labelSettings.labelColor : NewDataLabelUtils.defaultInsideLabelColor,
-                        isParentRect: true,
+                        parentType: LabelDataPointParentType.Rectangle,
                         parentShape: {
                             rect: parentRect,
                             orientation: dataPoint.value >= 0 ? NewRectOrientation.HorizontalLeftBased : NewRectOrientation.HorizontalRightBased,
-                            validPositions: StackedBarChartStrategy.validLabelPositions,
+                            validPositions: ColumnChart.stackedValidLabelPositions,
                         },
                         identity: dataPoint.identity,
+                        fontSize: labelSettings.fontSize || NewDataLabelUtils.DefaultLabelFontSizeInPt,
                     });
                 }
             }

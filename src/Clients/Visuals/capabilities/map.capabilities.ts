@@ -27,7 +27,7 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var mapCapabilities: VisualCapabilities = {
+    export const mapCapabilities: VisualCapabilities = {
         dataRoles: [
             {
                 name: 'Category',
@@ -70,12 +70,14 @@ module powerbi.visuals {
                 name: 'Size',
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_Values'),
-                description: data.createDisplayNameGetter('Role_DisplayName_ValuesDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_ValuesDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }, {
                 name: 'Gradient',
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_Gradient'),
-                description: data.createDisplayNameGetter('Role_DisplayName_GradientDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_GradientDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }
         ],
         objects: {
@@ -109,6 +111,10 @@ module powerbi.visuals {
                         displayName: data.createDisplayNameGetter('Visual_LegendName'),
                         description: data.createDisplayNameGetter('Visual_LegendNameDescription'),
                         type: { text: true }
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
                     }
                 }
             },
@@ -154,6 +160,10 @@ module powerbi.visuals {
                         description: data.createDisplayNameGetter('Visual_LabelsFillDescription'),
                         type: { fill: { solid: { color: true } } }
                     },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
+                    },
                 },
             },
         },
@@ -190,7 +200,7 @@ module powerbi.visuals {
         },
     };
 
-    export var mapProps = {
+    export const mapProps = {
         general: {
             formatString: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'formatString' },
         },

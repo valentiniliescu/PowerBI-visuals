@@ -29,6 +29,9 @@
 module powerbitests.mocks {
     import SQExprBuilder = powerbi.data.SQExprBuilder;
     import defaultVisualHostServices = powerbi.visuals.defaultVisualHostServices;
+    import SelectableDataPoint = powerbi.visuals.SelectableDataPoint;
+    import ISelectionHandler = powerbi.visuals.ISelectionHandler;
+    import DefaultVisualHostServices = powerbi.visuals.DefaultVisualHostServices;
 
     export class TelemetryCallbackMock {
         public static callbackCalls: number = 0;
@@ -109,7 +112,7 @@ module powerbitests.mocks {
     }
 
     export function createVisualHostServices(): powerbi.IVisualHostServices {
-        return defaultVisualHostServices;
+        return new DefaultVisualHostServices();
     }
     
     export class MockTraceListener implements jsCommon.ITraceListener {
@@ -191,10 +194,12 @@ module powerbitests.mocks {
         }
 
         public geocodeBoundary(latitude: number, longitude: number, category: string, levelOfDetail?: number, maxGeoData?: number): any {
+            
             // Only the absoluteString is actually used for drawing, but a few other aspects of the geoshape result are checked for simple things like existence and length
             var result = {
                 locations: [{
                     absoluteString: "84387.1,182914 84397.3,182914 84401.3,182914 84400.9,182898 84417.4,182898 84421.3,182885 84417.4,182877 84418.2,182865 84387.2,182865 84387.1,182914", // A valid map string taken from a piece of Redmond's path
+                    absolute: [84387.1, 182914, 84397.3, 182914, 84401.3, 182914, 84400.9, 182898, 84417.4, 182898, 84421.3, 182885, 84417.4, 182877, 84418.2, 182865, 84387.2, 182865, 84387.1, 182914],
                     geographic: [undefined, undefined, undefined], // This needs to be an array with length > 2 for checks in map; contents aren't used.
                     absoluteBounds: {
                         width: 34.2,
@@ -238,6 +243,7 @@ module powerbitests.mocks {
         public tryLocationToPixel(location) {
             var result;
             if (location.length) {
+                
                 // It's an array of locations; iterate through the array
                 result = [];
                 for (var i = 0, ilen = location.length; i < ilen; i++) {
@@ -245,6 +251,7 @@ module powerbitests.mocks {
                 }
             }
             else {
+                
                 // It's just a single location
                 result = this.tryLocationToPixelSingle(location);
             }
@@ -254,11 +261,13 @@ module powerbitests.mocks {
         private tryLocationToPixelSingle(location: powerbi.IGeocodeCoordinate) {
             var centerX = this.centerX;
             var centerY = this.centerY;
+            
             // Use a really dumb projection with no sort of zooming/panning
             return { x: centerX * (location.longitude / 180), y: centerY * (location.latitude / 90) };
         }
 
         public setView(viewOptions): void {
+            
             // No op placeholder; we don't need to bother with zoom/pan for mocking.  Spies can confirm anything about params we care about
         }
     }
@@ -332,6 +341,113 @@ module powerbitests.mocks {
 
         export module Events {
             export function addHandler(target: any, eventName: string, handler: any) { }
+        }
+    }
+
+    export class MockBehavior implements powerbi.visuals.IInteractiveBehavior {
+        private selectableDataPoints: SelectableDataPoint[];
+        private selectionHandler: ISelectionHandler;
+        private filterPropertyId: powerbi.DataViewObjectPropertyIdentifier;
+
+        constructor(selectableDataPoints: SelectableDataPoint[], filterPropertyId: powerbi.DataViewObjectPropertyIdentifier) {
+            this.selectableDataPoints = selectableDataPoints;
+            this.filterPropertyId = filterPropertyId;
+        }
+
+        public bindEvents(options: any, selectionHandler: ISelectionHandler): void {
+            this.selectionHandler = selectionHandler;
+        }
+
+        public renderSelection(hasSelection: boolean): void {
+            
+            // Stub method to spy on
+        }
+
+        public selectIndex(index: number, multiSelect?: boolean): void {
+            this.selectionHandler.handleSelection(this.selectableDataPoints[index], !!multiSelect);
+        }
+
+        public select(datapoint: SelectableDataPoint, multiSelect?: boolean): void {
+            this.selectionHandler.handleSelection(datapoint, !!multiSelect);
+        }
+
+        public clear(): void {
+            this.selectionHandler.handleClearSelection();
+        }
+
+        public selectIndexAndPersist(index: number, multiSelect?: boolean): void {
+            this.selectionHandler.handleSelection(this.selectableDataPoints[index], !!multiSelect);
+            this.selectionHandler.persistSelectionFilter(this.filterPropertyId);
+        }
+
+        public verifyCleared(): boolean {
+            let selectableDataPoints = this.selectableDataPoints;
+            for (let i = 0, ilen = selectableDataPoints.length; i < ilen; i++) {
+                if (selectableDataPoints[i].selected)
+                    return false;
+            }
+            return true;
+        }
+
+        public verifySingleSelectedAt(index: number): boolean {
+            let selectableDataPoints = this.selectableDataPoints;
+            for (let i = 0, ilen = selectableDataPoints.length; i < ilen; i++) {
+                let dataPoint = selectableDataPoints[i];
+                if (i === index) {
+                    if (!dataPoint.selected)
+                        return false;
+                }
+                else if (dataPoint.selected)
+                    return false;
+            }
+            return true;
+        }
+
+        public verifySelectionState(selectionState: boolean[]): boolean {
+            let selectableDataPoints = this.selectableDataPoints;
+            for (let i = 0, ilen = selectableDataPoints.length; i < ilen; i++) {
+                if (selectableDataPoints[i].selected !== selectionState[i])
+                    return false;
+            }
+            return true;
+        }
+
+        public selections(): boolean[] {
+            let selectableDataPoints = this.selectableDataPoints;
+            let selections: boolean[] = [];
+            for (let dataPoint of selectableDataPoints) {
+                selections.push(!!dataPoint.selected);
+            }
+            return selections;
+        }
+    }
+
+    export class FilterAnalyzerMock implements powerbi.IFilterAnalyzer {
+        private promiseFactory: powerbi.IPromiseFactory;
+        private filter: powerbi.data.SemanticFilter;
+        private fieldSQExprs: powerbi.data.SQExpr[];
+        private container: powerbi.data.FilterValueScopeIdsContainer;
+        public constructor(filter: powerbi.data.SemanticFilter, fieldSQExprs: powerbi.data.SQExpr[]) {
+            this.promiseFactory = powerbi.createJQueryPromiseFactory();
+            this.filter = filter;
+            this.fieldSQExprs = fieldSQExprs;
+
+            if (this.filter)
+                this.container = powerbi.data.SQExprConverter.asScopeIdsContainer(this.filter, this.fieldSQExprs);
+            else
+                this.container = { isNot: false, scopeIds: [] };
+        }
+
+        public isNotFilter(): boolean {
+            return this.container && this.container.isNot;
+        }
+
+        public selectedIdentities(): powerbi.DataViewScopeIdentity[] {
+            return this.container && this.container.scopeIds;
+        }
+
+        public hasDefaultFilterOverride(): powerbi.IPromise<boolean> {
+            return this.promiseFactory.resolve<boolean>(false);
         }
     }
 }

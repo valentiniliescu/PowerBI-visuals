@@ -27,7 +27,7 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var multiRowCardCapabilities: VisualCapabilities = {
+    export const multiRowCardCapabilities: VisualCapabilities = {
         dataRoles: [
             {
                 name: 'Values',
@@ -43,6 +43,55 @@ module powerbi.visuals {
                         type: { formatting: { formatString: true } },
                     },
                 },
+            },
+            cardTitle: {
+                displayName: data.createDisplayNameGetter('Visual_CardTitle'),
+                description: data.createDisplayNameGetter('Visual_CardTitleDescription'),
+                properties: {
+                    color: {
+                        displayName: data.createDisplayNameGetter('Visual_LabelsFill'),
+                        description: data.createDisplayNameGetter('Visual_LabelsFillDescription'),
+                        type: { fill: { solid: { color: true } } }
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
+                    },
+                }
+            },
+            dataLabels: {
+                displayName: data.createDisplayNameGetter('Visual_DataPointsLabels'),
+                description: data.createDisplayNameGetter('Visual_DataPointsLabelsDescription'),
+                properties: {
+                    color: {
+                        displayName: data.createDisplayNameGetter('Visual_LabelsFill'),
+                        description: data.createDisplayNameGetter('Visual_LabelsFillDescription'),
+                        type: { fill: { solid: { color: true } } }
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
+                    },
+                }
+            },
+            categoryLabels: {
+                displayName: data.createDisplayNameGetter('Visual_CategoryLabels'),
+                description: data.createDisplayNameGetter('Visual_CategoryLabelsDescription'),
+                properties: {
+                    show: {
+                        displayName: data.createDisplayNameGetter('Visual_Show'),
+                        type: { bool: true }
+                    },
+                    color: {
+                        displayName: data.createDisplayNameGetter('Visual_LabelsFill'),
+                        description: data.createDisplayNameGetter('Visual_LabelsFillDescription'),
+                        type: { fill: { solid: { color: true } } }
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
+                    },
+                }
             }
         },
         dataViewMappings: [{
@@ -55,5 +104,6 @@ module powerbi.visuals {
             },
         }],
         suppressDefaultTitle: true,
+        supportsSelection: false,
     };
 }

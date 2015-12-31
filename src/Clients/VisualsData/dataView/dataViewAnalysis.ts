@@ -64,6 +64,14 @@ module powerbi {
                         return reshapeTable(dataView, dataViewMapping.table);
                 }
             }
+            else if (ScriptResultUtil.findScriptResult(dataViewMappings)) {
+                // Currently, PBI Service treats R Script Visuals as static images.
+                // This causes validation to fail, since in PBI service no DataView is generated, but there are DataViewMappings,
+                // to support the PBI Desktop scenario.
+                // This code will be removed once PBI Service fully supports R Script Visuals.
+                // VSTS: 6217994 - [R Viz] Remove temporary DataViewAnalysis validation workaround of static R Script Visual mappings
+                return { dataView: dataView, isValid: true };
+            }
 
             return { isValid: false };
         }
@@ -203,6 +211,9 @@ module powerbi {
             if (!roleMapping || !dataView)
                 return false;
 
+            if (roleMapping.scriptResult && !supportsScriptResult(dataView.scriptResult, roleMapping.scriptResult))
+                return false;
+
             if (roleMapping.categorical && !supportsCategorical(dataView, roleMapping.categorical, usePreferredDataViewSchema))
                 return false;
 
@@ -289,6 +300,18 @@ module powerbi {
             return true;
         }
 
+        function supportsScriptResult(dataView: DataViewScriptResultData, scriptResultRoleMapping: DataViewScriptResultMapping): boolean {
+            debug.assertValue(scriptResultRoleMapping, 'scriptResultRoleMapping');
+
+            if (!dataView)
+                return false;
+
+            if (!dataView.imageBase64)
+                return false;
+
+            return true;
+        }
+
         /** Determines whether the value conforms to the range in the role condition */
         export function conformsToRange(value: number, roleCondition: RoleCondition, ignoreMin?: boolean): boolean {
             debug.assertValue(value, 'value');
@@ -323,7 +346,7 @@ module powerbi {
         }
 
         /** Determines the appropriate DataViewMappings for the projections. */
-        export function chooseDataViewMappings(projections: QueryProjectionsByRole, mappings: DataViewMapping[], roleKindByQueryRef: RoleKindByQueryRef): DataViewMapping[]{
+        export function chooseDataViewMappings(projections: QueryProjectionsByRole, mappings: DataViewMapping[], roleKindByQueryRef: RoleKindByQueryRef): DataViewMapping[] {
             debug.assertValue(projections, 'projections');
             debug.assertValue(mappings, 'mappings');
 
@@ -439,11 +462,14 @@ module powerbi {
             if (column1.type !== column2.type)
                 return false;
 
+            if (column1.sort !== column2.sort)
+                return false;
+
             return true;
         }
 
         /* Returns true if the metadata columns at the same positions in the array are equivalent. */
-        export function isMetadataEquivalent(metadata1: DataViewMetadata, metadata2: DataViewMetadata) {
+        export function isMetadataEquivalent(metadata1: DataViewMetadata, metadata2: DataViewMetadata): boolean {
             if (!metadata1 && !metadata2)
                 return true;
 

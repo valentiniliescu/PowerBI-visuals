@@ -31,7 +31,6 @@ module powerbi.visuals {
         general: BasicShapeDataViewObject;
         line: LineObject;
         fill: FillObject;
-        lockAspect: LockAspectObject;
         rotation: RotationObject;
     }
 
@@ -45,10 +44,6 @@ module powerbi.visuals {
     export interface FillObject extends DataViewObject {
         transparency: number;
         fillColor: Fill;
-        show: boolean;
-    }
-
-    export interface LockAspectObject extends DataViewObject {
         show: boolean;
     }
 
@@ -69,7 +64,6 @@ module powerbi.visuals {
         showFill: boolean;
         fillColor: string;
         shapeTransparency: number;
-        lockAspectRatio: boolean;
         roundEdge: number;
         angle: number;
     }
@@ -84,7 +78,6 @@ module powerbi.visuals {
         public static DefaultStrokeColor: string = '#00B8AA';
         public static DefaultFillColor: string = '#E6E6E6';
         public static DefaultFillShowValue: boolean = true; 
-        public static DefaultLockAspectValue: boolean = false; 
         public static DefaultFillTransValue: number = 100;
         public static DefaultWeightValue: number = 3;
         public static DefaultLineTransValue: number = 100;
@@ -148,13 +141,6 @@ module powerbi.visuals {
         set shapeTransparency(trans: number) {
             this.data.shapeTransparency = trans;
         }
-        /**property for showing the lock aspect ratio */
-        get lockAspectRatio(): boolean {
-            return this.data ? this.data.lockAspectRatio : BasicShapeVisual.DefaultLockAspectValue;
-        }
-        set lockAspectRatio(show: boolean) {
-            this.data.lockAspectRatio = show;
-        }
         /**property for the shape angle */
         get angle(): number {
             return this.data ? this.data.angle : BasicShapeVisual.DefaultAngle;
@@ -200,7 +186,6 @@ module powerbi.visuals {
                     shapeTransparency: DataViewObjects.getValue(dataViewObject, basicShapeProps.fill.transparency, BasicShapeVisual.DefaultFillTransValue),
                     fillColor: this.getValueFromColor(DataViewObjects.getValue(dataViewObject, basicShapeProps.fill.fillColor, BasicShapeVisual.DefaultFillColor)),
                     showFill: DataViewObjects.getValue(dataViewObject, basicShapeProps.fill.show, BasicShapeVisual.DefaultFillShowValue),
-                    lockAspectRatio: DataViewObjects.getValue(dataViewObject, basicShapeProps.lockAspect.show, BasicShapeVisual.DefaultLockAspectValue),
                     angle: this.scaleTo360Deg(DataViewObjects.getValue(dataViewObject, basicShapeProps.rotation.angle, BasicShapeVisual.DefaultAngle))
                 };
             }
@@ -253,16 +238,6 @@ module powerbi.visuals {
                         objectName: options.objectName
                     });
                     }
-                    return objectInstances;
-                case 'lockAspect':
-                    objectInstances.push({
-                        selector: null,
-                        properties: {
-                            show: this.lockAspectRatio
-                        },
-                        objectName: options.objectName
-                    });
-
                     return objectInstances;
                 case 'rotation':
                     objectInstances.push({

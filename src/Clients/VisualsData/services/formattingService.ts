@@ -377,6 +377,38 @@ module powerbi {
             scale: number;
         }
 
+        export interface NumberFormatComponents {
+            hasNegative: boolean;
+            positive: string;
+            negative: string;
+            zero: string;
+        }
+
+        export function getComponents(format: string): NumberFormatComponents {
+            let signFormat: NumberFormatComponents = {
+                hasNegative: false,
+                positive: format,
+                negative: format,
+                zero: format,
+            };
+
+            let signSpecificFormats = format.split(";");
+            let formatCount = signSpecificFormats.length;
+            debug.assert(!(formatCount > 3), 'format string should be of form positive[;negative;zero]');
+
+            if (formatCount > 1) {
+                signFormat.hasNegative = true;
+
+                signFormat.positive = signFormat.zero = signSpecificFormats[0];
+                signFormat.negative = signSpecificFormats[1];
+
+                if (formatCount > 2)
+                    signFormat.zero = signSpecificFormats[2];
+            }
+
+            return signFormat;
+        }
+
         let _lastCustomFormatMeta: NumericFormatMetadata;
 
         /** Evaluates if the value can be formatted using the NumberFormat */
@@ -500,33 +532,24 @@ module powerbi {
             let result: string;
             let numberFormatInfo = culture.numberFormat;
             if (isFinite(value)) {
-                // Split format into positive;negative;zero patterns
-                let signSpecificFormats = format.split(";");
-                if (signSpecificFormats.length > 1) {
-                    let negativeFormat = format;
-                    let positiveFormat = format;
-                    let zeroFormat = format;
-                    if (signSpecificFormats.length === 2) {
-                        positiveFormat = zeroFormat = signSpecificFormats[0];
-                        negativeFormat = signSpecificFormats[1];
-                    } else {
-                        positiveFormat = signSpecificFormats[0];
-                        negativeFormat = signSpecificFormats[1];
-                        zeroFormat = signSpecificFormats[2];
-                    }
-                    // Pick a format based on the sign of value
-                    if (value > 0) {
-                        format = positiveFormat;
-                    } else if (value === 0) {
-                        format = zeroFormat;
-                    } else {
-                        format = negativeFormat;
-                    }
-                    value = Math.abs(value);
+                // Split format by positive[;negative;zero] pattern
+                let formatComponents = getComponents(format);
+
+                // Pick a format based on the sign of value
+                if (value > 0) {
+                    format = formatComponents.positive;
+                } else if (value === 0) {
+                    format = formatComponents.zero;
+                } else {
+                    format = formatComponents.negative;
                 }
 
+                // Normalize value if we have an explicit negative format
+                if (formatComponents.hasNegative)
+                    value = Math.abs(value);
+
                 // Get format metadata
-                let formatMeta = getCustomFormatMetadata(format);
+                let formatMeta = getCustomFormatMetadata(format, true /*calculatePrecision*/);
 
                 // Preserve literals and escaped chars
                 if (formatMeta.hasEscapes) {
@@ -566,8 +589,10 @@ module powerbi {
                 // Non scientific format
                 if (result === undefined) {
                     let valueFormatted: string;
+                    let isValueGlobalized: boolean = false;
                     if (nonScientificOverrideFormat) {
                         valueFormatted = formattingService.format(nonScientificOverrideFormat, [value], culture.name);
+                        isValueGlobalized = true;
                     } else {
                         let precision = getCustomFormatPrecision(format, formatMeta);
                         let scale = getCustomFormatScale(format, formatMeta);
@@ -576,7 +601,7 @@ module powerbi {
                         }
                         valueFormatted = toNonScientific(value, precision);
                     }
-                    result = fuseNumberWithCustomFormat(valueFormatted, format, numberFormatInfo, nonScientificOverrideFormat);
+                    result = fuseNumberWithCustomFormat(valueFormatted, format, numberFormatInfo, nonScientificOverrideFormat, isValueGlobalized);
                 }
                 if (formatMeta.hasQuotes) {
                     result = FormattingEncoder.restoreLiterals(result, literals);
@@ -641,11 +666,19 @@ module powerbi {
             return result;
         }
 
-        /** Returns the formatMetadata of the format */
+        /**
+         * Returns the formatMetadata of the format
+         * When calculating precision and scale, if format string of
+         * positive[;negative;zero] => positive format will be used
+         * @param (required) format - format string
+         * @param (optional) calculatePrecision - calculate precision of positive format
+         * @param (optional) calculateScale - calculate scale of positive format
+         */
         export function getCustomFormatMetadata(format: string, calculatePrecision?: boolean, calculateScale?: boolean): NumericFormatMetadata {
             if (_lastCustomFormatMeta !== undefined && format === _lastCustomFormatMeta.format) {
                 return _lastCustomFormatMeta;
             }
+
             let result = {
                 format: format,
                 hasEscapes: false,
@@ -658,8 +691,8 @@ module powerbi {
                 precision: -1,
                 scale: -1,
             };
-            let length = format.length;
-            for (let i = 0; i < length; i++) {
+
+            for (let i = 0, length = format.length; i < length; i++) {
                 let c = format.charAt(i);
                 switch (c) {
                     case "\\":
@@ -688,16 +721,18 @@ module powerbi {
                 }
             }
 
+            // Use positive format for calculating these values
+            let formatComponents = getComponents(format);
             if (calculatePrecision)
-                result.precision = getCustomFormatPrecision(format, result);
-
+                result.precision = getCustomFormatPrecision(formatComponents.positive, result);
             if (calculateScale)
-                result.scale = getCustomFormatScale(format, result);
+                result.scale = getCustomFormatScale(formatComponents.positive, result);
 
             return result;
         }
     
-        /** Returns the decimal precision of format based on the number of # and 0 chars after the decimal point */
+        /** Returns the decimal precision of format based on the number of # and 0 chars after the decimal point
+          * Important: The input format string needs to be split to the appropriate pos/neg/zero portion to work correctly */
         function getCustomFormatPrecision(format: string, formatMeta: NumericFormatMetadata): number {
             if (formatMeta.precision > -1) {
                 return formatMeta.precision;
@@ -749,7 +784,7 @@ module powerbi {
             return result;
         }
 
-        function fuseNumberWithCustomFormat(value: string, format: string, numberFormatInfo: GlobalizeNumberFormat, nonScientificOverrideFormat?: string): string {
+        function fuseNumberWithCustomFormat(value: string, format: string, numberFormatInfo: GlobalizeNumberFormat, nonScientificOverrideFormat?: string, isValueGlobalized?: boolean): string {
             let suppressModifyValue = !!nonScientificOverrideFormat;
             let formatParts = format.split(".", 2);
             if (formatParts.length === 2) {
@@ -764,7 +799,9 @@ module powerbi {
                     value = value.replace(displayUnit, "");
                 }
                 
-                let valueParts = value.split(".", 2);
+                let globalizedDecimalSeparator = numberFormatInfo["."];
+                let decimalSeparator = isValueGlobalized ? globalizedDecimalSeparator : ".";
+                let valueParts = value.split(decimalSeparator, 2);
                 let wholeValue = valueParts.length === 1 ? valueParts[0] + displayUnit : valueParts[0];
                 let fractionValue = valueParts.length === 2 ? valueParts[1] + displayUnit : "";
                 fractionValue = fractionValue.replace(TrailingZerosRegex, "");
@@ -775,7 +812,7 @@ module powerbi {
                 if (fractionFormattedValue.fmtOnly || fractionFormattedValue.value === "")
                     return wholeFormattedValue + fractionFormattedValue.value;
 
-                return wholeFormattedValue + numberFormatInfo["."] + fractionFormattedValue.value;
+                return wholeFormattedValue + globalizedDecimalSeparator + fractionFormattedValue.value;
             }
             return fuseNumberWithCustomFormatLeft(value, format, numberFormatInfo, suppressModifyValue);
         }

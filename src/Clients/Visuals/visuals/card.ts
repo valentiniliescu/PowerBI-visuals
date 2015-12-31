@@ -33,20 +33,21 @@ module powerbi.visuals {
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
 
+    export interface CardStyleText {
+        textSize: number;
+        color: string;
+    }
+
+    export interface CardStyleValue extends CardStyleText {
+        fontFamily: string;
+    }
+
     export interface CardStyle {
         card: {
             maxFontSize: number;
         };
-        label: {
-            fontSize: number;
-            color: string;
-            height: number;
-        };
-        value: {
-            fontSize: number;
-            color: string;
-            fontFamily: string;
-        };
+        label: CardStyleText;
+        value: CardStyleValue;
     }
 
     export interface CardConstructorOptions {
@@ -56,7 +57,7 @@ module powerbi.visuals {
     }
 
     export interface CardFormatSetting {
-        showTitle: boolean;
+        textSize: number;
         labelSettings: VisualDataLabelsSettings;
         wordWrap: boolean;
     }
@@ -67,17 +68,22 @@ module powerbi.visuals {
         private static Value: ClassAndSelector = createClassAndSelector('value');
         private static KPIImage: ClassAndSelector = createClassAndSelector('caption');
 
+        private static cardTextProperties: TextProperties = {
+            fontSize: null,
+            text: null,
+            fontFamily: dataLabelUtils.LabelTextProperties.fontFamily,
+        };
+
         public static DefaultStyle: CardStyle = {
             card: {
                 maxFontSize: 200
             },
             label: {
-                fontSize: 16,
+                textSize: 12,
                 color: '#a6a6a6',
-                height: 26
             },
             value: {
-                fontSize: 37,
+                textSize: 27,
                 color: '#333333',
                 fontFamily: 'wf_segoe-ui_Semibold'
             }
@@ -149,15 +155,21 @@ module powerbi.visuals {
 
                         labelSettings.labelColor = DataViewObjects.getFillColor(objects, cardProps.labels.color, labelSettings.labelColor);
                         labelSettings.precision = DataViewObjects.getValue(objects, cardProps.labels.labelPrecision, labelSettings.precision);
+                        labelSettings.fontSize = DataViewObjects.getValue(objects, cardProps.labels.fontSize, labelSettings.fontSize);
 
                         // The precision can't go below 0
-                        if (labelSettings.precision != null) {
-                            labelSettings.precision = (labelSettings.precision >= 0) ? labelSettings.precision : 0;
+                        if (labelSettings.precision !== dataLabelUtils.defaultLabelPrecision && labelSettings.precision < 0) {
+                            labelSettings.precision = 0;
                         }
 
                         labelSettings.displayUnits = DataViewObjects.getValue(objects, cardProps.labels.labelDisplayUnits, labelSettings.displayUnits);
-                        this.cardFormatSetting.showTitle = DataViewObjects.getValue(objects, cardProps.cardTitle.show, this.cardFormatSetting.showTitle);
+
+                        //category labels
+                        labelSettings.showCategory = DataViewObjects.getValue(objects, cardProps.categoryLabels.show, labelSettings.showCategory);
+                        labelSettings.categoryLabelColor = DataViewObjects.getFillColor(objects, cardProps.categoryLabels.color, labelSettings.categoryLabelColor);
+
                         this.cardFormatSetting.wordWrap = DataViewObjects.getValue(objects, cardProps.wordWrap.show, this.cardFormatSetting.wordWrap);
+                        this.cardFormatSetting.textSize = DataViewObjects.getValue(objects, cardProps.categoryLabels.fontSize, this.cardFormatSetting.textSize);
                     }
                 }
             }
@@ -175,6 +187,15 @@ module powerbi.visuals {
             let viewport = this.currentViewport;
             this.svg.attr('width', viewport.width)
                 .attr('height', viewport.height);
+        }
+
+        private setTextProperties(text: string, fontSize: number): void {
+            Card.cardTextProperties.fontSize = jsCommon.PixelConverter.fromPoint(fontSize);
+            Card.cardTextProperties.text = text;
+        }
+
+        private getCardFormatTextSize(): number {
+            return this.cardFormatSetting.textSize;
         }
 
         public getAdjustedFontHeight(availableWidth: number, textToMeasure: string, seedFontHeight: number) {
@@ -204,23 +225,28 @@ module powerbi.visuals {
 
             let metaDataColumn = this.metaDataColumn;
             let labelSettings = this.cardFormatSetting.labelSettings;
-            let labelStyles = Card.DefaultStyle.label;
-            let valueStyles = Card.DefaultStyle.value;
             let isDefaultDisplayUnit = labelSettings.displayUnits === 0;
+            let format = this.getFormatString(metaDataColumn);
             let formatter = valueFormatter.create({
-                format: this.getFormatString(metaDataColumn),
+                format: format,
                 value: isDefaultDisplayUnit ? target : labelSettings.displayUnits,
-                precision: labelSettings.precision,
-                displayUnitSystemType: isDefaultDisplayUnit && labelSettings.precision === 0 ? this.displayUnitSystemType : DisplayUnitSystemType.WholeUnits, // keeps this.displayUnitSystemType as the displayUnitSystemType unless the user changed the displayUnits or the precision
+                precision: dataLabelUtils.getLabelPrecision(labelSettings.precision, format),
+                displayUnitSystemType: isDefaultDisplayUnit && labelSettings.precision === dataLabelUtils.defaultLabelPrecision ? this.displayUnitSystemType : DisplayUnitSystemType.WholeUnits, // keeps this.displayUnitSystemType as the displayUnitSystemType unless the user changed the displayUnits or the precision
                 formatSingleValues: isDefaultDisplayUnit ? true : false,
                 allowFormatBeautification: true,
                 columnType: metaDataColumn ? metaDataColumn.type : undefined
             });
+
             let formatSettings = this.cardFormatSetting;
+            let labelTextSizeInPx = jsCommon.PixelConverter.fromPointToPixel(labelSettings.fontSize);
+            let valueStyles = Card.DefaultStyle.value;
+            this.setTextProperties(target, this.getCardFormatTextSize());
+            let calculatedHeight = TextMeasurementService.estimateSvgTextHeight(Card.cardTextProperties);
+
             let width = this.currentViewport.width;
             let height = this.currentViewport.height;
             let translateX = this.getTranslateX(width);
-            let translateY = (height - labelStyles.height - valueStyles.fontSize) / 2;
+            let translateY = (height - calculatedHeight - labelTextSizeInPx ) / 2;
             let statusGraphicInfo: KpiImageMetadata = getKpiImageMetadata(metaDataColumn, target, KpiImageSize.Big);
 
             if (this.isScrollable) {
@@ -231,10 +257,11 @@ module powerbi.visuals {
                     target = formatter.format(target);
 
                 let label: string = metaDataColumn ? metaDataColumn.displayName : undefined;
-                let labelData = formatSettings.showTitle
+                let labelData = labelSettings.showCategory
                     ? [label]
                     : [];
-                let translatedLabelY = this.getTranslateY(valueStyles.fontSize + labelStyles.height + translateY);
+
+                let translatedLabelY = this.getTranslateY(labelTextSizeInPx + calculatedHeight + translateY);
                 let labelElement = this.labelContext
                     .attr('transform', SVGUtil.translate(translateX, translatedLabelY))
                     .selectAll('text')
@@ -248,8 +275,8 @@ module powerbi.visuals {
                 labelElement
                     .text((d) => d)
                     .style({
-                        'font-size': labelStyles.fontSize + 'px',
-                        'fill': labelStyles.color,
+                        'font-size': jsCommon.PixelConverter.fromPoint(this.getCardFormatTextSize()),
+                        'fill': labelSettings.categoryLabelColor,
                         'text-anchor': this.getTextAnchor()
                     });
 
@@ -274,7 +301,7 @@ module powerbi.visuals {
                     // Display card text value
                     this.kpiImage.selectAll('div').remove();
                     let valueElement = this.graphicsContext
-                        .attr('transform', SVGUtil.translate(translateX, this.getTranslateY(valueStyles.fontSize + translateY)))
+                        .attr('transform', SVGUtil.translate(translateX, this.getTranslateY(labelTextSizeInPx + translateY)))
                         .selectAll('text')
                         .data([target]);
 
@@ -286,7 +313,7 @@ module powerbi.visuals {
                     valueElement
                         .text((d: any) => d)
                         .style({
-                            'font-size': valueStyles.fontSize + 'px',
+                        'font-size': jsCommon.PixelConverter.fromPoint(labelSettings.fontSize),
                             'fill': labelSettings.labelColor,
                             'font-family': valueStyles.fontFamily,
                             'text-anchor': this.getTextAnchor(),
@@ -315,7 +342,7 @@ module powerbi.visuals {
                         duration,
                         forceUpdate,
                         formatter
-                    );
+                        );
                 }
             }
 
@@ -323,7 +350,7 @@ module powerbi.visuals {
             this.value = target;
         }
 
-        private displayStatusGraphic(statusGraphicInfo: KpiImageMetadata, translateX: number, translateY: number, valueStyles) {
+        private displayStatusGraphic(statusGraphicInfo: KpiImageMetadata, translateX: number, translateY: number, valueStyles: CardStyleValue) {
             // Remove existing text
             this.graphicsContext.selectAll('text').remove();
 
@@ -342,7 +369,7 @@ module powerbi.visuals {
             let imageHeight = (<HTMLElement>kpiImageDiv.node()).offsetHeight;
 
             // Position based on image height
-            kpiImageDiv.style('transform', SVGUtil.translateWithPixels((translateX - (imageWidth / 2)), this.getTranslateY(valueStyles.fontSize + translateY) - imageHeight));
+            kpiImageDiv.style('transform', SVGUtil.translateWithPixels((translateX - (imageWidth / 2)), this.getTranslateY(valueStyles.textSize + translateY) - imageHeight));
         }
 
         private updateTooltip(target: number) {
@@ -352,11 +379,10 @@ module powerbi.visuals {
         }
 
         private getDefaultFormatSettings(): CardFormatSetting {
-            let format = this.getFormatString(this.metaDataColumn);
             return {
-                showTitle: true,
-                labelSettings: dataLabelUtils.getDefaultLabelSettings(/* showLabel: */true, Card.DefaultStyle.value.color, format),
+                labelSettings: dataLabelUtils.getDefaultCardLabelSettings(Card.DefaultStyle.value.color, Card.DefaultStyle.label.color, Card.DefaultStyle.value.textSize),
                 wordWrap: false,
+                textSize: Card.DefaultStyle.label.textSize,
             };
         }
 
@@ -368,14 +394,8 @@ module powerbi.visuals {
             let enumeration = new ObjectEnumerationBuilder();
 
             switch (options.objectName) {
-                case 'cardTitle':
-                    enumeration.pushInstance({
-                        objectName: 'cardTitle',
-                        selector: null,
-                        properties: {
-                            show: formatSettings.showTitle,
-                        },
-                    });
+                case 'categoryLabels':
+                    dataLabelUtils.enumerateCategoryLabels(enumeration, formatSettings.labelSettings, true /* withFill */, true /* isShowCategory */, formatSettings.textSize);
                     break;
                 case 'labels':
                     let labelSettingOptions: VisualDataLabelsSettingsOptions = {
@@ -384,6 +404,7 @@ module powerbi.visuals {
                         show: true,
                         displayUnits: true,
                         precision: true,
+                        fontSize: true,
                     };
                     dataLabelUtils.enumerateDataLabels(labelSettingOptions);
                     break;

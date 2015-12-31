@@ -31,20 +31,26 @@ module powerbitests {
 
         describe('get class', () => {
             it("undefined for unknown kpi graphic status name", () => {
-                var css = KpiUtil.getClassForKpi('Bad KPI Name', '1', KpiUtil.KpiImageSize.Big);
+                let kpi: powerbi.DataViewKpiColumnMetadata = {
+                    graphic: 'Bad KPI Name'
+                };
+                let css = KpiUtil.getClassForKpi(kpi, '1', KpiUtil.KpiImageSize.Big);
                 expect(css).toBeUndefined();
             });
 
-            it("Traffic light single bad", () => {
+            it("ThreeLights 1", () => {
                 verifyGetClassForKpi('Traffic Light - Single', '-1', 'circle kpi-red');
+                verifyGetClassForKpi('THREE CIRCLES COLORED', '-1', 'circle kpi-red');
             });
 
-            it("Traffic light single warning", () => {
+            it("ThreeLights 2", () => {
                 verifyGetClassForKpi('Traffic Light - Single', '0', 'circle kpi-yellow');
+                verifyGetClassForKpi('THREE CIRCLES COLORED', '0', 'circle kpi-yellow');
             });
 
-            it("Traffic light single good", () => {
+            it("ThreeLights 3", () => {
                 verifyGetClassForKpi('Traffic Light - Single', '1', 'circle kpi-green');
+                verifyGetClassForKpi('THREE CIRCLES COLORED', '1', 'circle kpi-green');
             });
 
             it("Three Flags Colored bad", () => {
@@ -61,26 +67,32 @@ module powerbitests {
 
             it("Road Signs bad", () => {
                 verifyGetClassForKpi('Road Signs', '-1', 'circle-x kpi-red');
+                verifyGetClassForKpi('THREE SYMBOLS CIRCLED COLORED', '-1', 'circle-x kpi-red');
             });
 
             it("Road Signs warning", () => {
                 verifyGetClassForKpi('Road Signs', '0', 'circle-exclamation kpi-yellow');
+                verifyGetClassForKpi('THREE SYMBOLS CIRCLED COLORED', '0', 'circle-exclamation kpi-yellow');
             });
 
             it("Road Signs good", () => {
                 verifyGetClassForKpi('Road Signs', '1', 'circle-checkmark kpi-green');
+                verifyGetClassForKpi('THREE SYMBOLS CIRCLED COLORED', '1', 'circle-checkmark kpi-green');
             });
 
             it("Traffic light bad", () => {
                 verifyGetClassForKpi('Traffic Light', '-1', 'traffic-light kpi-red');
+                verifyGetClassForKpi('THREE TRAFFIC LIGHTS RIMMED COLORED', '-1', 'traffic-light kpi-red');
             });
 
             it("Traffic light warning", () => {
                 verifyGetClassForKpi('Traffic Light', '0', 'traffic-light kpi-yellow');
+                verifyGetClassForKpi('THREE TRAFFIC LIGHTS RIMMED COLORED', '0', 'traffic-light kpi-yellow');
             });
 
             it("Traffic light good", () => {
                 verifyGetClassForKpi('Traffic Light', '1', 'traffic-light kpi-green');
+                verifyGetClassForKpi('THREE TRAFFIC LIGHTS RIMMED COLORED', '1', 'traffic-light kpi-green');
             });
 
             it("Three Symbols UnCircled Colored bad", () => {
@@ -97,14 +109,26 @@ module powerbitests {
 
             it("Shapes bad", () => {
                 verifyGetClassForKpi('Shapes', '-1', 'rhombus kpi-red');
+                verifyGetClassForKpi('SMILEY FACE', '-1', 'rhombus kpi-red');
+                verifyGetClassForKpi('THERMOMETER', '-1', 'rhombus kpi-red');
+                verifyGetClassForKpi('CYLINDER', '-1', 'rhombus kpi-red');
+                verifyGetClassForKpi('THREE SIGNS COLORED', '-1', 'rhombus kpi-red');
             });
 
             it("Shapes warning", () => {
                 verifyGetClassForKpi('Shapes', '0', 'triangle kpi-yellow');
+                verifyGetClassForKpi('SMILEY FACE', '0', 'triangle kpi-yellow');
+                verifyGetClassForKpi('THERMOMETER', '0', 'triangle kpi-yellow');
+                verifyGetClassForKpi('CYLINDER', '0', 'triangle kpi-yellow');
+                verifyGetClassForKpi('THREE SIGNS COLORED', '0', 'triangle kpi-yellow');
             });
 
             it("Shapes good", () => {
                 verifyGetClassForKpi('Shapes', '1', 'circle kpi-green');
+                verifyGetClassForKpi('SMILEY FACE', '1', 'circle kpi-green');
+                verifyGetClassForKpi('THERMOMETER', '1', 'circle kpi-green');
+                verifyGetClassForKpi('CYLINDER', '1', 'circle kpi-green');
+                verifyGetClassForKpi('THREE SIGNS COLORED', '1', 'circle kpi-green');
             });
 
             it("Three Stars Colored bad", () => {
@@ -161,29 +185,128 @@ module powerbitests {
 
             it("Gauge - Ascending 0", () => {
                 verifyGetClassForKpi('Gauge - Ascending', '-2', 'circle-empty');
+                verifyGetClassForKpi('FIVE QUARTERS COLORED', '-2', 'circle-empty');
             });
 
             it("Gauge - Ascending 1", () => {
                 verifyGetClassForKpi('Gauge - Ascending', '-1', 'circle-one-quarter');
+                verifyGetClassForKpi('FIVE QUARTERS COLORED', '-1', 'circle-one-quarter');
             });
 
             it("Gauge - Ascending 2", () => {
                 verifyGetClassForKpi('Gauge - Ascending', '0', 'circle-half');
+                verifyGetClassForKpi('FIVE QUARTERS COLORED', '0', 'circle-half');
             });
 
             it("Gauge - Ascending 3", () => {
                 verifyGetClassForKpi('Gauge - Ascending', '1', 'circle-three-quarters');
+                verifyGetClassForKpi('FIVE QUARTERS COLORED', '1', 'circle-three-quarters');
             });
 
             it("Gauge - Ascending 4", () => {
                 verifyGetClassForKpi('Gauge - Ascending', '2', 'circle-full');
+                verifyGetClassForKpi('FIVE QUARTERS COLORED', '2', 'circle-full');
+            });
+
+            it("Gauge - Descending 0", () => {
+                verifyGetClassForKpi('GAUGE - DESCENDING', '-2', 'circle-full');
+            });
+
+            it("Gauge - Descending 1", () => {
+                verifyGetClassForKpi('GAUGE - DESCENDING', '-1', 'circle-three-quarters');
+            });
+
+            it("Gauge - Descending 2", () => {
+                verifyGetClassForKpi('GAUGE - DESCENDING', '0', 'circle-half');
+            });
+
+            it("Gauge - Descending 3", () => {
+                verifyGetClassForKpi('GAUGE - DESCENDING', '1', 'circle-one-quarter');
+            });
+
+            it("Gauge - Descending 4", () => {
+                verifyGetClassForKpi('GAUGE - DESCENDING', '2', 'circle-empty');
+            });
+
+            it("Standard Arrow 0", () => {
+                verifyGetClassForKpi('Standard ARROW', '-2', 'arrow-down');
+            });
+
+            it("Standard Arrow 1", () => {
+                verifyGetClassForKpi('Standard ARROW', '-1', 'arrow-right-down');
+            });
+
+            it("Standard Arrow 2", () => {
+                verifyGetClassForKpi('Standard ARROW', '0', 'arrow-right');
+            });
+
+            it("Standard Arrow 3", () => {
+                verifyGetClassForKpi('Standard ARROW', '1', 'arrow-right-up');
+            });
+
+            it("Standard Arrow 4", () => {
+                verifyGetClassForKpi('Standard ARROW', '2', 'arrow-up');
+            });
+
+            it("Variance Arrow decrease", () => {
+                verifyGetClassForKpi('Variance Arrow', '-1', 'arrow-down kpi-red');
+            });
+
+            it("Variance Arrow no change", () => {
+                verifyGetClassForKpi('Variance Arrow', '0', 'arrow-right kpi-yellow');
+            });
+
+            it("Variance Arrow increase", () => {
+                verifyGetClassForKpi('Variance Arrow', '1', 'arrow-up kpi-green');
+            });
+
+            it("Status Arrow (ascending) Colored 0", () => {
+                verifyGetClassForKpi('STATUS ARROW - ASCENDING', '-2', 'arrow-down kpi-red');
+            });
+
+            it("Status Arrow (ascending) Colored 1", () => {
+                verifyGetClassForKpi('STATUS ARROW - ASCENDING', '-1', 'arrow-right-down kpi-yellow');
+            });
+
+            it("Status Arrow (ascending) Colored 2", () => {
+                verifyGetClassForKpi('STATUS ARROW - ASCENDING', '0', 'arrow-right kpi-yellow');
+            });
+
+            it("Status Arrow (ascending) Colored 3", () => {
+                verifyGetClassForKpi('STATUS ARROW - ASCENDING', '1', 'arrow-right-up kpi-yellow');
+            });
+
+            it("Status Arrow (ascending) Colored 4", () => {
+                verifyGetClassForKpi('STATUS ARROW - ASCENDING', '2', 'arrow-up kpi-green');
+            });
+
+            it("Status Arrow (descending) Colored 0", () => {
+                verifyGetClassForKpi('STATUS ARROW - DESCENDING', '-2', 'arrow-up kpi-green');
+            });
+
+            it("Status Arrow (descending) Colored 1", () => {
+                verifyGetClassForKpi('STATUS ARROW - DESCENDING', '-1', 'arrow-right-up kpi-yellow');
+            });
+
+            it("Status Arrow (descending) Colored 2", () => {
+                verifyGetClassForKpi('STATUS ARROW - DESCENDING', '0', 'arrow-right kpi-yellow');
+            });
+
+            it("Status Arrow (descending) Colored 3", () => {
+                verifyGetClassForKpi('STATUS ARROW - DESCENDING', '1', 'arrow-right-down kpi-yellow');
+            });
+
+            it("Status Arrow (descending) Colored 4", () => {
+                verifyGetClassForKpi('STATUS ARROW - DESCENDING', '2', 'arrow-down kpi-red');
             });
         });
 
         describe('get metadata', () => {
             it("undefined for unknown kpi graphic status name", () => {
                 let column = {
-                    kpiStatusGraphic: 'Bad KPI Name',
+                    kpi: {
+                        graphic: 'Bad KPI Name'
+                    },
                     displayName: 'test',
                 };
                 let metadata = KpiUtil.getKpiImageMetadata(column, '1', KpiUtil.KpiImageSize.Big);
@@ -207,17 +330,54 @@ module powerbitests {
             });
         });
 
+        describe('normalized kpi values', () => {
+            it("Normalized 0", () => {
+                verifyGetClassForKpi('Gauge - Ascending', '-1', 'circle-empty', true);
+                verifyGetClassForKpi('FIVE QUARTERS COLORED', '-1', 'circle-empty', true);
+            });
+
+            it("Normalized 1", () => {
+                verifyGetClassForKpi('Gauge - Ascending', '-0.5', 'circle-one-quarter', true);
+                verifyGetClassForKpi('FIVE QUARTERS COLORED', '-0.5', 'circle-one-quarter', true);
+            });
+
+            it("Normalized 2", () => {
+                verifyGetClassForKpi('Gauge - Ascending', '0', 'circle-half', true);
+                verifyGetClassForKpi('FIVE QUARTERS COLORED', '0', 'circle-half', true);
+            });
+
+            it("Normalized 3", () => {
+                verifyGetClassForKpi('Gauge - Ascending', '0.5', 'circle-three-quarters', true);
+                verifyGetClassForKpi('FIVE QUARTERS COLORED', '0.5', 'circle-three-quarters', true);
+            });
+
+            it("Normalized 4", () => {
+                verifyGetClassForKpi('Gauge - Ascending', '1', 'circle-full', true);
+                verifyGetClassForKpi('FIVE QUARTERS COLORED', '1', 'circle-full', true);
+            });
+
+            it("Don't normalize 3 states", () => {
+                verifyGetClassForKpi('ROAD SIGNS', '1', 'circle-checkmark kpi-green', true);
+                verifyGetClassForKpi('ROAD SIGNS', '0', 'circle-exclamation kpi-yellow', true);
+                verifyGetClassForKpi('ROAD SIGNS', '-1', 'circle-x kpi-red', true);
+            });
+        });
+
         function verifyClassCss(actual: string, expected: string, size: KpiUtil.KpiImageSize): void {
             expect(actual).toContain(expected);
-            expect(actual).toContain('ms-kpi-glyph');
+            expect(actual).toContain('powervisuals-glyph');
 
             if (size === KpiUtil.KpiImageSize.Big)
                 expect(actual).toContain('big-kpi');
         }
 
-        function verifyGetClassForKpi(kpiName: string, value: string, expectedCss: string): void {
+        function verifyGetClassForKpi(kpiName: string, value: string, expectedCss: string, normalized = false): void {
             for (let size of [KpiUtil.KpiImageSize.Small, KpiUtil.KpiImageSize.Big]) {
-                let css = KpiUtil.getClassForKpi(kpiName, value, size);
+                let kpi: powerbi.DataViewKpiColumnMetadata = {
+                    graphic: kpiName,
+                    normalizedFiveStateKpiRange: normalized
+                };
+                let css = KpiUtil.getClassForKpi(kpi, value, size);
                 verifyClassCss(css, expectedCss, size);
             }
         }
@@ -225,7 +385,9 @@ module powerbitests {
         function verifyGetMetadata(kpiName: string, value: string, expectedIcon?: string): void {
             for (let size of [KpiUtil.KpiImageSize.Small, KpiUtil.KpiImageSize.Big]) {
                 let column = {
-                    kpiStatusGraphic: kpiName,
+                    kpi: {
+                        graphic: kpiName
+                    },
                     displayName: 'test',
                 };
                 let metadata = KpiUtil.getKpiImageMetadata(column, value, size);

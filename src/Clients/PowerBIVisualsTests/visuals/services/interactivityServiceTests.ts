@@ -29,15 +29,15 @@
 module powerbitests {
     import SelectableDataPoint = powerbi.visuals.SelectableDataPoint;
     import SelectionId = powerbi.visuals.SelectionId;
-    import ISelectionHandler = powerbi.visuals.ISelectionHandler;
     import SQExprBuilder = powerbi.data.SQExprBuilder;
+    import MockBehavior = powerbitests.mocks.MockBehavior;
 
     describe('Interactivity service', () => {
-        var host: powerbi.IVisualHostServices;
-        var interactivityService: powerbi.visuals.InteractivityService;
-        var selectableDataPoints: SelectableDataPoint[];
-        var behavior: MockBehavior;
-        var filterPropertyId: powerbi.DataViewObjectPropertyIdentifier;
+        let host: powerbi.IVisualHostServices;
+        let interactivityService: powerbi.visuals.InteractivityService;
+        let selectableDataPoints: SelectableDataPoint[];
+        let behavior: MockBehavior;
+        let filterPropertyId: powerbi.DataViewObjectPropertyIdentifier;
 
         beforeEach(() => {
             host = powerbitests.mocks.createVisualHostServices();
@@ -70,7 +70,7 @@ module powerbitests {
 
         it('Binding passes behaviorOptions', () => {
             spyOn(behavior, "bindEvents");
-            var arbitraryBehaviorOptions = {
+            let arbitraryBehaviorOptions = {
                 some: "random",
                 collection: "of",
                 random: "stuff",
@@ -89,7 +89,7 @@ module powerbitests {
         });
 
         it('Apply selection', () => {
-            var newDataPoints = <SelectableDataPoint[]>[
+            let newDataPoints = <SelectableDataPoint[]>[
                 { selected: false, identity: SelectionId.createWithIdsAndMeasure(mocks.dataViewScopeIdentity("0"), mocks.dataViewScopeIdentity("a"), "queryName") },
                 { selected: false, identity: SelectionId.createWithIdsAndMeasure(mocks.dataViewScopeIdentity("0"), mocks.dataViewScopeIdentity("b"), "queryName") },
                 { selected: false, identity: SelectionId.createWithIdsAndMeasure(mocks.dataViewScopeIdentity("1"), mocks.dataViewScopeIdentity("a"), "queryName") },
@@ -188,7 +188,7 @@ module powerbitests {
 
         it('Multiple single selects', () => {
             interactivityService.bind(selectableDataPoints, behavior, null);
-            for (var i = 0, ilen = selectableDataPoints.length; i < ilen; i++) {
+            for (let i = 0, ilen = selectableDataPoints.length; i < ilen; i++) {
                 behavior.selectIndex(i, false);
                 expect(behavior.verifySingleSelectedAt(i)).toBeTruthy();
             }
@@ -251,26 +251,138 @@ module powerbitests {
             expect(behavior.verifySelectionState([false, false, false, false, false, true])).toBeTruthy();
         });
 
-        it('Legend selection', () => {
-            var legendDataPoints = [
+        describe('overrideSelectionFromData', () => {
+            it('with', () => {
+                selectableDataPoints[5].selected = true;
+                interactivityService.bind(selectableDataPoints, behavior, null, { overrideSelectionFromData: true });
+
+                expect(interactivityService.hasSelection()).toBeTruthy();
+            });
+
+            it('without', () => {
+                selectableDataPoints[5].selected = true;
+                interactivityService.bind(selectableDataPoints, behavior, null);
+
+                expect(interactivityService.hasSelection()).toBeFalsy();
+            });
+        });
+
+        describe('Legend', () => {
+            it('Selection', () => {
+                let legendDataPoints = [
+                    { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("a"), "queryName") },
+                    { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("b"), "queryName") },
+                ];
+                let legendBehavior = new MockBehavior(legendDataPoints, null);
+                interactivityService.bind(selectableDataPoints, behavior, null);
+                interactivityService.bind(legendDataPoints, legendBehavior, null, { isLegend: true });
+
+                legendBehavior.selectIndex(0);
+                expect(legendBehavior.verifySingleSelectedAt(0)).toBeTruthy();
+                expect(behavior.verifySelectionState([true, false, true, false, true, false])).toBeTruthy();
+                expect(interactivityService.hasSelection()).toBeTruthy();
+                expect(interactivityService.legendHasSelection()).toBeTruthy();
+
+                behavior.selectIndex(1);
+                expect(behavior.verifySingleSelectedAt(1)).toBeTruthy();
+                expect(legendBehavior.verifyCleared()).toBeTruthy();
+                expect(interactivityService.hasSelection()).toBeTruthy();
+                expect(interactivityService.legendHasSelection()).toBeFalsy();
+            });
+
+            it('Datapoint selection syncs legend datapoints', () => {
+                
+                // Datapoints
+                let selectableDataPoints = [
+                    { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("a"), "queryName") },
+                    { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("b"), "queryName") },
+                ];
+                behavior = new MockBehavior(selectableDataPoints, filterPropertyId);
+                interactivityService.bind(selectableDataPoints, behavior, null);
+
+                // Legend datapoints
+                let legendDataPoints = [
+                    { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("a"), "queryName") },
+                    { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("b"), "queryName") },
+                ];
+                let legendBehavior = new MockBehavior(legendDataPoints, filterPropertyId);
+                interactivityService.bind(legendDataPoints, legendBehavior, null, { isLegend: true });
+
+                // Trigger selection on datapoints
+                behavior.selectIndex(1);
+                expect(behavior.verifySelectionState([false, true])).toBeTruthy();
+                expect(legendBehavior.verifySelectionState([false, true])).toBeTruthy();
+                expect(interactivityService.hasSelection()).toBeTruthy();
+                expect(interactivityService.legendHasSelection()).toBeTruthy();
+
+                // Trigger selection on legend
+                legendBehavior.selectIndex(0);
+                expect(behavior.verifySelectionState([true, false])).toBeTruthy();
+                expect(legendBehavior.verifySelectionState([true, false])).toBeTruthy();
+                expect(interactivityService.hasSelection()).toBeTruthy();
+                expect(interactivityService.legendHasSelection()).toBeTruthy();
+
+                // Trigger selection on datapoints
+                behavior.selectIndex(0);
+                expect(behavior.verifySelectionState([false, false])).toBeTruthy();
+                expect(legendBehavior.verifySelectionState([false, false])).toBeTruthy();
+                expect(interactivityService.hasSelection()).toBeFalsy();
+                expect(interactivityService.legendHasSelection()).toBeFalsy();
+            });
+
+            it('Invalid selection without selectableDataPoints (only legendDataPoints)', () => {
+                let legendDataPoints = [
+                    { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("a"), "queryName") },
+                    { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("b"), "queryName") },
+                ];
+                let legendBehavior = new MockBehavior(legendDataPoints, null);
+                interactivityService.bind(legendDataPoints, legendBehavior, null, { isLegend: true });
+
+                // Select first legend item
+                legendBehavior.selectIndex(0);
+                expect(legendBehavior.verifySelectionState([true, false])).toBeTruthy();
+
+                // New legend datapoints
+                let newLegendDataPoints = [
+                    { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("c"), "queryName") },
+                    { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("d"), "queryName") },
+                ];
+                legendBehavior = new MockBehavior(newLegendDataPoints, null);
+                interactivityService.bind(newLegendDataPoints, legendBehavior, null, { isLegend: true });
+
+                // Select a new legend item
+                legendBehavior.selectIndex(0);
+                expect(legendBehavior.verifySelectionState([true, false])).toBeTruthy();
+
+                // Attempting to select an invalid legend item should clearSelection
+                legendBehavior.select(legendDataPoints[1]);
+
+                expect(legendBehavior.verifySelectionState([false, false])).toBeTruthy();
+                expect(interactivityService.hasSelection()).toBeFalsy();
+                expect(interactivityService.legendHasSelection()).toBeFalsy();
+            });
+        });
+
+        it('Label selection', () => {
+            let labelsDataPoints = [
                 { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("a"), "queryName") },
                 { selected: false, identity: SelectionId.createWithIdAndMeasure(mocks.dataViewScopeIdentity("b"), "queryName") },
             ];
-            var legendBehavior = new MockBehavior(legendDataPoints, null);
+            let labelBehavior = new MockBehavior(labelsDataPoints, null);
             interactivityService.bind(selectableDataPoints, behavior, null);
-            interactivityService.bind(legendDataPoints, legendBehavior, null, { isLegend: true });
+            interactivityService.bind(labelsDataPoints, labelBehavior, null, { isLabels: true });
 
-            legendBehavior.selectIndex(0);
-            legendBehavior.verifySingleSelectedAt(0);
+            labelBehavior.selectIndex(0);
+            labelBehavior.verifySingleSelectedAt(0);
             behavior.verifySelectionState([true, false, true, false, true, false]);
             expect(interactivityService.hasSelection()).toBeTruthy();
-            expect(interactivityService.legendHasSelection()).toBeTruthy();
+            expect(interactivityService.labelsHasSelection()).toBeTruthy();
 
             behavior.selectIndex(1);
             behavior.verifySingleSelectedAt(1);
-            legendBehavior.verifyCleared();
+            labelBehavior.verifyCleared();
             expect(interactivityService.hasSelection()).toBeTruthy();
-            expect(interactivityService.legendHasSelection()).toBeFalsy();
+            expect(interactivityService.labelsHasSelection()).toBeFalsy();
         });
 
         it('Slicer selection', () => {
@@ -326,80 +438,8 @@ module powerbitests {
         });
     });
 
-    class MockBehavior implements powerbi.visuals.IInteractiveBehavior {
-        private selectableDataPoints: SelectableDataPoint[];
-        private selectionHandler: ISelectionHandler;
-        private filterPropertyId: powerbi.DataViewObjectPropertyIdentifier;
-
-        constructor(selectableDataPoints: SelectableDataPoint[], filterPropertyId: powerbi.DataViewObjectPropertyIdentifier) {
-            this.selectableDataPoints = selectableDataPoints;
-            this.filterPropertyId = filterPropertyId;
-        }
-
-        public bindEvents(options: any, selectionHandler: ISelectionHandler): void {
-            this.selectionHandler = selectionHandler;
-        }
-
-        public renderSelection(hasSelection: boolean): void {
-            // Stub method to spy on
-        }
-
-        public selectIndex(index: number, multiSelect?: boolean): void {
-            this.selectionHandler.handleSelection(this.selectableDataPoints[index], !!multiSelect);
-        }
-
-        public clear(): void {
-            this.selectionHandler.handleClearSelection();
-        }
-
-        public selectIndexAndPersist(index: number, multiSelect?: boolean): void {
-            this.selectionHandler.handleSelection(this.selectableDataPoints[index], !!multiSelect);
-            this.selectionHandler.persistSelectionFilter(this.filterPropertyId);
-        }
-
-        public verifyCleared(): boolean {
-            var selectableDataPoints = this.selectableDataPoints;
-            for (var i = 0, ilen = selectableDataPoints.length; i < ilen; i++) {
-                if (selectableDataPoints[i].selected)
-                    return false;
-            }
-            return true;
-        }
-
-        public verifySingleSelectedAt(index: number): boolean {
-            var selectableDataPoints = this.selectableDataPoints;
-            for (var i = 0, ilen = selectableDataPoints.length; i < ilen; i++) {
-                var dataPoint = selectableDataPoints[i];
-                if (i === index) {
-                    if (!dataPoint.selected)
-                        return false;
-                }
-                else if (dataPoint.selected)
-                    return false;
-            }
-            return true;
-        }
-
-        public verifySelectionState(selectionState: boolean[]): boolean {
-            var selectableDataPoints = this.selectableDataPoints;
-            for (var i = 0, ilen = selectableDataPoints.length; i < ilen; i++) {
-                if (selectableDataPoints[i].selected !== selectionState[i])
-                    return false;
-            }
-            return true;
-        }
-
-        public selections(): boolean[] {
-            let selectableDataPoints = this.selectableDataPoints;
-            let selections: boolean[] = [];
-            for (let dataPoint of selectableDataPoints) {
-                selections.push(!!dataPoint.selected);
-            }
-            return selections;
-        }
-    }
-
     function getSelectedIds(interactivityService: powerbi.visuals.IInteractivityService): SelectionId[] {
+        
         // Accessing a private member.
         return interactivityService['selectedIds'];
     }

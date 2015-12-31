@@ -35,12 +35,14 @@ module powerbitests {
     import SQExprShortSerializer = powerbi.data.SQExprShortSerializer;
     import LegendPosition = powerbi.visuals.LegendPosition;
     import ILegend = powerbi.visuals.ILegend;
+    import dataLabelUtils = powerbi.visuals.dataLabelUtils;
+    import PixelConverter = jsCommon.PixelConverter;
 
     powerbitests.mocks.setLocale();
 
-    describe("Map",() => {
-        var element: JQuery;
-        var mockGeotaggingAnalyzerService;
+    describe("Map", () => {
+        let element: JQuery;
+        let mockGeotaggingAnalyzerService;
 
         var viewport = {
             height: 800,
@@ -55,63 +57,64 @@ module powerbitests {
         describe('capabilities', () => {
 
             it('Map registered capabilities', () => {
-                expect(powerbi.visuals.visualPluginFactory.create().getPlugin('map').capabilities).toBe(powerbi.visuals.mapCapabilities);
-            });
+            expect(powerbi.visuals.visualPluginFactory.create().getPlugin('map').capabilities).toBe(powerbi.visuals.mapCapabilities);
+        });
 
             it('Capabilities should include dataViewMappings', () => {
-                expect(powerbi.visuals.mapCapabilities.dataViewMappings).toBeDefined();
-            });
+            expect(powerbi.visuals.mapCapabilities.dataViewMappings).toBeDefined();
+        });
 
             it('Capabilities should include dataRoles', () => {
-                expect(powerbi.visuals.mapCapabilities.dataRoles).toBeDefined();
-            });
+            expect(powerbi.visuals.mapCapabilities.dataRoles).toBeDefined();
+        });
 
             it('Capabilities should not suppressDefaultTitle', () => {
-                expect(powerbi.visuals.mapCapabilities.suppressDefaultTitle).toBeUndefined();
-            });
+            expect(powerbi.visuals.mapCapabilities.suppressDefaultTitle).toBeUndefined();
+        });
 
             it('Capabilities DataRole preferredTypes', () => {
+            
                 //Map's Category, X and Y fieldWells have preferences for geographic locations, longitude and latitude respectively
-                expect(powerbi.visuals.mapCapabilities.dataRoles.map(r => !!r.preferredTypes)).toEqual([
-                    true,
-                    false,
-                    true,
-                    true,
-                    false,
-                    false,
-                ]);
+            expect(powerbi.visuals.mapCapabilities.dataRoles.map(r => !!r.preferredTypes)).toEqual([
+                true,
+                false,
+                true,
+                true,
+                false,
+                false,
+            ]);
 
-                expect(powerbi.visuals.mapCapabilities.dataRoles[0].preferredTypes.map(ValueType.fromDescriptor)).toEqual([
-                    ValueType.fromExtendedType(powerbi.ExtendedType.Address),
-                    ValueType.fromExtendedType(powerbi.ExtendedType.City),
-                    ValueType.fromExtendedType(powerbi.ExtendedType.Continent),
-                    ValueType.fromExtendedType(powerbi.ExtendedType.Country),
-                    ValueType.fromExtendedType(powerbi.ExtendedType.County),
-                    ValueType.fromExtendedType(powerbi.ExtendedType.Place),
-                    ValueType.fromExtendedType(powerbi.ExtendedType.PostalCode_Text),
-                    ValueType.fromExtendedType(powerbi.ExtendedType.Region),
-                    ValueType.fromExtendedType(powerbi.ExtendedType.StateOrProvince)
-                ]);
+            expect(powerbi.visuals.mapCapabilities.dataRoles[0].preferredTypes.map(ValueType.fromDescriptor)).toEqual([
+                ValueType.fromExtendedType(powerbi.ExtendedType.Address),
+                ValueType.fromExtendedType(powerbi.ExtendedType.City),
+                ValueType.fromExtendedType(powerbi.ExtendedType.Continent),
+                ValueType.fromExtendedType(powerbi.ExtendedType.Country),
+                ValueType.fromExtendedType(powerbi.ExtendedType.County),
+                ValueType.fromExtendedType(powerbi.ExtendedType.Place),
+                ValueType.fromExtendedType(powerbi.ExtendedType.PostalCode_Text),
+                ValueType.fromExtendedType(powerbi.ExtendedType.Region),
+                ValueType.fromExtendedType(powerbi.ExtendedType.StateOrProvince)
+            ]);
 
-                expect(powerbi.visuals.mapCapabilities.dataRoles[2].preferredTypes.map(ValueType.fromDescriptor)).toEqual([
-                    ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double, "Longitude")
-                ]);
+            expect(powerbi.visuals.mapCapabilities.dataRoles[2].preferredTypes.map(ValueType.fromDescriptor)).toEqual([
+                ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double, "Longitude")
+            ]);
 
-                expect(powerbi.visuals.mapCapabilities.dataRoles[3].preferredTypes.map(ValueType.fromDescriptor)).toEqual([
-                    ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double, "Latitude")
-                ]);
-            });
+            expect(powerbi.visuals.mapCapabilities.dataRoles[3].preferredTypes.map(ValueType.fromDescriptor)).toEqual([
+                ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double, "Latitude")
+            ]);
+        });
 
             it('FormatString property should match calculated', () => {
-                expect(powerbi.data.DataViewObjectDescriptors.findFormatString(powerbi.visuals.mapCapabilities.objects)).toEqual(powerbi.visuals.mapProps.general.formatString);
-            });
+            expect(powerbi.data.DataViewObjectDescriptors.findFormatString(powerbi.visuals.mapCapabilities.objects)).toEqual(powerbi.visuals.mapProps.general.formatString);
+        });
         });
 
         it('getMeasureIndexOfRole', () => {
             let dataView = new MapDataBuilder().build(true, true);
-            var grouped = dataView.categorical.values.grouped();
+            let grouped = dataView.categorical.values.grouped();
 
-            var result = powerbi.visuals.DataRoleHelper.getMeasureIndexOfRole(grouped, "InvalidRoleName");
+            let result = powerbi.visuals.DataRoleHelper.getMeasureIndexOfRole(grouped, "InvalidRoleName");
             expect(result).toBe(-1);
 
             result = powerbi.visuals.DataRoleHelper.getMeasureIndexOfRole(grouped, "Size");
@@ -125,10 +128,10 @@ module powerbitests {
             let dataView = new MapDataBuilder().build(true, false);
             var grouped = dataView.categorical.values.grouped();
 
-            var groupSizeTotals = [];
-            var range = null;
-            var sizeIndex = 0;
-            var result = Map.calculateGroupSizes(dataView.categorical, grouped, groupSizeTotals, sizeIndex, range);
+            let groupSizeTotals = [];
+            let range = null;
+            let sizeIndex = 0;
+            let result = Map.calculateGroupSizes(dataView.categorical, grouped, groupSizeTotals, sizeIndex, range);
             expect(result.min).toBe(100);
             expect(result.max).toBe(300);
             expect(groupSizeTotals.length).toBe(3);
@@ -146,11 +149,11 @@ module powerbitests {
             expect(groupSizeTotals[2]).toBe(null);
         });
 
-        it('createMapDataPoint',() => {
-            var colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
-            var group = "Arizona";
-            var value = 100;
-            var mapSeriesInfo: MapSeriesInfo = {
+        it('createMapDataPoint', () => {
+            let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+            let group = "Arizona";
+            let value = 100;
+            let mapSeriesInfo: MapSeriesInfo = {
                 sizeValuesForGroup: [{
                     value: 100,
                     index: 0,
@@ -162,10 +165,10 @@ module powerbitests {
                 longitude: null,
 
             };
-            var radius = 3;
+            let radius = 3;
 
             // No seriesInfo means the result is null
-            var result = Map.createMapDataPoint(group, value, null, radius, colors, null);
+            let result = Map.createMapDataPoint(group, value, null, radius, colors, null);
             expect(result).toBe(null);
 
             result = Map.createMapDataPoint(group, value, mapSeriesInfo, radius, colors, mocks.dataViewScopeIdentity("Arizona"));
@@ -188,14 +191,14 @@ module powerbitests {
             it('no series, size and lat long', () => {
                 let dataView = new MapDataBuilder().build(true, true);
 
-                var sizeIndex = 0;
-                var latIndex = 1;
-                var longIndex = 2;
-                var colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+                let sizeIndex = 0;
+                let latIndex = 1;
+                let longIndex = 2;
+                let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
                 var result = Map.calculateSeriesInfo(dataView.categorical.values.grouped(), 0, sizeIndex, latIndex, longIndex, colors);
-                expect(result.sizeValuesForGroup.length).toBe(1);
+            expect(result.sizeValuesForGroup.length).toBe(1);
                 expect(result.sizeValuesForGroup[0].value).toBe(100);
-                expect(result.sizeValuesForGroup[0].index).toBe(0);
+            expect(result.sizeValuesForGroup[0].index).toBe(0);
                 expect(result.latitude).toBe(-114);
                 expect(result.longitude).toBe(46.87);
 
@@ -215,14 +218,14 @@ module powerbitests {
             });
 
             it('multi-series', () => {
-                var dataView: powerbi.DataView = new MapDataBuilder().buildWithSeries(true, false);
+                let dataView: powerbi.DataView = new MapDataBuilder().buildWithSeries(true, false);
 
-                var sizeIndex = 0;
-                var latIndex = -1;
-                var longIndex = -1;
-                var colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
-                var categoryColumnRef = dataView.categorical.values.identityFields;
-                var result = Map.calculateSeriesInfo(dataView.categorical.values.grouped(), 0, sizeIndex, longIndex, latIndex, colors, undefined, undefined, categoryColumnRef);
+                let sizeIndex = 0;
+                let latIndex = -1;
+                let longIndex = -1;
+                let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+                let categoryColumnRef = dataView.categorical.values.identityFields;
+                let result = Map.calculateSeriesInfo(dataView.categorical.values.grouped(), 0, sizeIndex, longIndex, latIndex, colors, undefined, undefined, categoryColumnRef);
 
                 expect(result.sizeValuesForGroup.length).toBe(4);
                 for (let i = 0; i < result.sizeValuesForGroup.length; i++) {
@@ -236,26 +239,26 @@ module powerbitests {
                 expect(result.sizeValuesForGroup[2].value).toBe(1000);
                 expect(result.sizeValuesForGroup[3].value).toBe(1);
 
-                expect(result.sizeValuesForGroup[1].fill).not.toBe(result.sizeValuesForGroup[0].fill);
+            expect(result.sizeValuesForGroup[1].fill).not.toBe(result.sizeValuesForGroup[0].fill);
 
-                expect(result.latitude).toBe(null);
-                expect(result.longitude).toBe(null);
-            });
+            expect(result.latitude).toBe(null);
+            expect(result.longitude).toBe(null);
+        });
 
             it('with lat long and no size', () => {
                 let dataView = new MapDataBuilder().build(false, true);
 
-                var sizeIndex = -1;
-                var latIndex = 0;
-                var longIndex = 1;
-                var colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+                let sizeIndex = -1;
+                let latIndex = 0;
+                let longIndex = 1;
+                let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
 
                 let result = Map.calculateSeriesInfo(dataView.categorical.values.grouped(), 0, sizeIndex, longIndex, latIndex, colors);
-                expect(result.sizeValuesForGroup.length).toBe(1);
-                expect(result.sizeValuesForGroup[0].value).toBe(null);
-                expect(result.sizeValuesForGroup[0].index).toBe(0);
-                expect(result.latitude).toBe(46.87);
-                expect(result.longitude).toBe(-114);
+            expect(result.sizeValuesForGroup.length).toBe(1);
+            expect(result.sizeValuesForGroup[0].value).toBe(null);
+            expect(result.sizeValuesForGroup[0].index).toBe(0);
+            expect(result.latitude).toBe(46.87);
+            expect(result.longitude).toBe(-114);
 
                 result = Map.calculateSeriesInfo(dataView.categorical.values.grouped(), 1, sizeIndex, longIndex, latIndex, colors);
                 expect(result.sizeValuesForGroup.length).toBe(1);
@@ -270,15 +273,15 @@ module powerbitests {
                 expect(result.sizeValuesForGroup[0].index).toBe(0);
                 expect(result.latitude).toBe(34.68);
                 expect(result.longitude).toBe(-111.76);
-            });
+        });
 
             it('Gradient color', () => {
                 let dataView = new MapDataBuilder().build(true, false, true);
 
-                var sizeIndex = 0;
-                var latIndex = -1;
-                var longIndex = -1;
-                var colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+                let sizeIndex = 0;
+                let latIndex = -1;
+                let longIndex = -1;
+                let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
                 var objectDefinitions: powerbi.DataViewObjects[] = [
                     { dataPoint: { fill: { solid: { color: "#d9f2fb" } } } },
                     { dataPoint: { fill: { solid: { color: "#b1eab7" } } } }
@@ -288,21 +291,21 @@ module powerbitests {
 
                 result = Map.calculateSeriesInfo(dataView.categorical.values.grouped(), 1, sizeIndex, longIndex, latIndex, colors, null, objectDefinitions);
                 expect(result.sizeValuesForGroup[0].fill).toBe('rgba(177,234,183,0.6)');
-            });
+        });
 
             it('same field category & series', () => {
                 let dataBuilder = new MapDataBuilder();
                 dataBuilder.withCategoriesAsSeries();
                 let dataView = dataBuilder.buildWithSeries(true, false);
 
-                var groupedValues = dataView.categorical.values.grouped();
+                let groupedValues = dataView.categorical.values.grouped();
 
-                var sizeIndex = 0;
+                let sizeIndex = 0;
                 var latIndex = -1;
-                var longIndex = -1;
-                var colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+                let longIndex = -1;
+                let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
 
-                var result0 = Map.calculateSeriesInfo(groupedValues, 0, sizeIndex, longIndex, latIndex, colors, undefined, undefined, [dataBuilder.seriesColumnExpr]);
+                let result0 = Map.calculateSeriesInfo(groupedValues, 0, sizeIndex, longIndex, latIndex, colors, undefined, undefined, [dataBuilder.seriesColumnExpr]);
                 expect(result0.sizeValuesForGroup.length).toBe(1);
                 expect(result0.sizeValuesForGroup[0].value).toBe(100);
                 expect(result0.sizeValuesForGroup[0].index).toBe(0);
@@ -326,7 +329,7 @@ module powerbitests {
                 expect(result0.sizeValuesForGroup[0].fill).not.toBe(result1.sizeValuesForGroup[0].fill);
                 expect(result1.sizeValuesForGroup[0].fill).not.toBe(result2.sizeValuesForGroup[0].fill);
                 expect(result0.sizeValuesForGroup[0].fill).not.toBe(result2.sizeValuesForGroup[0].fill);
-            });
+        });
 
         });
 
@@ -339,8 +342,8 @@ module powerbitests {
                 var sizeIndex = 0;
                 var colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
                 var result = Map.calculateSeriesLegend(dataView.categorical.values.grouped(), groupIndex, sizeIndex, colors);
-                expect(result.length).toBe(1);
-            });
+            expect(result.length).toBe(1);
+        });
 
             it('dynamic series', () => {
                 let dataBuilder = new MapDataBuilder();
@@ -360,7 +363,7 @@ module powerbitests {
                     expect(result[i].label).toBe(dataBuilder.seriesValues[i]);
                     expect(result[i].color).toBe(seriesColors[i].value);
                 }
-            });
+        });
 
             it('default color', () => {
                 let dataView = new MapDataBuilder().build(true, false);
@@ -372,28 +375,28 @@ module powerbitests {
                 var result = Map.calculateSeriesLegend(dataView.categorical.values.grouped(), groupIndex, sizeIndex, colors, hexDefaultColorRed);
                 expect(result.length).toBe(1);
                 expect(result[0].color).toBe(hexDefaultColorRed);
-            });
-            
+        });
+
             it('null legend', () => {
                 let dataBuilder = new MapDataBuilder();
                 dataBuilder.seriesValues[0] = null;
                 var dataView: powerbi.DataView = dataBuilder.buildWithSeries(true, true);
 
-                var groupIndex: number = 0,
-                    sizeIndex = 0;
-                var colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
-                var result = Map.calculateSeriesLegend(dataView.categorical.values.grouped(), groupIndex, sizeIndex, colors);
-                expect(result[0].label).toBe(powerbi.visuals.valueFormatter.format(null));
+            let groupIndex: number = 0,
+                sizeIndex = 0;
+            let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+            let result = Map.calculateSeriesLegend(dataView.categorical.values.grouped(), groupIndex, sizeIndex, colors);
+            expect(result[0].label).toBe(powerbi.visuals.valueFormatter.format(null));
                 expect(result[1].label).not.toBe(powerbi.visuals.valueFormatter.format(null));
-            });
+        });
         });
 
-        it('calculateRadius',() => {
+        it('calculateRadius', () => {
             var range: powerbi.visuals.SimpleRange = { min: -100, max: 100 };
 
             // Null should be the minimum size
-            var diff = 0;
-            var result = Map.calculateRadius(range, 0, null);
+            let diff = 0;
+            let result = Map.calculateRadius(range, 0, null);
             expect(result).toBe(6);
 
             // Min
@@ -423,7 +426,7 @@ module powerbitests {
 
                 var result = Map.getGeocodingCategory(dataView.categorical, mockGeotaggingAnalyzerService);
                 expect(result).toBe("Country");
-            });
+        });
 
             it('from column name', () => {
                 let dataBuilder = new MapDataBuilder();
@@ -432,7 +435,7 @@ module powerbitests {
 
                 var result = Map.getGeocodingCategory(dataView.categorical, mockGeotaggingAnalyzerService);
                 expect(result).toBe("Country");
-            });
+        });
 
             it('from value type', () => {
                 let dataBuilder = new MapDataBuilder();
@@ -470,20 +473,20 @@ module powerbitests {
                 let dataBuilder = new MapDataBuilder();
                 let dataView = dataBuilder.build(false, false);
                 expect(Map.hasSizeField(dataView.categorical.values, 0)).toBe(false);
-            });
+        });
 
             it('with meaure column with "Size" role', () => {
                 let dataBuilder = new MapDataBuilder();
                 let dataView = dataBuilder.build(true, false);
                 expect(Map.hasSizeField(dataView.categorical.values, 0)).toBe(true);
-            });
+        });
 
             it('with measure column, but no "Size" role', () => {
                 let dataBuilder = new MapDataBuilder();
                 dataBuilder.sizeColumn.roles = undefined;
                 let dataView = dataBuilder.build(true, false);
                 expect(Map.hasSizeField(dataView.categorical.values, 0)).toBe(true);
-            });
+        });
 
             if ('with multiple measure columns, no "Size" role, none numeric', () => {
                 let dataBuilder = new MapDataBuilder();
@@ -493,7 +496,7 @@ module powerbitests {
                 dataBuilder.longitudeColumn.type = ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text);
                 let dataView = dataBuilder.build(true, true);
                 expect(Map.hasSizeField(dataView.categorical.values, 0)).toBe(false);
-            });
+        });
         });
 
         // TODO: These tooltip tests don't test anything useful, these tests should call the individual converters and check the tooltip infos.
@@ -628,162 +631,162 @@ module powerbitests {
 
             it('shows warning with no Location set', () => {
                 var dataView: powerbi.DataView = {
-                    metadata: {
-                        columns: [{ displayName: 'NotLocation', roles: { 'NotCategory': true, }, }],
-                    }
-                };
+                metadata: {
+                    columns: [{ displayName: 'NotLocation', roles: { 'NotCategory': true, }, }],
+                }
+            };
 
-                var warnings = Map.showLocationMissingWarningIfNecessary(dataView);
-                expect(warnings[0]).not.toBeNull();
-            });
+            let warnings = Map.showLocationMissingWarningIfNecessary(dataView);
+            expect(warnings[0]).not.toBeNull();
+        });
 
             it('shows warning with no columns set', () => {
                 var dataView: powerbi.DataView = {
-                    metadata: {
-                        columns: [],
-                    }
-                };
+                metadata: {
+                    columns: [],
+                }
+            };
 
-                var warnings = Map.showLocationMissingWarningIfNecessary(dataView);
-                expect(warnings[0]).not.toBeNull();
-            });
+            let warnings = Map.showLocationMissingWarningIfNecessary(dataView);
+            expect(warnings[0]).not.toBeNull();
+        });
 
             it('does not show warning with location set', () => {
                 var dataView: powerbi.DataView = {
-                    metadata: {
-                        columns: [{ displayName: 'Location', queryName: 'Location', roles: { 'Category': true, }, }],
-                    }
-                };
+                metadata: {
+                    columns: [{ displayName: 'Location', queryName: 'Location', roles: { 'Category': true, }, }],
+                }
+            };
 
-                var warnings = Map.showLocationMissingWarningIfNecessary(dataView);
-                expect(warnings.length).toEqual(0);
-            });
+            let warnings = Map.showLocationMissingWarningIfNecessary(dataView);
+            expect(warnings.length).toEqual(0);
+        });
         });
 
         describe('legend', () => {
             it('is explicitly hidden', () => {
                 var dataView: powerbi.DataView = {
-                    metadata: {
-                        columns: [],
-                        objects: {
-                            legend: {
-                                show: false
-                            }
+                metadata: {
+                    columns: [],
+                    objects: {
+                        legend: {
+                            show: false
                         }
                     }
-                };
+                }
+            };
 
-                expect(Map.isLegendHidden(dataView)).toBe(true);
-            });
+            expect(Map.isLegendHidden(dataView)).toBe(true);
+        });
 
             it('is explicitly shown', () => {
                 var dataView: powerbi.DataView = {
-                    metadata: {
-                        columns: [],
-                        objects: {
-                            legend: {
-                                show: true
-                            }
+                metadata: {
+                    columns: [],
+                    objects: {
+                        legend: {
+                            show: true
                         }
                     }
-                };
+                }
+            };
 
-                expect(Map.isLegendHidden(dataView)).toBe(false);
-            });
+            expect(Map.isLegendHidden(dataView)).toBe(false);
+        });
 
             it('is implicitly hidden', () => {
                 var dataView: powerbi.DataView = {
-                    metadata: {
-                        columns: [],
-                    }
-                };
+                metadata: {
+                    columns: [],
+                }
+            };
 
-                expect(Map.isLegendHidden(dataView)).toBe(false);
-            });
+            expect(Map.isLegendHidden(dataView)).toBe(false);
+        });
 
             it('position is bottom', () => {
                 var dataView: powerbi.DataView = {
-                    metadata: {
-                        columns: [],
-                        objects: {
-                            legend: {
-                                position: 'Bottom'
-                            }
+                metadata: {
+                    columns: [],
+                    objects: {
+                        legend: {
+                            position: 'Bottom'
                         }
                     }
-                };
+                }
+            };
 
-                expect(Map.legendPosition(dataView)).toBe(LegendPosition.Bottom);
-            });
+            expect(Map.legendPosition(dataView)).toBe(LegendPosition.Bottom);
+        });
 
             it('enumerateLegend', () => {
-                let dataView: powerbi.DataView = {
-                    metadata: {
-                        columns: [],
-                        objects: {
-                            legend: {
-                                show: true
-                            }
+            let dataView: powerbi.DataView = {
+                metadata: {
+                    columns: [],
+                    objects: {
+                        legend: {
+                            show: true
                         }
                     }
-                };
+                }
+            };
 
-                let legend: ILegend = {
-                    changeOrientation: () => { },
-                    drawLegend: () => { },
-                    getMargins: () => <powerbi.IViewport>{
-                        width: 0,
-                        height: 0
-                    },
-                    getOrientation: () => LegendPosition.Top,
-                    isVisible: () => true,
-                    reset: () => { },
-                };
+            let legend: ILegend = {
+                changeOrientation: () => { },
+                drawLegend: () => { },
+                getMargins: () => <powerbi.IViewport>{
+                    width: 0,
+                    height: 0
+                },
+                getOrientation: () => LegendPosition.Top,
+                isVisible: () => true,
+                reset: () => { },
+            };
 
-                let enumerationBuilder = new powerbi.visuals.ObjectEnumerationBuilder();
-                Map.enumerateLegend(enumerationBuilder, dataView, legend, "");
-                let objects = enumerationBuilder.complete();
+            let enumerationBuilder = new powerbi.visuals.ObjectEnumerationBuilder();
+            Map.enumerateLegend(enumerationBuilder, dataView, legend, "");
+            let objects = enumerationBuilder.complete();
 
-                expect(objects.instances.length).toBe(1);
-                let firstObject = objects.instances[0];
-                expect(firstObject.objectName).toBe('legend');
-                expect(firstObject.selector).toBeNull();
+            expect(objects.instances.length).toBe(1);
+            let firstObject = objects.instances[0];
+            expect(firstObject.objectName).toBe('legend');
+            expect(firstObject.selector).toBeNull();
 
-                let properties = firstObject.properties;
+            let properties = firstObject.properties;
                 expect(properties).toBeDefined();
-                expect(properties['show']).toBe(true);
-                expect(properties['position']).toBe('Top');
-            });
+            expect(properties['show']).toBe(true);
+            expect(properties['position']).toBe('Top');
+        });
         });
 
         describe('shouldEnumerateDataPoints', () => {
             describe('filled map', () => {
                 it('no series, with size role', () => {
                     let dataView = new MapDataBuilder().build(true, false);
-                    expect(Map.shouldEnumerateDataPoints(dataView, /*usesSizeForGradient*/ true)).toBe(false);
-                });
+            expect(Map.shouldEnumerateDataPoints(dataView, /*usesSizeForGradient*/ true)).toBe(false);
+        });
 
                 it('no series, without size role', () => {
                     let dataView = new MapDataBuilder().build(false, false);
-                    expect(Map.shouldEnumerateDataPoints(dataView, /*usesSizeForGradient*/ true)).toBe(true);
-                });
+            expect(Map.shouldEnumerateDataPoints(dataView, /*usesSizeForGradient*/ true)).toBe(true);
+        });
 
                 it('with series', () => {
                     let dataView = new MapDataBuilder().buildWithSeries(true, false);
-                    expect(Map.shouldEnumerateDataPoints(dataView, /*usesSizeForGradient*/ true)).toBe(true);
-                });
+            expect(Map.shouldEnumerateDataPoints(dataView, /*usesSizeForGradient*/ true)).toBe(true);
+        });
             });
 
-            describe('bubble map', () => {
+        describe('bubble map', () => {
                 it('no series, with gradient role', () => {
                     let dataView = new MapDataBuilder().build(false, false, true);
-                    expect(Map.shouldEnumerateDataPoints(dataView, /*usesSizeForGradient*/ false)).toBe(false);
-                });
+            expect(Map.shouldEnumerateDataPoints(dataView, /*usesSizeForGradient*/ false)).toBe(false);
+        });
 
                 it('no series, without gradient role', () => {
                     let dataView = new MapDataBuilder().build(false, false, false);
-                    expect(Map.shouldEnumerateDataPoints(dataView, /*usesSizeForGradient*/ false)).toBe(true);
-                });
+            expect(Map.shouldEnumerateDataPoints(dataView, /*usesSizeForGradient*/ false)).toBe(true);
+        });
 
                 it('with series', () => {
                     let dataView = new MapDataBuilder().buildWithSeries(false, false, false);
@@ -792,28 +795,47 @@ module powerbitests {
             });
         });
 
+        describe('Regression test for Defect 6414910: should Enumerate Category Labels', () => {
+            it('filled Map with filled map feature switch on', () => {
+                expect(Map.shouldEnumerateCategoryLabels(/*enableGeoShaping*/ true, /*filledMapDataLabelsEnabled*/ true)).toBe(true);
+            });
+
+            it('filled Map with filled map feature switch off', () => {
+                expect(Map.shouldEnumerateCategoryLabels(/*enableGeoShaping*/ true, /*filledMapDataLabelsEnabled*/ false)).toBe(false);
+            });
+
+            it('Bubble Map with filled map feature switch on', () => {
+                expect(Map.shouldEnumerateCategoryLabels(/*enableGeoShaping*/ false, /*filledMapDataLabelsEnabled*/ true)).toBe(true);
+            });
+
+            it('Bubble Map with filled map feature switch off', () => {
+                expect(Map.shouldEnumerateCategoryLabels(/*enableGeoShaping*/ false, /*filledMapDataLabelsEnabled*/ false)).toBe(true);
+            });
+        });
+
         it("enumerateDataPoints with dynamic series", () => {
             let dataBuilder = new MapDataBuilder();
             let dataView = dataBuilder.buildWithSeries(true, false);
 
-            var groupIndex: number = 0;
-            var sizeIndex = 0;
-            var colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
+            let groupIndex: number = 0;
+            let sizeIndex = 0;
+            let colors = powerbi.visuals.visualStyles.create().colorPalette.dataColors;
 
             let enumerationBuilder = new powerbi.visuals.ObjectEnumerationBuilder();
             var legendDataPoints = Map.calculateSeriesLegend(dataView.categorical.values.grouped(), groupIndex, sizeIndex, colors, undefined, [dataBuilder.seriesColumnExpr]);
             Map.enumerateDataPoints(enumerationBuilder, legendDataPoints, colors, true, null, false, []);
-            var enumeratedDataPoints = enumerationBuilder.complete();
+            let enumeratedDataPoints = enumerationBuilder.complete();
 
             expect(enumeratedDataPoints.instances.length).toBe(legendDataPoints.length);
+            
             // ensure first object is 'fill' and not 'defaultColor'
             expect(enumeratedDataPoints.instances[0]['properties']['fill']).toBeDefined();
         });
     });
 
     describe("Bubble Map DOM Tests", () => {
-        var visualBuilder: MapVisualBuilder;
-        var v: powerbi.IVisual;
+        let visualBuilder: MapVisualBuilder;
+        let v: powerbi.IVisual;
 
         beforeEach(() => {
             visualBuilder = new MapVisualBuilder();
@@ -821,7 +843,7 @@ module powerbitests {
         });
 
         it("should create map chart element", (done) => {
-            var dataView = new MapDataBuilder().build(false, false);
+            let dataView = new MapDataBuilder().build(false, false);
             v.onDataChanged({ dataViews: [dataView] });
 
             setTimeout(() => {
@@ -832,12 +854,12 @@ module powerbitests {
         });
 
         it("should have bubble for each category", (done) => {
-            var dataBuilder = new MapDataBuilder();
-            var dataView = dataBuilder.build(false, false);
+            let dataBuilder = new MapDataBuilder();
+            let dataView = dataBuilder.build(false, false);
             v.onDataChanged({ dataViews: [dataView] });
 
             setTimeout(() => {
-                var bubbles = getBubbles();
+                let bubbles = getBubbles();
                 expect(bubbles.length).toBe(dataBuilder.categoryValues.length);
 
                 done();
@@ -845,9 +867,9 @@ module powerbitests {
         });
 
         it("should raise warning with no category", (done) => {
-            var warningSpy = jasmine.createSpy('setWarnings');
+            let warningSpy = jasmine.createSpy('setWarnings');
             visualBuilder.host.setWarnings = warningSpy;
-            var dataView = new MapDataBuilder().withoutCategory().build(false, false);
+            let dataView = new MapDataBuilder().withoutCategory().build(false, false);
             v.onDataChanged({ dataViews: [dataView] });
 
             setTimeout(() => {
@@ -858,13 +880,28 @@ module powerbitests {
         });
 
         it("should draw category labels when enabled", (done) => {
-            var dataView = new MapDataBuilder().withCategoryLabels().withShortCategoryNames().build(false, false);
+            let dataView = new MapDataBuilder().withCategoryLabels().withShortCategoryNames().build(false, false);
 
             v.onDataChanged({ dataViews: [dataView] });
 
             setTimeout(() => {
                 expect($(".labelGraphicsContext")).toBeInDOM();
                 expect($(".labelGraphicsContext .label").length).toBe(3);
+                expect($(".labelGraphicsContext .label").first().css('font-size')).toBe(PixelConverter.fromPoint(dataLabelUtils.DefaultFontSizeInPt));
+
+                done();
+            }, DefaultWaitForRender);
+        });
+
+        it("should draw category labels with different font size", (done) => {
+            let dataView = new MapDataBuilder().withCategoryLabels(null, null,null, 18).withShortCategoryNames().build(false, false);
+
+            v.onDataChanged({ dataViews: [dataView] });
+
+            setTimeout(() => {
+                expect($(".labelGraphicsContext")).toBeInDOM();
+                expect($(".labelGraphicsContext .label").length).toBe(3);
+                expect($(".labelGraphicsContext .label").first().css('font-size')).toBe(PixelConverter.fromPoint(18));
 
                 done();
             }, DefaultWaitForRender);
@@ -912,8 +949,8 @@ module powerbitests {
     });
 
     describe("Filled Map DOM Tests", () => {
-        var visualBuilder: MapVisualBuilder;
-        var v: powerbi.IVisual;
+        let visualBuilder: MapVisualBuilder;
+        let v: powerbi.IVisual;
 
         beforeEach(() => {
             visualBuilder = new MapVisualBuilder();
@@ -921,7 +958,7 @@ module powerbitests {
         });
 
         it("should create map chart element", (done) => {
-            var dataView = new MapDataBuilder().build(false, false);
+            let dataView = new MapDataBuilder().build(false, false);
             v.onDataChanged({ dataViews: [dataView] });
 
             setTimeout(() => {
@@ -931,13 +968,29 @@ module powerbitests {
             }, DefaultWaitForRender);
         });
 
+        it("Should draw category labels when enabled, plus stems", function (done) {
+            var dataView = new MapDataBuilder().withCategoryLabels().withShortCategoryNames().build(false, false);
+            v.onDataChanged({ dataViews: [dataView] });
+            setTimeout(function () {
+
+                expect($(".labelGraphicsContext")).toBeInDOM();
+                expect($(".labelGraphicsContext .label").length).toBe(3);
+                expect($(".labelGraphicsContext .label").first().css('font-size')).toBe(PixelConverter.fromPoint(dataLabelUtils.DefaultFontSizeInPt));
+
+                expect($(".leader-lines")).toBeInDOM();
+                expect($(".leader-lines .line-label").length).toBe(3);
+                
+                done();
+            }, powerbitests.DefaultWaitForRender);
+        });
+
         it("should have path for each category", (done) => {
-            var dataBuilder = new MapDataBuilder();
-            var dataView = dataBuilder.build(false, false);
+            let dataBuilder = new MapDataBuilder();
+            let dataView = dataBuilder.build(false, false);
             v.onDataChanged({ dataViews: [dataView] });
 
             setTimeout(() => {
-                var shapes = getShapes();
+                let shapes = getShapes();
                 expect(shapes.length).toBe(dataBuilder.categoryValues.length);
 
                 done();
@@ -945,10 +998,10 @@ module powerbitests {
         });
 
         it("should raise warning with address data", (done) => {
-            var warningSpy = jasmine.createSpy('setWarnings');
+            let warningSpy = jasmine.createSpy('setWarnings');
             visualBuilder.host.setWarnings = warningSpy;
-            var dataBuilder = new MapDataBuilder();
-            var dataView = dataBuilder.withAddresses().build(false, false);
+            let dataBuilder = new MapDataBuilder();
+            let dataView = dataBuilder.withAddresses().build(false, false);
             v.onDataChanged({ dataViews: [dataView] });
 
             setTimeout(() => {
@@ -959,12 +1012,12 @@ module powerbitests {
         });
 
         it("should gracefully handle null data", (done) => {
-            var dataBuilder = new MapDataBuilder();
-            var dataView = dataBuilder.withNullValue().build(true, false);
+            let dataBuilder = new MapDataBuilder();
+            let dataView = dataBuilder.withNullValue().build(true, false);
             v.onDataChanged({ dataViews: [dataView] });
 
             setTimeout(() => {
-                var shapes = getShapes();
+                let shapes = getShapes();
                 expect(shapes.length).toBe(dataBuilder.categoryValues.length - 1);
 
                 done();
@@ -1021,6 +1074,51 @@ module powerbitests {
         });
     });
 
+    describe("Filled Map label data point creation", () => {
+        let v: powerbi.IVisual;
+
+        beforeEach(() => {
+            v = new MapVisualBuilder().build(true);
+        });
+
+        it("Label data points have correct text", () => {
+            let dataView = new MapDataBuilder().withCategoryLabels().build(false, false);
+            v.onDataChanged({ dataViews: [dataView] });
+
+            let labelDataPoints = callCreateLabelDataPoints(v);
+            expect(labelDataPoints[0].text).toEqual("Montana");
+            expect(labelDataPoints[1].text).toEqual("California");
+            expect(labelDataPoints[2].text).toEqual("Arizona");
+        });
+
+        it("Label data points have correct default fill", () => {
+            let dataView = new MapDataBuilder().withCategoryLabels().build(false, false);
+            v.onDataChanged({ dataViews: [dataView] });
+
+            let labelDataPoints = callCreateLabelDataPoints(v);
+            helpers.assertColorsMatch(labelDataPoints[0].outsideFill, powerbi.visuals.NewDataLabelUtils.defaultInsideLabelColor);
+            helpers.assertColorsMatch(labelDataPoints[1].outsideFill, powerbi.visuals.NewDataLabelUtils.defaultInsideLabelColor);
+            helpers.assertColorsMatch(labelDataPoints[2].outsideFill, powerbi.visuals.NewDataLabelUtils.defaultInsideLabelColor);
+            helpers.assertColorsMatch(labelDataPoints[0].insideFill, powerbi.visuals.NewDataLabelUtils.defaultInsideLabelColor);
+            helpers.assertColorsMatch(labelDataPoints[1].insideFill, powerbi.visuals.NewDataLabelUtils.defaultInsideLabelColor);
+            helpers.assertColorsMatch(labelDataPoints[2].insideFill, powerbi.visuals.NewDataLabelUtils.defaultInsideLabelColor);
+        });
+
+        it("Label data points have correct fill", () => {
+            let labelColor = "#ffffff";
+            let dataView = new MapDataBuilder().withCategoryLabels(labelColor).build(false, false);
+            v.onDataChanged({ dataViews: [dataView] });
+
+            let labelDataPoints = callCreateLabelDataPoints(v);
+            helpers.assertColorsMatch(labelDataPoints[0].outsideFill, labelColor);
+            helpers.assertColorsMatch(labelDataPoints[1].outsideFill, labelColor);
+            helpers.assertColorsMatch(labelDataPoints[2].outsideFill, labelColor);
+            helpers.assertColorsMatch(labelDataPoints[0].insideFill, powerbi.visuals.NewDataLabelUtils.defaultInsideLabelColor);
+            helpers.assertColorsMatch(labelDataPoints[1].insideFill, powerbi.visuals.NewDataLabelUtils.defaultInsideLabelColor);
+            helpers.assertColorsMatch(labelDataPoints[2].insideFill, powerbi.visuals.NewDataLabelUtils.defaultInsideLabelColor);
+        });
+    });
+
     function callCreateLabelDataPoints(v: powerbi.IVisual): powerbi.LabelDataPoint[]{
         let map = <any>v;
         return map.dataPointRenderer.createLabelDataPoints();
@@ -1052,8 +1150,8 @@ module powerbitests {
 
         private sizeValues: SeriesValues[] = [
             {
-                values: [100, 200, 300],
-                subtotal: 600,
+            values: [100, 200, 300],
+            subtotal: 600,
             }, {
                 values: [10, 20, 30],
                 subtotal: 60,
@@ -1067,7 +1165,7 @@ module powerbitests {
         ];
         private longitudeValues: SeriesValues[] = [
             {
-                values: [46.87, 37.81, 34.68],
+            values: [46.87, 37.81, 34.68],
                 subtotal: 119.36
             }, {
                 values: [460.87, 370.81, 340.68],
@@ -1082,8 +1180,8 @@ module powerbitests {
         ];
         private latitudeValues: SeriesValues[] = [
             {
-                values: [-114, -122.46, -111.76],
-                subtotal: -348.22
+            values: [-114, -122.46, -111.76],
+            subtotal: -348.22
             }, {
                 values: [-1140, -1220.46, -1110.76],
                 subtotal: -3471.22
@@ -1115,20 +1213,20 @@ module powerbitests {
             if (this.suppressCategories)
                 return;
 
-            dataViewMetadata.columns.push(this.categoryColumn);
+                dataViewMetadata.columns.push(this.categoryColumn);
 
             let categoryIdentities = this.categoryValues.map((v) => mocks.dataViewScopeIdentityWithEquality(this.categoryColumnExpr, v));
             var categories: powerbi.DataViewCategoryColumn[] = [{
-                source: this.categoryColumn,
-                values: this.categoryValues,
+                    source: this.categoryColumn,
+                    values: this.categoryValues,
                 identity: categoryIdentities,
-            }];
+                }];
 
             if (this.categoryObjects)
                 categories[0].objects = this.categoryObjects;
 
             return categories;
-        }
+            }
 
         public build(size: boolean, longLat: boolean, gradient: boolean = false): powerbi.DataView {
             var dataViewMetadata: powerbi.DataViewMetadata = {
@@ -1263,12 +1361,17 @@ module powerbitests {
             return this;
         }
 
+        public withNullCategory(): MapDataBuilder {
+            this.categoryValues[1] = null;
+            return this;
+        }
+
         public withNullValue(): MapDataBuilder {
             this.sizeValues[0].values[1] = null;
             return this;
         }
 
-        public withCategoryLabels(color?: string, labelDisplayUnits?: number, labelPrecision?: number): MapDataBuilder {
+        public withCategoryLabels(color?: string, labelDisplayUnits?: number, labelPrecision?: number, fontSize?: number): MapDataBuilder {
             if (!this.objects) {
                 this.objects = {};
             }
@@ -1278,6 +1381,7 @@ module powerbitests {
                 labelDisplayUnits: labelDisplayUnits,
                 labelPosition: undefined,
                 labelPrecision: labelPrecision,
+                fontSize: fontSize || dataLabelUtils.DefaultFontSizeInPt,
             };
             return this;
         };
@@ -1352,7 +1456,7 @@ module powerbitests {
                 createMapControl: (element, options) => {
                     return <any>(new mocks.MockMapControl(this._element[0], 500, 500));
                 },
-                ensureMap: (action: () => void) => {
+                ensureMap: (locale: string, action: () => void) => {
                     Microsoft.Maps = <any>mocks.MockMaps; // Hook the mock up to Microsoft.Maps for use in Map code
                     action();
                 },
@@ -1360,7 +1464,7 @@ module powerbitests {
         }
 
         public build(filledMap: boolean, minerva: boolean = false): powerbi.IVisual {
-            this._visual = new Map({ filledMap: filledMap, geocoder: this._testGeocoder, mapControlFactory: this._testMapControlFactory });
+            this._visual = new Map({ filledMap: filledMap, geocoder: this._testGeocoder, mapControlFactory: this._testMapControlFactory, filledMapDataLabelsEnabled: true });
             this._visual.init(this.buildInitOptions());
 
             return this._visual;
@@ -1394,5 +1498,5 @@ module powerbitests {
 
 // Declaration of the Microsoft.Maps module with something inside it so it actually gets compiled
 module Microsoft.Maps {
-    export var mock;
+    export let mock;
 }

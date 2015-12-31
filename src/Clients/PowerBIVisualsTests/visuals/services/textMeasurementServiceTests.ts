@@ -35,7 +35,7 @@ module powerbitests {
 
         describe('measureSvgTextElementWidth', () => {
             it('svg text element', () => {
-                var element = $("<text>")
+                let element = $("<text>")
                     .text("PowerBI rocks!")
                     .css({
                         "font-family": "Arial",
@@ -52,8 +52,8 @@ module powerbitests {
         });
 
         it("measureSvgTextWidth", () => {
-            var getTextWidth = (fontSize: number) => {
-                var textProperties: TextProperties = {
+            let getTextWidth = (fontSize: number) => {
+                let textProperties: TextProperties = {
                     fontFamily: "Arial",
                     fontSize: fontSize + "px",
                     text: "PowerBI rocks!",
@@ -66,8 +66,8 @@ module powerbitests {
         });
 
         it("estimateSvgTextHeight", () => {
-            var getTextHeight = (fontSize: number) => {
-                var textProperties: TextProperties = {
+            let getTextHeight = (fontSize: number) => {
+                let textProperties: TextProperties = {
                     fontFamily: "Arial",
                     fontSize: fontSize + "px",
                     text: "PowerBI rocks!",
@@ -79,9 +79,23 @@ module powerbitests {
             expect(getTextHeight(10)).toBeLessThan(getTextHeight(12));
         });
 
+        it("estimateSvgTextHeight numeric", () => {
+            let getTextHeight = (fontSize: number, numeric) => {
+                let textProperties: TextProperties = {
+                    fontFamily: "Arial",
+                    fontSize: fontSize + "px",
+                    text: "PowerBI rocks!",
+                };
+
+                return TextMeasurementService.estimateSvgTextHeight(textProperties, numeric);
+            };
+
+            expect(getTextHeight(12, true)).toBeLessThan(getTextHeight(12, false));
+        });
+
         it("measureSvgTextHeight", () => {
-            var getTextHeight = (fontSize: number) => {
-                var textProperties: TextProperties = {
+            let getTextHeight = (fontSize: number) => {
+                let textProperties: TextProperties = {
                     fontFamily: "Arial",
                     fontSize: fontSize + "px",
                     text: "PowerBI rocks!",
@@ -93,7 +107,7 @@ module powerbitests {
         });
 
         it("getMeasurementProperties", () => {
-            var element = $("<text>")
+            let element = $("<text>")
                 .text("PowerBI rocks!")
                 .css({
                     "font-family": "Arial",
@@ -104,8 +118,8 @@ module powerbitests {
                 });
             attachToDom(element);
 
-            var properties = TextMeasurementService.getMeasurementProperties(element);
-            var expectedProperties: TextProperties = {
+            let properties = TextMeasurementService.getMeasurementProperties(element);
+            let expectedProperties: TextProperties = {
                 fontFamily: "Arial",
                 fontSize: "11px",
                 fontWeight: "bold",
@@ -119,8 +133,8 @@ module powerbitests {
 
         describe("getSvgMeasurementProperties", () => {
             it("svg text element", () => {
-                var svg = $("<svg>");
-                var element = $("<text>")
+                let svg = $("<svg>");
+                let element = $("<text>")
                     .text("PowerBI rocks!")
                     .css({
                         "font-family": "Arial",
@@ -132,8 +146,8 @@ module powerbitests {
                 svg.append(element);
                 attachToDom(svg);
 
-                var properties = TextMeasurementService.getSvgMeasurementProperties(<any>element[0]);
-                var expectedProperties: TextProperties = {
+                let properties = TextMeasurementService.getSvgMeasurementProperties(<any>element[0]);
+                let expectedProperties: TextProperties = {
                     fontFamily: "Arial",
                     fontSize: "11px",
                     fontWeight: "bold",
@@ -148,7 +162,7 @@ module powerbitests {
 
         describe('getTailoredTextOrDefault', () => {
             it("without ellipsis", () => {
-                var properties: TextProperties = {
+                let properties: TextProperties = {
                     fontFamily: "Arial",
                     fontSize: "11px",
                     fontWeight: "bold",
@@ -157,13 +171,13 @@ module powerbitests {
                     text: "PowerBI rocks!",
                 };
 
-                var text = TextMeasurementService.getTailoredTextOrDefault(properties, 100);
+                let text = TextMeasurementService.getTailoredTextOrDefault(properties, 100);
 
                 expect(text).toEqual("PowerBI rocks!");
             });
 
             it("with ellipsis", () => {
-                var properties: TextProperties = {
+                let properties: TextProperties = {
                     fontFamily: "Arial",
                     fontSize: "11px",
                     fontWeight: "bold",
@@ -172,7 +186,7 @@ module powerbitests {
                     text: "PowerBI rocks!",
                 };
 
-                var text = TextMeasurementService.getTailoredTextOrDefault(properties, 45);
+                let text = TextMeasurementService.getTailoredTextOrDefault(properties, 45);
 
                 expect(jsCommon.StringExtensions.endsWith(text, Ellipsis)).toBeTruthy();
                 expect(jsCommon.StringExtensions.startsWithIgnoreCase(text, 'Pow')).toBeTruthy();
@@ -181,100 +195,173 @@ module powerbitests {
 
         describe('svgEllipsis', () => {
             it("with ellipsis", () => {
-                var element = createSvgTextElement("PowerBI rocks!");
+                let element = createSvgTextElement("PowerBI rocks!");
                 attachToDom(element);
 
                 TextMeasurementService.svgEllipsis(<any>element[0], 20);
 
-                var text = $(element).text();
+                let text = $(element).text();
                 expect(jsCommon.StringExtensions.endsWith(text, Ellipsis)).toBeTruthy();
             });
 
             it("without ellipsis", () => {
-                var element = createSvgTextElement("PowerBI rocks!");
+                let element = createSvgTextElement("PowerBI rocks!");
                 attachToDom(element);
 
                 TextMeasurementService.svgEllipsis(<any>element[0], 100);
 
-                var text = $(element).text();
+                let text = $(element).text();
                 expect(text).toEqual("PowerBI rocks!");
             });
         });
 
         describe('wordBreak', () => {
             it('with no breaks', () => {
-                var originalText = "ContentWithNoBreaks!";
-                var element = createSvgTextElement(originalText);
+                let originalText = "ContentWithNoBreaks!";
+                let element = createSvgTextElement(originalText);
                 attachToDom(element);
 
                 TextMeasurementService.wordBreak(<any>element[0], 25 /* maxLength */, 20 * 1 /* maxHeight */);
 
-                var text = $(element).text();
+                let text = $(element).text();
                 expect($(element).find('tspan').length).toBe(1);
                 expect(jsCommon.StringExtensions.endsWith(text, Ellipsis)).toBeTruthy();
             });
 
             it('with breaks and ellipses', () => {
-                var originalText = "PowerBI rocks!";
-                var element = createSvgTextElement(originalText);
+                let originalText = "PowerBI rocks!";
+                let element = createSvgTextElement(originalText);
                 attachToDom(element);
 
                 TextMeasurementService.wordBreak(<any>element[0], 25 /* maxLength */, 20 * 2 /* maxHeight */);
 
-                var text = $(element).text();
+                let text = $(element).text();
                 expect($(element).find('tspan').length).toBe(2);
                 expect(text.match(RegExp(Ellipsis, 'g')).length).toBe(2);
             });
 
             it('with breaks but forced to single line', () => {
-                var originalText = "PowerBI rocks!";
-                var element = createSvgTextElement(originalText);
+                let originalText = "PowerBI rocks!";
+                let element = createSvgTextElement(originalText);
                 attachToDom(element);
 
                 TextMeasurementService.wordBreak(<any>element[0], 25 /* maxLength */, 20 * 1 /* maxHeight */);
 
-                var text = $(element).text();
+                let text = $(element).text();
                 expect($(element).find('tspan').length).toBe(1);
                 expect(jsCommon.StringExtensions.endsWith(text, Ellipsis)).toBeTruthy();
             });
 
             it('with breaks but forced to single line due to low max height', () => {
-                var originalText = "PowerBI rocks!";
-                var element = createSvgTextElement(originalText);
+                let originalText = "PowerBI rocks!";
+                let element = createSvgTextElement(originalText);
                 attachToDom(element);
 
                 TextMeasurementService.wordBreak(<any>element[0], 25 /* maxLength */, 1 /* maxHeight */);
 
-                var text = $(element).text();
+                let text = $(element).text();
                 expect($(element).find('tspan').length).toBe(1);
                 expect(jsCommon.StringExtensions.endsWith(text, Ellipsis)).toBeTruthy();
             });
 
             it('with breaks multiple words on each line', () => {
-                var originalText = "The Quick Brown Fox Jumped Over The Lazy Dog";
-                var element = createSvgTextElement(originalText);
+                let originalText = "The Quick Brown Fox Jumped Over The Lazy Dog";
+                let element = createSvgTextElement(originalText);
                 attachToDom(element);
 
                 TextMeasurementService.wordBreak(<any>element[0], 75 /* maxLength */, 20 * 3 /* maxHeight */);
 
-                var text = $(element).text();
+                let text = $(element).text();
                 expect($(element).find('tspan').length).toBe(3);
                 expect(jsCommon.StringExtensions.endsWith(text, Ellipsis)).toBeTruthy();
             });
         });
 
+        describe('wordBreakOverflowingText', () => {
+            it('with no breaks', () => {
+                var originalText = "ContentWithNoBreaks!";
+                var element = createSpanElement(originalText);
+                attachToDom(element);
+
+                TextMeasurementService.wordBreakOverflowingText(<any>element[0], 25 /* maxLength */, 20 * 1 /* maxHeight */);
+                var children = getChildren(element);
+                expect(children.length).toBe(1);
+                helpers.verifyEllipsisActive(children.first());
+            });
+
+            it('with breaks and ellipses', () => {
+                var originalText = "PowerBI rocks!";
+                var element = createSpanElement(originalText);
+                attachToDom(element);
+
+                TextMeasurementService.wordBreakOverflowingText(<any>element[0], 25 /* maxLength */, 20 * 2 /* maxHeight */);
+
+                var children = getChildren(element);
+                expect(children.length).toBe(2);
+                helpers.verifyEllipsisActive(children.first());
+                helpers.verifyEllipsisActive(children.last());
+            });
+
+            it('with breaks but forced to single line', () => {
+                var originalText = "PowerBI rocks!";
+                var element = createSpanElement(originalText);
+                attachToDom(element);
+
+                TextMeasurementService.wordBreakOverflowingText(<any>element[0], 25 /* maxLength */, 20 * 1 /* maxHeight */);
+
+                var children = getChildren(element);
+                expect(children.length).toBe(1);
+                helpers.verifyEllipsisActive(children.first());
+            });
+
+            it('with breaks but forced to single line due to low max height', () => {
+                var originalText = "PowerBI rocks!";
+                var element = createSpanElement(originalText);
+                attachToDom(element);
+
+                TextMeasurementService.wordBreakOverflowingText(<any>element[0], 25 /* maxLength */, 1 /* maxHeight */);
+
+                var children = getChildren(element);
+                expect(children.length).toBe(1);
+                helpers.verifyEllipsisActive(children.first());
+            });
+
+            it('with breaks multiple words on each line', () => {
+                var originalText = "The Quick Brown Fox Jumped Over The Lazy Dog";
+                var element = createSpanElement(originalText);
+                attachToDom(element);
+
+                TextMeasurementService.wordBreakOverflowingText(<any>element[0], 75 /* maxLength */, 20 * 3 /* maxHeight */);
+
+                var children = getChildren(element);
+                expect(children.length).toBe(3);
+                helpers.verifyEllipsisActive(children.last());
+            });
+
+            function getChildren(element: JQuery): JQuery {
+                return $(element).children();
+            }
+        });
+
         function attachToDom(element: JQuery|Element): JQuery {
-            var dom = powerbitests.helpers.testDom('100px', '100px');
+            let dom = powerbitests.helpers.testDom('100px', '100px');
             dom.append([element]);
             return dom;
         }
 
         function createSvgTextElement(text: string): SVGTextElement {
-            var svg = $("<svg>");
-            var element = d3.select($("<text>").get(0)).text(text);
+            let svg = $("<svg>");
+            let element = d3.select($("<text>").get(0)).text(text);
             svg.append(element);
 
             return element[0];
+        }
+
+        function createSpanElement(text: string): JQuery {
+            var element = $("<span>");
+            element.text(text);
+            
+            return element;
         }
     });
 }

@@ -27,7 +27,7 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var cheerMeterCapabilities: VisualCapabilities = {
+    export const cheerMeterCapabilities: VisualCapabilities = {
         dataRoles: [
             {
                 name: 'Category',
@@ -36,6 +36,7 @@ module powerbi.visuals {
             {
                 name: 'Y',
                 kind: VisualDataRoleKind.Measure,
+                requiredTypes: [{ numeric: true }, { integer: true }],
             },
         ],
         dataViewMappings: [{

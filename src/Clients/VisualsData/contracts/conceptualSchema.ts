@@ -63,7 +63,7 @@ module powerbi.data {
             let variationProperty = variationEntity.properties.withName(variationColumnName);
             if (!variationProperty)
                 return;
-            
+
             let variationColumn = variationProperty.column;
             if (!variationColumn || _.isEmpty(variationColumn.variations))
                 return;
@@ -100,6 +100,7 @@ module powerbi.data {
 
     export interface ConceptualCapabilities {
         discourageQueryAggregateUsage: boolean;
+        normalizedFiveStateKpiRange: boolean;
         supportsMedian: boolean;
         supportsPercentile: boolean;
     }
@@ -173,7 +174,7 @@ module powerbi.data {
     }
 
     export interface ConceptualPropertyKpi {
-        statusGraphic: string;
+        statusMetadata: DataViewKpiColumnMetadata;
         status?: ConceptualProperty;
         goal?: ConceptualProperty;
     }

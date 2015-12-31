@@ -1,6 +1,6 @@
 {
     "name": "powerbi-visuals",
-    "version": "0.2.4",
+    "version": "0.2.9",
     "description": "Microsoft PowerBI Visuals",  
     "devDependencies": {
         "fs": "0.0.2",
@@ -35,9 +35,6 @@
         "express": "4.13.3",
         "q": "^1.4.1",
         "stream-consume": "^0.1.0"
-    },
-    "scripts": {
-        "preinstall": "npm install -g gulp"
     },
     "author": "Microsoft PowerBI Visuals",
     "license": "MIT",
