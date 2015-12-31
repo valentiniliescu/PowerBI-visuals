@@ -26,9 +26,8 @@
 
 /// <reference path="../_references.ts"/>
 
-module powerbi.visuals {   
-
-    export module CartesianHelper {        
+module powerbi.visuals {
+    export module CartesianHelper {
         export function getCategoryAxisProperties(dataViewMetadata: DataViewMetadata, axisTitleOnByDefault?: boolean): DataViewObject {
             let toReturn: DataViewObject = {};
             if (!dataViewMetadata)
@@ -50,7 +49,7 @@ module powerbi.visuals {
                         axisStyle: categoryAxisObject['axisStyle'],
                         labelColor: categoryAxisObject['labelColor'],
                         labelDisplayUnits: categoryAxisObject['labelDisplayUnits'],
-                        labelPrecision: categoryAxisObject['labelPrecision']
+                        labelPrecision: categoryAxisObject['labelPrecision'],
                     };
                 }
             }
@@ -69,10 +68,10 @@ module powerbi.visuals {
                 if (valueAxisObject) {
                     toReturn = {
                         show: valueAxisObject['show'],
-                        position: valueAxisObject['position'],   
-                        axisScale: valueAxisObject['axisScale'],                      
+                        position: valueAxisObject['position'],
+                        axisScale: valueAxisObject['axisScale'],
                         start: valueAxisObject['start'],
-                        end: valueAxisObject['end'],                        
+                        end: valueAxisObject['end'],
                         showAxisTitle: valueAxisObject['showAxisTitle'] == null ? axisTitleOnByDefault : valueAxisObject['showAxisTitle'],
                         axisStyle: valueAxisObject['axisStyle'],
                         labelColor: valueAxisObject['labelColor'],
@@ -87,7 +86,7 @@ module powerbi.visuals {
                         secAxisStyle: valueAxisObject['secAxisStyle'],
                         secLabelColor: valueAxisObject['secLabelColor'],
                         secLabelDisplayUnits: valueAxisObject['secLabelDisplayUnits'],
-                        secLabelPrecision: valueAxisObject['secLabelPrecision'],     
+                        secLabelPrecision: valueAxisObject['secLabelPrecision'],
                     };
                 }
             }
@@ -109,7 +108,46 @@ module powerbi.visuals {
                 }
                 return <number>precision;
             }
-            return null;            
+            return null;
+        }
+
+        export function lookupXValue(data: CartesianData, index: number, type: ValueType, isScalar: boolean): any {
+            debug.assertValue(data, 'data');
+            debug.assertValue(type, 'type');
+
+            let isDateTime = AxisHelper.isDateTime(type);
+
+            if (isScalar) {
+                if (isDateTime)
+                    return new Date(index);
+
+                // index is the numeric value
+                return index;
+            }
+
+            if (type.text) {
+                debug.assert(index < data.categories.length, 'category index out of range');
+                return data.categories[index];
+            }
+
+            if (data && data.series && data.series.length > 0) {
+                let firstSeries = data.series[0];
+                if (firstSeries) {
+                    let seriesValues = firstSeries.data;
+                    if (seriesValues) {
+                        if (data.hasHighlights)
+                            index = index * 2;
+                        let dataAtIndex = seriesValues[index];
+                        if (dataAtIndex) {
+                            if (isDateTime && dataAtIndex.categoryValue != null)
+                                return new Date(dataAtIndex.categoryValue);
+                            return dataAtIndex.categoryValue;
+                        }
+                    }
+                }
+            }
+
+            return index;
         }
     }
 }

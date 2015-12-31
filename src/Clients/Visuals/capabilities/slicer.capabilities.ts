@@ -27,7 +27,7 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var slicerCapabilities: VisualCapabilities = {
+    export const slicerCapabilities: VisualCapabilities = {
         dataRoles: [
             {
                 name: 'Values',
@@ -59,13 +59,17 @@ module powerbi.visuals {
                         type: { formatting: { formatString: true } },
                     },
                     outlineColor: {
-                        displayName: data.createDisplayNameGetter('Visual_outlineColor'),
+                        displayName: data.createDisplayNameGetter('Visual_OutlineColor'),
                         type: { fill: { solid: { color: true } } }
                     },
                     outlineWeight: {
-                        displayName: data.createDisplayNameGetter('Visual_outlineWeight'),
+                        displayName: data.createDisplayNameGetter('Visual_OutlineWeight'),
                         type: { numeric: true }
-                    }
+                    },
+                    orientation: {
+                        displayName: data.createDisplayNameGetter('Slicer_Orientation'),
+                        type: { enumeration: slicerOrientation.type }
+                    },
                 },
             },
             selection: {
@@ -106,8 +110,8 @@ module powerbi.visuals {
                     },
                 }
             },
-            Rows: {
-                displayName: data.createDisplayNameGetter('Role_DisplayName_Rows'),
+            items: {
+                displayName: data.createDisplayNameGetter('Role_DisplayName_Items'),
                 properties: {
                     fontColor: {
                         displayName: data.createDisplayNameGetter('Visual_FontColor'),
@@ -146,10 +150,11 @@ module powerbi.visuals {
     };
 
     // TODO: Generate these from above, defining twice just introduces potential for error
-    export var slicerProps = {
+    export const slicerProps = {
         general: {
             outlineColor: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'outlineColor' },
-            outlineWeight: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'outlineWeight' }
+            outlineWeight: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'outlineWeight' },
+            orientation: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'orientation' },
         },
         selection: {
             selectAllCheckboxEnabled: <DataViewObjectPropertyIdentifier>{ objectName: 'selection', propertyName: 'selectAllCheckboxEnabled' },
@@ -162,11 +167,11 @@ module powerbi.visuals {
             outline: <DataViewObjectPropertyIdentifier>{ objectName: 'header', propertyName: 'outline' },
             textSize: <DataViewObjectPropertyIdentifier>{ objectName: 'header', propertyName: 'textSize' },
         },
-        Rows: {
-            fontColor: <DataViewObjectPropertyIdentifier>{ objectName: 'Rows', propertyName: 'fontColor' },
-            background: <DataViewObjectPropertyIdentifier>{ objectName: 'Rows', propertyName: 'background' },
-            outline: <DataViewObjectPropertyIdentifier>{ objectName: 'Rows', propertyName: 'outline' },
-            textSize: <DataViewObjectPropertyIdentifier>{ objectName: 'Rows', propertyName: 'textSize' },
+        items: {
+            fontColor: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'fontColor' },
+            background: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'background' },
+            outline: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'outline' },
+            textSize: <DataViewObjectPropertyIdentifier>{ objectName: 'items', propertyName: 'textSize' },
         },
         selectedPropertyIdentifier: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'selected' },
         filterPropertyIdentifier: <DataViewObjectPropertyIdentifier> { objectName: 'general', propertyName: 'filter' },

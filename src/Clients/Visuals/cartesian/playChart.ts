@@ -28,6 +28,10 @@
 
 module powerbi.visuals {
 
+    export interface PlayableVisual {
+        renderAtFrameIndex(frameIndex: number): void;
+    }
+
     // TODO: use templating for the base visual datapoint class (allViewModels: T[][])
     //      export interface PlayChartData<T> {
     // TODO: consider organizing better with logical grouping, like playData.state = {isPlaying,currentFrameIndex,etc}, and .elements = {playContainer,playButton,slider,callout,etc}
@@ -44,6 +48,8 @@ module powerbi.visuals {
         isPlaying?: boolean;
 
         element?: JQuery;
+        svg?: JQuery;
+
         playAxisContainer?: JQuery; //contains the playButton and slider
         playButton?: JQuery;
         playButtonCircle?: JQuery;
@@ -54,6 +60,8 @@ module powerbi.visuals {
         // NOTE: calling persistProperties will still cause a render() call to come from cartesianChart
         // TODO: make persist properties only optionally trigger a new onDataChagned, as most charts don't want this (only slicer needs it)
         ridiculousFlagForPersistProperties?: boolean;
+
+        renderAtFrameIndexFn?(frameIndex: number): void;
     }
 
     // TODO: consider a template for the datapoint type <T> instead of any[]
@@ -75,15 +83,30 @@ module powerbi.visuals {
         currentFrameIndex?: number;
     }
 
+    interface PlayLabelInfo {
+        label: string;
+        labelWidth: number;
+    }
+
+    interface PlayLabelData {
+        labelInfo: PlayLabelInfo[];
+        anyWordBreaks: boolean;
+    }
+
     export module PlayChart {
-        var FrameStepDuration = 1000;
-        export var FrameAnimationDuration = 950;
-        var SliderMarginLeft = 50; //margin + playButton width
-        var SliderMarginRight = 35;
-        export var ClassName = 'playChart';
+        // TODO: add speed control to property pane
+        // NOTE: current noUiSlider speed is a CSS property of the class .noUi-state-tap, and also is hard-coded in noUiSlider.js. We'll need to add a new create param for transition time.
+        // 800ms matches Silverlight frame speed
+        const FrameStepDuration = 800;
+        export const FrameAnimationDuration = 750; //leave 50ms for the traceline animation - to avoid being cancelled. TODO: add a proper wait impl.
+        const SliderMarginLeft = 15 + 24 + 10*2; //left margin + playButton width + playButton margin
+        const SliderMarginRight = 20;
+        const SliderMaxMargin = 100;
+        export const ClassName = 'playChart';
 
         export function init(options: CartesianVisualInitOptions, playData: PlayChartData) {
             playData.element = options.element;
+            playData.svg = options.svg ? $(options.svg.node()) : null;
             playData.currentViewport = {
                 height: options.viewport.height,
                 width: options.viewport.width
@@ -92,70 +115,125 @@ module powerbi.visuals {
         }
 
         export function convertMatrixToCategorical(matrix: DataViewMatrix, frame: number): DataViewCategorical {
-            var node = matrix.rows.root.children[frame];
 
-            var categorical: DataViewCategorical = {
+            let categorical: DataViewCategorical = {
                 categories: [],
                 values: powerbi.data.DataViewTransform.createValueColumns()
             };
 
+            // If we only have a Play field, we don't have series or categories, then just return early
+            if (matrix.rows.levels.length < 2 && matrix.columns.levels.length === 0)
+                return categorical;
+
             let category: DataViewCategoryColumn = {
-                source: matrix.rows.levels.length > 1 ? matrix.rows.levels[1].sources[0] : undefined,
+                source: matrix.rows.levels.length > 1 ? matrix.rows.levels[1].sources[0] : matrix.columns.levels[0].sources[0],
                 values: [],
                 objects: undefined,
                 identity: []
             };
 
-            if (matrix.columns.levels.length > 1) {
+            // Matrix shape for Play:
+            //
+            //                   Series1 | Series2 | ...
+            //                  --------- --------  
+            // Play1 | Category1 | values  | values
+            //       | Category2 | values  | values
+            //       | ...
+            // Play2 | Category1 | values  | values
+            //       | Category2 | values  | values
+            // ...
+
+            // we are guaranteed at least one row (it will be the Play field)
+            let hasRowChildren = matrix.rows.root.children;
+            let hasColChildren = matrix.columns.root.children;
+            let hasSeries = matrix.columns.levels.length > 1 && hasColChildren;
+            let hasPlayAndCategory = matrix.rows.levels.length > 1 && hasRowChildren;
+
+            if (hasSeries && !hasPlayAndCategory) {
+                // special case - series but no categories - use series as categories
+                
+                // set categories to undefined
+                categorical.categories = undefined;
+
+                let node = matrix.columns.root;
                 categorical.values.source = matrix.columns.levels[0].sources[0];
-                let leafOfGroup = matrix.columns.root;
-                while (leafOfGroup.children && leafOfGroup.children[0].children) {
-                    leafOfGroup = leafOfGroup.children[0];
+                let columnLength = matrix.valueSources.length;
+                for (let i = 0, len = node.children.length; i < len; i++) {
+                    // add all the value sources for each series
+                    let columnNode = node.children[i];
+                    for (let j = 0; j < columnLength; j++) {
+                        let source = <any>_.create(matrix.valueSources[j], { groupName: columnNode.value });
+                        let dataViewColumn: DataViewValueColumn = {
+                            identity: columnNode.identity,
+                            values: [],
+                            source: source
+                        };
+                        categorical.values.push(dataViewColumn);
+                    }
                 }
 
+                let innerValueNode = matrix.rows.root.children[frame];
+                for (let i = 0, len = node.children.length; i < len; i++) {
+                    for (let j = 0; j < columnLength; j++) {
+                        categorical.values[i * columnLength + j].values.push(innerValueNode.values[i * columnLength + j].value);
+                    }
+                }
+            }
+            else if (hasSeries && hasRowChildren) {
+                // series and categories
+                let node = matrix.rows.root.children[frame];
+                
+                // create the categories first
+                for (let i = 0, len = node.children.length; i < len; i++) {
+                    let innerNode = node.children[i];
+                    category.identity.push(innerNode.identity);
+                    category.values.push(innerNode.value);
+                }
+
+                // now add the series info
+                categorical.values.source = matrix.columns.levels[0].sources[0];
                 let nodeQueue = [];
                 let columnNode = matrix.columns.root;
-                let leafOffset = 0;
+                let seriesIndex = -1;
                 while (columnNode) {
                     if (columnNode.children && columnNode.children[0].children) {
-                        for (var j = 0, jlen = columnNode.children.length; j < jlen; j++) {
+                        for (let j = 0, jlen = columnNode.children.length; j < jlen; j++) {
+                            // each of these is a "series"
                             nodeQueue.push(columnNode.children[j]);
                         }
-                    } else if (columnNode.children) {
+                    } else if (columnNode.children && node.children) {
+                        // Processing a single series under here, push all the value sources for every series.
                         let columnLength = columnNode.children.length;
                         for (let j = 0; j < columnLength; j++) {
                             let source = <any>_.create(matrix.valueSources[j], { groupName: columnNode.value });
                             let dataViewColumn: DataViewValueColumn = {
                                 identity: columnNode.identity,
-                                values: [columnNode.value],
+                                values: [],
                                 source: source,
-                                //value: columnNode.value,
                             };
                             categorical.values.push(dataViewColumn);
                         }
-
                         for (let i = 0, len = node.children.length; i < len; i++) {
                             let innerNode = node.children[i];
-                            category.identity.push(innerNode.identity);
-                            category.values.push(innerNode.value);
-
                             for (let j = 0; j < columnLength; j++) {
-                                categorical.values[j+leafOffset].values.push(innerNode.values[j+leafOffset].value);
+                                categorical.values[seriesIndex * columnLength + j].values.push(innerNode.values[seriesIndex * columnLength + j].value);
                             }
                         }
-
-                        leafOffset += columnLength;
                     }
 
                     if (nodeQueue.length > 0) {
                         columnNode = nodeQueue[0];
                         nodeQueue = nodeQueue.splice(1);
+                        seriesIndex++;
                     } else
                         columnNode = undefined;
                 }
-            } else {
-                let columnLength = matrix.columns.root.children.length;
-                for (let j = 0; j < columnLength; j++) {
+            }
+            else if (hasPlayAndCategory) {
+                // no series, just play and category
+                let node = matrix.rows.root.children[frame];
+                let measureLength = matrix.valueSources.length;
+                for (let j = 0; j < measureLength; j++) {
                     let dataViewColumn: DataViewValueColumn = {
                         identity: undefined,
                         values: [],
@@ -169,13 +247,14 @@ module powerbi.visuals {
                     category.identity.push(innerNode.identity);
                     category.values.push(innerNode.value);
 
-                    // v1, no series.
-                    for (let j = 0; j < columnLength; j++) {
+                    for (let j = 0; j < measureLength; j++) {
                         categorical.values[j].values.push(innerNode.values[j].value);
                     }
                 }
             }
-            categorical.categories.push(category);
+
+            if (categorical.categories)
+                categorical.categories.push(category);
 
             return categorical;
         }
@@ -184,7 +263,7 @@ module powerbi.visuals {
             let objectProperties: PlayObjectProperties = {};
 
             if (dataViewMetadata && dataViewMetadata.objects) {
-                var objects = dataViewMetadata.objects;
+                let objects = dataViewMetadata.objects;
                 objectProperties.currentFrameIndex = DataViewObjects.getValue(objects, scatterChartProps.currentFrameIndex.index, null);
             }
             return objectProperties;
@@ -194,25 +273,26 @@ module powerbi.visuals {
             dataView: DataView,
             visualConverter: (dataView: DataView, options: any) => any,
             visualConverterOptions: any): PlayChartData {
-            
+
             let dataViewMetadata: DataViewMetadata = dataView.metadata;
-            
+
             let dataLabelsSettings = dataLabelUtils.getDefaultPointLabelSettings();
             let objectProperties = getObjectProperties(dataViewMetadata, dataLabelsSettings);
 
             let allViewModels = [];
             let frameKeys = [];
             let currentViewModel = undefined;
-            let rowChildrenLength = dataView.matrix.rows.root.children.length;
-            if (!dataView.categorical && dataView.matrix && rowChildrenLength > 0) {
-                let keySourceColumn = dataView.matrix.rows.levels[0].sources[0];
+            let matrixRows = dataView.matrix.rows;
+            let rowChildrenLength = matrixRows.root.children ? matrixRows.root.children.length : 0;
+            if (dataView.matrix && rowChildrenLength > 0) {
+                let keySourceColumn = matrixRows.levels[0].sources[0];
                 let keyFormatter = valueFormatter.create({
                     format: valueFormatter.getFormatString(keySourceColumn, scatterChartProps.general.formatString),
-                    value: dataView.matrix.rows.root.children[0],
-                    value2: dataView.matrix.rows.root.children[rowChildrenLength-1],
+                    value: matrixRows.root.children[0],
+                    value2: matrixRows.root.children[rowChildrenLength - 1],
                 });
                 for (let i = 0, len = rowChildrenLength; i < len; i++) {
-                    var key = dataView.matrix.rows.root.children[i];
+                    let key = matrixRows.root.children[i];
                     frameKeys.push(keyFormatter.format(key.value));
                     let dataViewCategorical = PlayChart.convertMatrixToCategorical(dataView.matrix, i);
 
@@ -229,17 +309,13 @@ module powerbi.visuals {
             }
 
             // use the saved frame index, or default to the last frame
-            if (objectProperties.currentFrameIndex == null) {
+            // FEATURE CHANGE: always default to go to the last frame.
+            //if (objectProperties.currentFrameIndex == null) {
                 objectProperties.currentFrameIndex = frameKeys.length - 1; //default
-                // current currentViewModel is already the last frame
-            }
-            else if (objectProperties.currentFrameIndex < frameKeys.length) {
-                currentViewModel = allViewModels[objectProperties.currentFrameIndex];
-            }
-
-            // TODO: make sure this gets applied appropriately
-            //if (interactivityService) {
-                //interactivityService.applySelectionStateToData(currentViewModel);
+                // currentViewModel is already set to the last frame
+            //}
+            //else if (objectProperties.currentFrameIndex < frameKeys.length) {
+                //currentViewModel = allViewModels[objectProperties.currentFrameIndex];
             //}
 
             return {
@@ -258,8 +334,12 @@ module powerbi.visuals {
             };
             return defaultData;
         }
-        
-        export function setData(playData: PlayChartData, dataView: DataView, visualConverter: (dataView: DataView, options: any) => any, visualConverterOptions: PlayableConverterOptions): PlayChartData {
+
+        export function setData(playData: PlayChartData,
+            dataView: DataView,
+            visualConverter: (dataView: DataView, options: any) => any,
+            visualConverterOptions: PlayableConverterOptions,
+            resized?: boolean): PlayChartData {
 
             if (playData && visualConverterOptions.viewport) {
                 playData.currentViewport = {
@@ -270,23 +350,28 @@ module powerbi.visuals {
 
             if (dataView) {
                 if (playData && playData.ridiculousFlagForPersistProperties && dataView.metadata) {
-                    let objectProps = getObjectProperties(dataView.metadata);
-                    // only copy frameIndex since it is the only property using persistProperties
-                    playData.currentFrameIndex = objectProps.currentFrameIndex;
-                    // turn off the flag that was set by our persistProperties call
+                    // BUG FIX: customer feedback has been strong that we should always default to show the last frame.
+                    // This is essential for dashboard tiles to refresh properly.
+
+                    //  Only copy frameIndex since it is the only property using persistProperties
+                    //let objectProps = getObjectProperties(dataView.metadata);
+                    //playData.currentFrameIndex = objectProps.currentFrameIndex;
+                    
+                    //  Turn off the flag that was set by our persistProperties call
                     playData.ridiculousFlagForPersistProperties = false;
                     return playData;
                 }
                 else if (dataView.matrix || dataView.categorical) {
+                    if (resized)
+                        return playData;
+
                     let data = PlayChart.converter(dataView, visualConverter, visualConverterOptions);
+
                     if (data && playData) {
-                        //if (interactivityService && data.allViewModels) {
-                            //interactivityService.applySelectionStateToData(data.allViewModels);
-                        //}
-                        
                         // TODO: we shouldn't have to do this, fix
                         // copy state properties over
                         data.element = playData.element;
+                        data.svg = playData.svg;
                         data.host = playData.host;
                         data.callout = playData.callout;
                         data.playAxisContainer = playData.playAxisContainer;
@@ -294,6 +379,7 @@ module powerbi.visuals {
                         data.slider = playData.slider;
                         data.playButtonCircle = playData.playButtonCircle;
                         data.ridiculousFlagForPersistProperties = playData.ridiculousFlagForPersistProperties;
+                        data.renderAtFrameIndexFn = playData.renderAtFrameIndexFn;
 
                         return data;
                     }
@@ -339,10 +425,7 @@ module powerbi.visuals {
 
         function createSliderDOM(playData: PlayChartData, behaviorOptions: PlayBehaviorOptions, interactivityService: IInteractivityService): void {
             // a container to position the button and the slider together
-            playData.playAxisContainer = $('<div></div>')
-                .css('position', 'absolute')
-                .css('left', '15px')
-                .css('bottom', '35px')
+            playData.playAxisContainer = $('<div class="play-axis-container"></div>')
                 .appendTo(playData.element);
 
             playData.playButtonCircle = $('<div class="button-container"></div>')
@@ -355,15 +438,15 @@ module powerbi.visuals {
                 .appendTo(playData.playAxisContainer);
         }
 
-        function createSliderControl(playData: PlayChartData, slider: any, sliderWidth: number): void {
+        function createSliderControl(playData: PlayChartData, slider: JQuery, sliderWidth: number, labelData: PlayLabelData): void {
             // re-create the slider
             if ((<any>slider[0]).noUiSlider)
                 (<any>slider[0]).noUiSlider.destroy();
-            
-            var numFrames = playData.frameKeys.length;
+
+            let numFrames = playData.frameKeys.length;
             if (numFrames > 0) {
-                var filterPipLabels = createPipsFilterFn(playData, sliderWidth);
-                var lastIndex = numFrames - 1;
+                let filterPipLabels = createPipsFilterFn(playData, sliderWidth, labelData);
+                let lastIndex = numFrames - 1;
                 noUiSlider.create(
                     slider[0],
                     {
@@ -375,7 +458,7 @@ module powerbi.visuals {
                         },
                         pips: {
                             mode: 'steps',
-                            density: 12,
+                            density: Math.round(100 / numFrames), //only draw ticks where we have labels
                             format: {
                                 to: (index) => playData.frameKeys[index],
                                 from: (value) => playData.frameKeys.indexOf(value),
@@ -386,12 +469,13 @@ module powerbi.visuals {
 
                 (<any>slider[0]).noUiSlider.on('slide', () => {
                     playData.isPlaying = false; //stop the play sequence
-                    var indexToShow = Math.round((<any>slider[0]).noUiSlider.get());
+                    let indexToShow = Math.round((<any>slider[0]).noUiSlider.get());
                     if (indexToShow >= 0 && indexToShow !== playData.currentFrameIndex && indexToShow < playData.allViewModels.length) {
                         playData.currentFrameIndex = indexToShow;
-                        var data = playData.allViewModels[indexToShow];
+                        let data = playData.allViewModels[indexToShow];
                         playData.currentViewModel = data;
-                        persistFrameIndex(playData, indexToShow); //this will cause a render call
+                        //persistFrameIndex(playData, indexToShow); //this will cause a render call
+                        playData.renderAtFrameIndexFn(indexToShow);
                     }
                 });
             }
@@ -407,35 +491,51 @@ module powerbi.visuals {
                         },
                     });
             }
+
+            // update the width and margin-left to center up each label
+            $('.noUi-value', slider).each((idx, elem) => {
+                let actualWidth = labelData.labelInfo.filter(l => l.label === $(elem).text())[0].labelWidth;
+                $(elem).width(actualWidth);
+                $(elem).css('margin-left', -actualWidth / 2 + 'px');
+            });
         }
 
-        function createPipsFilterFn(playData: PlayChartData, sliderWidth: number): any {
+        function getLabelData(playData: PlayChartData): PlayLabelData {
             let textProperties: TextProperties = {
                 fontFamily: 'wf_segoe-ui_normal',
                 fontSize: jsCommon.PixelConverter.toString(14),
             };
-            let maxLabelWidth = 0;
-            let anyWillWordBreak = false;
-            for (var key of playData.frameKeys) {
-                maxLabelWidth = Math.max(maxLabelWidth, jsCommon.WordBreaker.getMaxWordWidth(key + "", TextMeasurementService.measureSvgTextWidth, textProperties));
-                anyWillWordBreak = anyWillWordBreak || jsCommon.WordBreaker.hasBreakers(key);
+            let labelInfo: PlayLabelInfo[] = [];
+            let anyWordBreaks = false;
+            for (let key of playData.frameKeys) {
+                let labelWidth = jsCommon.WordBreaker.getMaxWordWidth(key + "", TextMeasurementService.measureSvgTextWidth, textProperties);
+                anyWordBreaks = anyWordBreaks || jsCommon.WordBreaker.hasBreakers(key) || (<string>key).indexOf('-') > -1;
+                labelInfo.push({ label: key, labelWidth });
             }
+            return {
+                labelInfo: labelInfo,
+                anyWordBreaks: anyWordBreaks,
+            };
+        }
 
-            var pipSize = 1; //0=hide, 1=large, 2=small
-            var skipMod = 1;
-            var maxAllowedLabelWidth = playData.frameCount > 1 ? sliderWidth / (playData.frameCount - 1) : sliderWidth;
-            var widthRatio = maxLabelWidth / maxAllowedLabelWidth;
+        function createPipsFilterFn(playData: PlayChartData, sliderWidth: number, labelData: PlayLabelData): (index: any, type: any) => number {
+            let maxLabelWidth = _.max<PlayLabelInfo>(labelData.labelInfo,'labelWidth').labelWidth;
+
+            let pipSize = 1; //0=hide, 1=large, 2=small
+            let skipMod = 1;
+            let maxAllowedLabelWidth = playData.frameCount > 1 ? sliderWidth / (playData.frameCount - 1) : sliderWidth;
+            let widthRatio = maxLabelWidth / maxAllowedLabelWidth;
 
             if (widthRatio > 1.25) {
                 skipMod = Math.ceil(widthRatio);
                 pipSize = 2;
             }
-            else if (widthRatio > 1.0 || anyWillWordBreak) {
+            else if (widthRatio > 1.0 || labelData.anyWordBreaks) {
                 // wordbreak line wrapping is automatic, and we don't reserve enough space to show two lines of text with the larger font
                 pipSize = 2;
             }
 
-            var filterPipLabels = (index: any, type: any) => {
+            let filterPipLabels = (index: any, type: any) => {
                 // noUiSlider will word break / wrap to new lines, so max width is the max word length
                 if (index % skipMod === 0) {
                     return pipSize;
@@ -446,9 +546,52 @@ module powerbi.visuals {
             return filterPipLabels;
         }
 
-        export function render(playData: PlayChartData, behaviorOptions: PlayBehaviorOptions, interactivityService: IInteractivityService, suppressAnimations: boolean): CartesianVisualRenderResult {
-            if (!playData) {    
-                return { dataPoints: [], behaviorOptions: null, labelDataPoints: null };
+        function adjustForLegend(playData: PlayChartData): void {
+            let legend = $(".legend", playData.element);
+            let sliderLeftOffset = 0, sliderBottomOffset = 0;
+
+            if (playData.playAxisContainer) {
+                // Reset
+                playData.playAxisContainer.css("left", "");
+                playData.playAxisContainer.css("bottom", "");
+            }
+
+            if (legend.length > 0) {
+                // TODO: we should NOT be interrogating legend CSS properties for this, move the Callout to be SVGText and position inside the svg container
+                const padding = 16; //callout padding
+                
+                // Reset to inherit css class top/right
+                playData.callout.css("right", "");
+                playData.callout.css("top", "");
+
+                let floatVal = legend.css("float");
+                let bottomVal = legend.css("bottom");
+
+                if (floatVal === "right")
+                    playData.callout.css("right", legend.width() + padding);
+                else if (floatVal === "left")
+                    sliderLeftOffset = legend.width();
+                else if (floatVal === "none" || floatVal === "") {
+                    if (bottomVal === "" || bottomVal === "inherit" || bottomVal === "auto") {
+                        playData.callout.css("top", legend.height() + padding);
+                    }
+                    else {
+                        sliderBottomOffset = legend.height() + 35;
+                    }
+                }
+
+                if (playData.playAxisContainer) {
+                    if (sliderLeftOffset)
+                        playData.playAxisContainer.css("left", sliderLeftOffset);
+                    if (sliderBottomOffset)
+                        playData.playAxisContainer.css("bottom", sliderBottomOffset);
+                }
+            }
+        }
+
+        export function render(playData: PlayChartData, behaviorOptions: PlayBehaviorOptions, interactivityOptions: InteractivityOptions, interactivityService: IInteractivityService, suppressAnimations: boolean): CartesianVisualRenderResult {
+            if (!playData) {
+                return { dataPoints: [], behaviorOptions: null, labelDataPoints: null, labelsAreNumeric: false };
             }
 
             let hasSelection = false;
@@ -456,8 +599,13 @@ module powerbi.visuals {
                 interactivityService.applySelectionStateToData(playData.currentViewModel.dataPoints);
                 hasSelection = interactivityService.hasSelection();
             }
-            
-            if (!playData.playAxisContainer && interactivityService) {
+
+            let frameKeys = playData.frameKeys;
+            let currentFrameIndex = playData.currentFrameIndex;
+            let height = playData.currentViewport.height;
+            let width = playData.currentViewport.width;
+
+            if (!playData.playAxisContainer && interactivityService && !interactivityOptions.isInteractiveLegend) {
                 createSliderDOM(playData, behaviorOptions, interactivityService);
             }
             if (playData.playAxisContainer) {
@@ -473,13 +621,24 @@ module powerbi.visuals {
                 playData.callout = $('<span class="callout"></span>').appendTo(playData.element);
             }
 
-            let frameKeys = playData.frameKeys;
-            let currentFrameIndex = playData.currentFrameIndex;
-            let height = playData.currentViewport.height;
-            let width = playData.currentViewport.width;
+            // update callout position due to legend
+            adjustForLegend(playData);
+
+            // dynamic left/right margin for the slider bar
+            let labelData = getLabelData(playData);
+            let labelWidthLen = labelData.labelInfo.length;
+            let sliderLeftMargin = SliderMarginLeft, sliderRightMargin = SliderMarginRight;
+            if (labelWidthLen > 0) {
+                sliderLeftMargin = Math.max(labelData.labelInfo[0].labelWidth / 2, sliderLeftMargin);
+                sliderRightMargin = Math.max(labelData.labelInfo[labelWidthLen - 1].labelWidth / 2, sliderRightMargin);
+                // stop the margins at some reasonable point
+                sliderLeftMargin = Math.min(SliderMaxMargin, sliderLeftMargin);
+                sliderRightMargin = Math.min(SliderMaxMargin, sliderRightMargin);
+            }
 
             let slider = playData.slider;
-            let sliderWidth = (width - SliderMarginLeft - SliderMarginRight);
+            let sliderWidth = (width - sliderLeftMargin - sliderRightMargin);
+            if (sliderWidth < 1) sliderWidth = 1;
             if (slider)
                 slider.css('width', sliderWidth + 'px');
 
@@ -496,16 +655,27 @@ module powerbi.visuals {
 
             if (changed && slider) {
                 playData.frameCount = frameKeys.length;
-                createSliderControl(playData, slider, sliderWidth);
+                createSliderControl(playData, slider, sliderWidth, labelData);
             }
 
             // update callout to current frame index
-            let calloutDimension = Math.min(height, width * 1.3); //compensate for tall and narrow-width viewport
-            let fontSize = Math.max(12, Math.round(calloutDimension / 7)) + 'px';
+            let calloutDimension = Math.min(height, width * 1.3); //1.3 to compensate for tall, narrow-width viewport
+            let fontSize = Math.max(12, Math.round(calloutDimension / 7));
+            fontSize = Math.min(fontSize, 70);
             if (currentFrameIndex < frameKeys.length && currentFrameIndex >= 0) {
+                // clear these for auto-measurement
+                playData.callout.width('auto');
+                playData.callout.height('auto');
+
                 playData.callout
                     .text(frameKeys[currentFrameIndex])
-                    .css('font-size', fontSize);
+                    .css('font-size', fontSize + 'px');
+
+                let compStyle = getComputedStyle(playData.callout[0]);
+                let actualWidth = Math.ceil(parseFloat(compStyle.width));
+                let actualHeight = Math.ceil(parseFloat(compStyle.height));
+                playData.callout.width(Math.min(actualWidth, sliderWidth));
+                playData.callout.height(actualHeight);
             }
             else {
                 playData.callout.text('');
@@ -531,12 +701,12 @@ module powerbi.visuals {
             }
             
             // pass all data points to keep track of current selected bubble even if it drops out for a few frames
-            return { dataPoints: flatAllDataPoints, behaviorOptions: behaviorOptions, labelDataPoints: null };
+            return { dataPoints: flatAllDataPoints, behaviorOptions: behaviorOptions, labelDataPoints: null, labelsAreNumeric: false };
         }
 
         // Scatter specific traceline
         export function renderScatterTraceLine(options: PlayBehaviorOptions, selectedPoints: SelectableDataPoint[], shouldAnimate: boolean): void {
-            var seriesPoints: ScatterChartDataPoint[][] = [];
+            let seriesPoints: ScatterChartDataPoint[][] = [];
 
             if (selectedPoints && selectedPoints.length > 0) {
                 let currentFrameIndex = options.data.currentFrameIndex;
@@ -591,7 +761,7 @@ module powerbi.visuals {
                         let tempSvgPath = $('<svg><path></path></svg>');
                         let tempPath = $('path', tempSvgPath);
                         tempPath.attr('d', line(seriesPoints[i]));
-                        let newLength = (<SVGPathElement>tempPath.get()[0]).getTotalLength();
+                        let newLength = seriesPoints[i].length > 0 ? (<SVGPathElement>tempPath.get()[0]).getTotalLength() : 0;
                         newLengths.push(newLength);
                     });
                     // animate using stroke-dash* trick
@@ -609,6 +779,7 @@ module powerbi.visuals {
                         if (shouldAnimate) {
                             traceLines
                                 .transition()
+                                .ease('linear')
                                 .duration(FrameAnimationDuration)
                                 .attr('stroke-dashoffset', 0);
                         }
@@ -621,9 +792,11 @@ module powerbi.visuals {
                         if (shouldAnimate) {
                             traceLines
                                 .transition()
+                                .ease('linear')
                                 .duration(FrameAnimationDuration)
                                 .attr('stroke-dashoffset', (d, i) => previousLengths[i] - newLengths[i])
                                 .transition()
+                                .ease('linear')
                                 .duration(1) // animate the shrink first, then update with new line properties
                                 .delay(FrameAnimationDuration)
                                 .style('stroke', (d: ScatterChartDataPoint) => ScatterChart.getStrokeFill(d, true))
@@ -653,7 +826,7 @@ module powerbi.visuals {
                     // Render circles
                     // slice to length-1 because we draw lines to the current bubble but we don't need to draw the current frame's bubble
                     let circlePoints: ScatterChartDataPoint[] = [];
-                    for (var selectedIndex = 0; selectedIndex < seriesPoints.length; selectedIndex++) {
+                    for (let selectedIndex = 0; selectedIndex < seriesPoints.length; selectedIndex++) {
                         let points = seriesPoints[selectedIndex];
                         let newPoints = hasBubbleAtCurrentFrame[selectedIndex] ? points.slice(0, points.length - 1) : points;
                         circlePoints = circlePoints.concat(newPoints);
@@ -670,15 +843,18 @@ module powerbi.visuals {
                         .style({
                             'stroke-opacity': (d: ScatterChartDataPoint) => ScatterChart.getBubbleOpacity(d, true),
                             'stroke-width': '1px',
-                            'stroke': (d: ScatterChartDataPoint) => ScatterChart.getStrokeFill(d, true),
+                            'stroke': (d: ScatterChartDataPoint) => ScatterChart.getStrokeFill(d, options.colorBorder),
                             'fill': (d: ScatterChartDataPoint) => d.fill,
-                            'fill-opacity': (d: ScatterChartDataPoint) => d.size != null ? 0.3 + (d['frameIndex'] / currentFrameIndex) * 0.7 : 0,
+                            // vary the opacity along the traceline from 0.20 to 0.80, with 0.85 left for the circle already drawn by scatterChart
+                            'fill-opacity': (d: ScatterChartDataPoint) => d.size != null ? 0.20 + (d['frameIndex'] / currentFrameIndex) * 0.60 : 0,
                         })
                         .transition()
+                        .ease('linear')
                         .duration(FrameAnimationDuration)
                         .style('opacity',1);
                     circles.exit()
                         .transition()
+                        .ease('linear')
                         .duration(FrameAnimationDuration)
                         .style('opacity', 0) //fade exiting bubbles out
                         .remove();
@@ -723,18 +899,17 @@ module powerbi.visuals {
             }
         }
 
-        function persistFrameIndex(playData: PlayChartData, frameIndex: number): void {
+        /*function persistFrameIndex(playData: PlayChartData, frameIndex: number): void {
             playData.ridiculousFlagForPersistProperties = true;
-
-            let properties: { [name: string]: data.SQExpr } = {};
-            properties['index'] = data.SQExprBuilder.integer(frameIndex);
 
             playData.host.persistProperties([{
                 selector: null,
-                properties: properties,
+                properties: {
+                    index: frameIndex
+                },
                 objectName: 'currentFrameIndex'
             }]);
-        }
+        }*/
 
         function playNextFrame(playData: PlayChartData, behaviorOptions: PlayBehaviorOptions, interactivityService: IInteractivityService, startFrame?: number, endFrame?: number): void {
             if (!playData.isPlaying) {
@@ -751,7 +926,8 @@ module powerbi.visuals {
             if (nextFrame < playData.allViewModels.length && nextFrame > -1) {
                 playData.currentFrameIndex = nextFrame;
                 playData.currentViewModel = playData.allViewModels[nextFrame];
-                persistFrameIndex(playData, nextFrame); //this will cause a render call
+                //persistFrameIndex(playData, nextFrame); //this will cause a render call
+                playData.renderAtFrameIndexFn(nextFrame);
                 (<any>playData.slider[0]).noUiSlider.set([nextFrame]);
 
                 if (nextFrame < playData.allViewModels.length) {

@@ -27,7 +27,7 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var treemapCapabilities: VisualCapabilities = {
+    export const treemapCapabilities: VisualCapabilities = {
         dataRoles: [
             {
                 name: 'Group',
@@ -42,12 +42,14 @@ module powerbi.visuals {
                 name: 'Values',
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_Values'),
-                description: data.createDisplayNameGetter('Role_DisplayName_ValuesDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_ValuesDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }, {
                 name: 'Gradient',
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_Gradient'),
-                description: data.createDisplayNameGetter('Role_DisplayName_GradientDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_GradientDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }
         ],
         objects: {
@@ -81,6 +83,14 @@ module powerbi.visuals {
                         displayName: data.createDisplayNameGetter('Visual_LegendName'),
                         description: data.createDisplayNameGetter('Visual_LegendNameDescription'),
                         type: { text: true }
+                    },
+                    labelColor: {
+                        displayName: data.createDisplayNameGetter('Visual_LegendTitleColor'),
+                        type: { fill: { solid: { color: true } } }
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
                     }
                 }
             },
@@ -125,6 +135,7 @@ module powerbi.visuals {
                     labelPrecision: {
                         displayName: data.createDisplayNameGetter('Visual_Precision'),
                         description: data.createDisplayNameGetter('Visual_PrecisionDescription'),
+                        placeHolderText: data.createDisplayNameGetter('Visual_Precision_Auto'),
                         type: { numeric: true }
                     },
                 }
@@ -171,7 +182,7 @@ module powerbi.visuals {
         },
     };
     
-    export var treemapProps = {
+    export const treemapProps = {
         general: {
             formatString: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'formatString' },
         },
@@ -183,6 +194,7 @@ module powerbi.visuals {
             position: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'position' },
             showTitle: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'showTitle' },
             titleText: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'titleText' },
+            labelColor: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'labelColor' },
         },
         labels: {
             show: <DataViewObjectPropertyIdentifier>{ objectName: 'labels', propertyName: 'show' },

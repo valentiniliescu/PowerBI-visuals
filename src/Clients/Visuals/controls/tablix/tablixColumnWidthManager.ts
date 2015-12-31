@@ -43,7 +43,7 @@ module powerbi.visuals.controls {
         private previousAutoColumnSizePropertyValue: boolean;
         private tablixQueryNames: string[];
         private dataView: DataView;
-        private visualObjectInstancesToPersist: VisualObjectInstance[];
+        private visualObjectInstancesToPersist: VisualObjectInstancesToPersist;
         private matrixLeafNodes: MatrixVisualNode[];
         // TODO: Can we remove isMatrix and suppresNotification flag?
         private isMatrix: boolean;
@@ -81,7 +81,7 @@ module powerbi.visuals.controls {
             this.dataViewUpdated = true;
         }
 
-        public getVisualObjectInstancesToPersist(): VisualObjectInstance[] {
+        public getVisualObjectInstancesToPersist(): VisualObjectInstancesToPersist {
             return this.visualObjectInstancesToPersist;
         }
 
@@ -219,16 +219,20 @@ module powerbi.visuals.controls {
             return AutoSizeColumnWidthDefault;
         }
 
-        private generateVisualObjectInstancesToPersist(): void {
-            this.visualObjectInstancesToPersist = [];
-            // Auto-Size property
-            this.visualObjectInstancesToPersist.push({
+        private getAutoSizeColumnWidthObject(): VisualObjectInstance {
+            return {
                 selector: null,
                 objectName: 'general',
                 properties: {
-                    autoSizeColumnWidth: data.SQExprBuilder.boolean(this.shouldAutoSizeColumnWidth())
+                    autoSizeColumnWidth: this.shouldAutoSizeColumnWidth()
                 }
-            });
+            };
+        }
+
+        private generateVisualObjectInstancesToPersist(): void {
+            this.visualObjectInstancesToPersist = {
+                merge: [this.getAutoSizeColumnWidthObject()]
+            };
 
             // Column Widths
             for (let columnWidthObject of this.tablixColumnWidthsObject) {
@@ -236,29 +240,24 @@ module powerbi.visuals.controls {
                 // Only persist width if we have a valid queryName to use as selector
                 if (!queryNameSelector)
                     continue;
-                this.visualObjectInstancesToPersist.push({
+                this.visualObjectInstancesToPersist.merge.push({
                     selector: { metadata: queryNameSelector },
                     objectName: 'general',
                     properties: {
-                        columnWidth: data.SQExprBuilder.double(columnWidthObject.width)
+                        columnWidth: columnWidthObject.width
                     }
                 });
             }
         }
 
         private removePersistedVisualObjectInstances(): void {
-            this.visualObjectInstancesToPersist = [];
-            // Auto-Size property
-            this.visualObjectInstancesToPersist.push({
-                selector: null,
-                objectName: 'general',
-                properties: {
-                    autoSizeColumnWidth: data.SQExprBuilder.boolean(this.shouldAutoSizeColumnWidth())
-                }
-            });
+            this.visualObjectInstancesToPersist = {
+                merge: [this.getAutoSizeColumnWidthObject()],
+                remove: [],
+            };
 
             for (let columnWidthObject of this.tablixColumnWidthsObject) {
-                this.visualObjectInstancesToPersist.push({
+                this.visualObjectInstancesToPersist.remove.push({
                     selector: { metadata: columnWidthObject.queryName },
                     objectName: 'general',
                     properties: {

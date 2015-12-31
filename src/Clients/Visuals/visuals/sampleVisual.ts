@@ -29,7 +29,7 @@
 module powerbi.visuals {
 import SelectionManager = utility.SelectionManager;
 
-    export var cheerMeterProps = {
+export const cheerMeterProps = {
         dataPoint: {
             defaultColor: <DataViewObjectPropertyIdentifier>{
                 objectName: 'dataPoint',
@@ -158,14 +158,14 @@ import SelectionManager = utility.SelectionManager;
                 cheerMeterProps.dataPoint.fill,
                 CheerMeter.DefaultFontColor);
 
-            var idn1 = SelectionIdBuilder.builder()
+            let idn1 = SelectionIdBuilder.builder()
                 .withCategory(cat, 0)
                 .createSelectionId();
-            var idn2 = SelectionIdBuilder.builder()
+            let idn2 = SelectionIdBuilder.builder()
                 .withCategory(cat, 1)
                 .createSelectionId();
 
-            var data = {
+            let data = {
                 teamA: {
                     name: catValues[0],
                     value: values[0],
@@ -186,7 +186,7 @@ import SelectionManager = utility.SelectionManager;
 
         public init(options: VisualInitOptions): void {
             this.selectionManager = new SelectionManager({ hostServices: options.host });
-            var svg = this.svg = d3.select(options.element.get(0)).append('svg');
+            let svg = this.svg = d3.select(options.element.get(0)).append('svg');
 
             this.textOne = svg.append('text')
                 .style('font-family', CheerMeter.DefaultFontFamily);

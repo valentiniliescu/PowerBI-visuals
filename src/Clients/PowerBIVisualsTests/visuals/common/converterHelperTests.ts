@@ -28,8 +28,8 @@
 
 module powerbitests {
     describe("converterHelper tests", () => {
-        var dataViewBuilder: DataViewBuilder;
-        var dataView: powerbi.DataViewCategorical;
+        let dataViewBuilder: DataViewBuilder;
+        let dataView: powerbi.DataViewCategorical;
 
         beforeEach(() => {
             dataViewBuilder = new DataViewBuilder(["a", "b"], [100, 200]);
@@ -56,7 +56,7 @@ module powerbitests {
         });
 
         it("getPivotedCategories default", () => {
-            var categoryInfo = powerbi.visuals.converterHelper.getPivotedCategories(dataView, formatStringProp());
+            let categoryInfo = powerbi.visuals.converterHelper.getPivotedCategories(dataView, formatStringProp());
 
             // Note: Since the result includes a function property we can"t perform a toEqual directly on the result, so check each part individually.
             expect(categoryInfo.categories).toEqual(["a", "b"]);
@@ -64,23 +64,26 @@ module powerbitests {
         });
 
         it("getPivotedCategories empty categories", () => {
+            
             // Empty the categories array
             dataView.categories = [];
 
-            var categoryInfo = powerbi.visuals.converterHelper.getPivotedCategories(dataView, formatStringProp());
+            let categoryInfo = powerbi.visuals.converterHelper.getPivotedCategories(dataView, formatStringProp());
             validateEmptyCategoryInfo(categoryInfo);
         });
 
         it("getPivotedCategories empty category values", () => {
+            
             // Empty the category values array
             dataView.categories[0].values = [];
 
-            var categoryInfo = powerbi.visuals.converterHelper.getPivotedCategories(dataView, formatStringProp());
+            let categoryInfo = powerbi.visuals.converterHelper.getPivotedCategories(dataView, formatStringProp());
             expect(categoryInfo.categories).toEqual([]);
             expect(categoryInfo.categoryIdentities).toBeUndefined();
         });
 
         function validateEmptyCategoryInfo(categoryInfo: powerbi.visuals.PivotedCategoryInfo): void {
+            
             // Note: Since the result includes a function property we can"t perform a toEqual directly on the result, so check each part individually.
             expect(categoryInfo.categories).toEqual([null]);
             expect(categoryInfo.categoryIdentities).toBeUndefined();
@@ -121,9 +124,9 @@ module powerbitests {
         }
 
         private createCategoryIdentities() {
-            var categoryIdentities: any[] = [];
+            let categoryIdentities: any[] = [];
 
-            for (var i = 0; i < this.categoriesValues.length; i++) {
+            for (let i = 0; i < this.categoriesValues.length; i++) {
                 categoryIdentities.push(mocks.dataViewScopeIdentity(this.categoriesValues[i]));
             }
 

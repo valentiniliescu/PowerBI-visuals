@@ -1,4 +1,6 @@
 # Microsoft Power BI visuals
+[![Build status](https://ci.appveyor.com/api/projects/status/77d940234217vpap/branch/master?svg=true)](https://ci.appveyor.com/project/powerbi-gitbot/powerbi-visuals)
+[![Build Status](https://travis-ci.org/Microsoft/PowerBI-visuals.svg?branch=master)](https://travis-ci.org/Microsoft/PowerBI-visuals)
 
 The Microsoft Power BI visuals project provides high quality data visualizations that you can use to extend [Power BI](https://powerbi.microsoft.com/).  The project contains over 20 visualization types, the framework to run them, and the testing infrastructure that enables you to build high quality visualizations.  The framework provides all the interfaces you need to integrate fully with Power BI's selection, filtering, and other UI experiences.  The code is written in [TypeScript](http://www.typescriptlang.org/) so it's easier to build and debug. Everything compiles down to JavaScript and runs in modern web browsers.  The visuals are built using [D3](http://d3js.org/) but you can use your favorite technology like [WebGL](https://en.wikipedia.org/wiki/WebGL), [Canvas](https://en.wikipedia.org/wiki/Canvas_element), or [SVG](https://en.wikipedia.org/wiki/Scalable_Vector_Graphics). This gives you everything you need to build custom visualizations for Power BI.
 
@@ -20,7 +22,7 @@ To build the library and run the sample application you will need:
  -  You can install [VSIX Package](https://github.com/Microsoft/PowerBI-visuals/blob/master/tools/VSIXExtensions/VisualTemplate.vsix?raw=true) and use Visual Studio Template from it to create new Visual.
 
 ### One-Time Setup
-In order to build the Power BI visuals, ensure that you have [Git](http://git-scm.com/book/en/v2/Getting-Started-Installing-Git#Installing-on-Windows) and [Node.js](http://nodejs.org/download/) installed.
+In order to build the Power BI visuals, ensure that you have [Git](http://git-scm.com/book/en/v2/Getting-Started-Installing-Git#Installing-on-Windows), [Node.js](http://nodejs.org/download/) and gulp (`npm install -g gulp`) installed.
 
 Clone a copy of the repo:
 
@@ -37,13 +39,13 @@ cd PowerBI-visuals
 Install dev dependencies:
 
 ```
-npm install  # This command will install Gulp and all necessary modules
+npm install  # This command will install all necessary modules
 ```
 
 ## How to Engage, Contribute and Provide Feedback
 
 There are many ways in which you can contribute to Power BI visuals:
-* You can contribute fixes and new visuals to this repo, read the [contribution guildelines](https://github.com/Microsoft/PowerBI-visuals/blob/master/CONTRIBUTING.md).
+* You can contribute fixes and new visuals to this repo, read the [contribution guidelines](https://github.com/Microsoft/PowerBI-visuals/blob/master/CONTRIBUTING.md).
 * Submit bugs by opening a GitHub Issue [here](https://github.com/Microsoft/PowerBI-visuals/issues).
 * Contribute to discussions on [StackOverflow](http://stackoverflow.com/questions/tagged/powerbidev).
 * Follow the [Power BI Developer](http://blogs.msdn.com/powerbidev) blog for updates.
@@ -77,31 +79,30 @@ To run sample app:
 Make sure you first follow the [Prerequisites](https://github.com/Microsoft/PowerBI-visuals#prerequisites) & [Onetime Setup](https://github.com/Microsoft/PowerBI-visuals#one-time-setup)
  
 To run sample app:
+
+1. Build the project
+
+ ```
+ gulp build
+ ```
+2. Run gulp task
+
+ ```
+ gulp run:playground
+ ```
  
-1. Run gulp task 
+### Running Unit Tests
 
+Use the following commands to build and run unit tests:
 ```
-gulp run:playground
-``` 
-### Running Build and Test
-
-Use the following commands to build and test:
-```
-gulp build  # Build Power BI visuals into `build` folder
-gulp test  # Run unit tests (requires 'PhantomJS', see below)
+gulp test  # Build and run unit tests (requires 'PhantomJS', see below)
 ```
 
-### Installing PhantomJS
-You will also need to do the following to run unit tests:
+### Installing PhantomJS (non-Windows environment only)
+To run unit tests on non-Windows environment you will need to
+install [PhantomJS](http://phantomjs.org/) (PhantomJS is a headless WebKit scriptable with a JavaScript API. It has fast and native support for various web standards: DOM handling, CSS selector, JSON, Canvas, and SVG.).
 
-Install [PhantomJS](http://phantomjs.org/) (PhantomJS is a headless WebKit scriptable with a JavaScript API. It has fast and native support for various web standards: DOM handling, CSS selector, JSON, Canvas, and SVG.).
-
-For Windows OS PhantomJS will be installed when you call `gulp test` command. Also you can install PhantomJS using this command:
-
-```
-gulp install:phantomjs
-```
-As result, local version of the PhantomJS will be downloaded and installed into the project. For other OS you have to install PhantomJS manually.
+On Windows PhantomJS is installed automatically as part of `gulp test` command.
 
 ### Copyrights
 

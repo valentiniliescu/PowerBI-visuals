@@ -31,9 +31,10 @@ module powerbi.visuals {
     import StringExtensions = jsCommon.StringExtensions;
 
     export interface TreemapConstructorOptions {
-        animator: ITreemapAnimator;
+        animator?: ITreemapAnimator;
         isScrollable: boolean;
         behavior?: TreemapWebBehavior;
+        tooltipsEnabled?: boolean;
     }
 
     export interface TreemapData {
@@ -151,6 +152,7 @@ module powerbi.visuals {
         private options: VisualInitOptions;
         private isScrollable: boolean;
         private hostService: IVisualHostServices;
+        private tooltipsEnabled: boolean;
 
         /**
          * Note: Public for testing.
@@ -192,6 +194,7 @@ module powerbi.visuals {
         }
 
         constructor(options?: TreemapConstructorOptions) {
+            this.tooltipsEnabled = options && options.tooltipsEnabled;
             if (options && options.animator) {
                 this.animator = options.animator;
                 this.isScrollable = options.isScrollable ? options.isScrollable : false;
@@ -259,7 +262,6 @@ module powerbi.visuals {
             let hasHighlights: boolean;
             let legendDataPoints: LegendDataPoint[] = [];
             let legendTitle = "";
-            let legendData: LegendData = { title: legendTitle, dataPoints: legendDataPoints };
             let colorHelper = new ColorHelper(colors, treemapProps.dataPoint.fill);
             let dataWasCulled = undefined;
             if (dataView && dataView.metadata && dataView.metadata.objects) {
@@ -316,13 +318,13 @@ module powerbi.visuals {
                         let key = identity.getKey();
 
                         let color = hasDynamicSeries
-                            ? colorHelper.getColorForSeriesValue(grouped[i] && grouped[i].objects , data.values.identityFields, converterHelper.getSeriesName(valueColumn.source))
+                            ? colorHelper.getColorForSeriesValue(grouped[i] && grouped[i].objects, data.values.identityFields, converterHelper.getSeriesName(valueColumn.source))
                             : colorHelper.getColorForMeasure(valueColumn.source.objects, valueColumn.source.queryName);
 
                         let highlightedValue = hasHighlights && highlight !== 0 ? highlight : undefined;
                         let categorical = dataView.categorical;
                         let valueIndex: number = i;
-                        let tooltipInfo: TooltipDataItem[] = TooltipBuilder.createTooltipInfo(formatStringProp, categorical, nodeName, value, null, null, valueIndex , i);
+                        let tooltipInfo: TooltipDataItem[] = TooltipBuilder.createTooltipInfo(formatStringProp, categorical, nodeName, value, null, null, valueIndex, i);
                         let highlightedTooltipInfo: TooltipDataItem[];
 
                         if (highlightedValue !== undefined) {
@@ -358,6 +360,7 @@ module powerbi.visuals {
                     // Create the first level from categories
                     let categoryColumn = data.categories[0];
                     let valueColumnCount = valueColumns.length;
+                    let categoryFormat = valueFormatter.getFormatString(categoryColumn.source, formatStringProp);
 
                     legendTitle = categoryColumn.source ? categoryColumn.source.displayName : "";
                     let categorical = undefined;
@@ -366,14 +369,13 @@ module powerbi.visuals {
                             .withCategory(categoryColumn, i)
                             .createSelectionId();
 
-                        let key = identity.getKey();
+                        let key = JSON.stringify({ nodeKey: identity.getKey(), depth: 1 });
 
                         let objects = categoryColumn.objects && categoryColumn.objects[i];
 
                         let color = colorHelper.getColorForSeriesValue(objects, categoryColumn.identityFields, categoryColumn.values[i]);
 
-                        let labelFormat = valueFormatter.getFormatString(categoryColumn.values[i], formatStringProp);
-                        let categoryValue = valueFormatter.format(categoryColumn.values[i], labelFormat);
+                        let categoryValue = valueFormatter.format(categoryColumn.values[i], categoryFormat);
                         let value = values[i][0];
                         let highlightedValue = hasHighlights && highlights ? highlights[i][0] : undefined;
                         categorical = dataView.categorical;
@@ -392,7 +394,7 @@ module powerbi.visuals {
                             identity: identity,
                             tooltipInfo: tooltipInfo,
                             highlightedTooltipInfo: highlightedTooltipInfo,
-                            labelFormatString: labelFormat,
+                            labelFormatString: valueColumnCount === 1 ? valueFormatter.getFormatString(data.values[0].source, formatStringProp) : categoryFormat,
                         };
 
                         legendDataPoints.push({
@@ -431,20 +433,12 @@ module powerbi.visuals {
 
                             if (!omitSecondLevel) {
                                 let childName: string = null;
-
-                                // Create key to ensure shape uniqueness
-                                let childKey = {
-                                    parentId: node.key,
-                                    nodeId: undefined
-                                };
                                 if (isMultiSeries) {
                                     // Measure: use name and index
-                                    childKey.nodeId = { name: childName, index: j };
                                     childName = valueColumn.source.displayName;
                                 }
                                 else {
                                     // Series group instance
-                                    childKey.nodeId = valueColumn.identity.key;
                                     childName = valueColumn.source.groupName;
                                 }
 
@@ -455,6 +449,7 @@ module powerbi.visuals {
                                     .withSeries(categoricalValues, valueColumn)
                                     .withMeasure(measureId)
                                     .createSelectionId();
+                                let childKey = JSON.stringify({ nodeKey: childIdentity.getKey(), depth: 2 });
 
                                 let highlightedValue = hasHighlights && highlight !== 0 ? highlight : undefined;
                                 categorical = dataView.categorical;
@@ -466,7 +461,7 @@ module powerbi.visuals {
                                 }
 
                                 let childNode: TreemapNode = {
-                                    key: childIdentity.getKey(),
+                                    key: childKey,
                                     name: childName,
                                     size: value,
                                     color: color,
@@ -499,11 +494,17 @@ module powerbi.visuals {
 
             if (interactivityService) {
                 interactivityService.applySelectionStateToData(allNodes);
+                interactivityService.applySelectionStateToData(legendDataPoints);
             }
 
-            legendData = { title: legendTitle, dataPoints: legendDataPoints };
-
-            return { root: rootNode, hasHighlights: hasHighlights, legendData: legendData, dataLabelsSettings: labelSettings, legendObjectProperties: legendObjectProperties, dataWasCulled: dataWasCulled };
+            return {
+                root: rootNode,
+                hasHighlights: hasHighlights,
+                legendData: { title: legendTitle, dataPoints: legendDataPoints, fontSize: SVGLegend.DefaultFontSizeInPt },
+                dataLabelsSettings: labelSettings,
+                legendObjectProperties: legendObjectProperties,
+                dataWasCulled: dataWasCulled,
+            };
         }
 
         private static getValuesFromCategoricalDataView(data: DataViewCategorical, hasHighlights: boolean): TreemapRawData {
@@ -562,15 +563,14 @@ module powerbi.visuals {
 
             let dataViews = this.dataViews = options.dataViews;
             this.currentViewport = options.viewport;
-            var dataViewCategorical = dataViews && dataViews.length > 0 && dataViews[0].categorical ? dataViews[0].categorical : undefined;
-            var labelFormatString = (dataViewCategorical && !_.isEmpty(dataViewCategorical.values)) ? valueFormatter.getFormatString(dataViewCategorical.values[0].source, treemapProps.general.formatString) : undefined;
-            var labelSettings = dataLabelUtils.getDefaultTreemapLabelSettings(labelFormatString);
-            var legendObjectProperties = null;
+            let dataViewCategorical = dataViews && dataViews.length > 0 && dataViews[0].categorical ? dataViews[0].categorical : undefined;
+            let labelSettings = dataLabelUtils.getDefaultTreemapLabelSettings();
+            let legendObjectProperties = null;
 
             if (dataViewCategorical) {
-                var dataView = dataViews[0];
-                var dataViewMetadata = dataView.metadata;
-                var objects: DataViewObjects;
+                let dataView = dataViews[0];
+                let dataViewMetadata = dataView.metadata;
+                let objects: DataViewObjects;
                 if (dataViewMetadata)
                     objects = dataViewMetadata.objects;
 
@@ -615,8 +615,7 @@ module powerbi.visuals {
                     warnings.unshift(new GeometryCulledWarning());
                 }
 
-                if (warnings && warnings.length > 0)
-                    this.hostService.setWarnings(warnings);
+                this.hostService.setWarnings(warnings);
             }
         }
 
@@ -650,6 +649,11 @@ module powerbi.visuals {
 
             let objectName = options.objectName,
                 enumeration = new ObjectEnumerationBuilder();
+
+            let dataLabelsSettings = this.data.dataLabelsSettings
+                ? this.data.dataLabelsSettings
+                : dataLabelUtils.getDefaultTreemapLabelSettings();
+
             switch (objectName) {
                 case 'dataPoint':
                     let dataViewCat: DataViewCategorical = this.dataViews && this.dataViews.length > 0 && this.dataViews[0] && this.dataViews[0].categorical;
@@ -662,7 +666,7 @@ module powerbi.visuals {
                 case 'labels':
                     let labelSettingOptions: VisualDataLabelsSettingsOptions = {
                         enumeration: enumeration,
-                        dataLabelsSettings: this.data.dataLabelsSettings,
+                        dataLabelsSettings: dataLabelsSettings,
                         show: true,
                         displayUnits: true,
                         precision: true,
@@ -670,10 +674,7 @@ module powerbi.visuals {
                     dataLabelUtils.enumerateDataLabels(labelSettingOptions);
                     break;
                 case 'categoryLabels':
-                    if (this.data)
-                        dataLabelUtils.enumerateCategoryLabels(enumeration, this.data.dataLabelsSettings, false /*withFill*/, false /*isDonutChart*/, true /*isTreeMap*/);
-                    else
-                        dataLabelUtils.enumerateCategoryLabels(enumeration, null, false /*withFill*/, false /*isDonutChart*/, true /*isTreeMap*/);
+                    dataLabelUtils.enumerateCategoryLabels(enumeration, dataLabelsSettings, false /* withFill */, true /* isShowCategory */);
                     break;
             }
 
@@ -704,6 +705,8 @@ module powerbi.visuals {
             let show = DataViewObjects.getValue(legendObjectProperties, treemapProps.legend.show, this.legend.isVisible());
             let showTitle = DataViewObjects.getValue(legendObjectProperties, treemapProps.legend.showTitle, true);
             let titleText = DataViewObjects.getValue(legendObjectProperties, treemapProps.legend.titleText, this.data.legendData.title);
+            let labelColor = DataViewObject.getValue(legendObjectProperties, legendProps.labelColor, this.data.legendData ? this.data.legendData.labelColor : LegendData.DefaultLegendLabelFillColor);
+            let labelFontSize = DataViewObject.getValue(legendObjectProperties, legendProps.fontSize, this.data.legendData && this.data.legendData.fontSize ? this.data.legendData.fontSize : SVGLegend.DefaultFontSizeInPt);
 
             return [{
                 selector: null,
@@ -712,7 +715,9 @@ module powerbi.visuals {
                     show: show,
                     position: LegendPosition[this.legend.getOrientation()],
                     showTitle: showTitle,
-                    titleText: titleText
+                    titleText: titleText,
+                    labelColor: labelColor,
+                    fontSize: labelFontSize,
                 }
             }];
         }
@@ -835,12 +840,23 @@ module powerbi.visuals {
             if (labelsSettings.show) {
                 let measureFormatter = formattersCache.getOrCreate(node.labelFormatString, labelsSettings, alternativeScale);
                 // Create measure label
-                label = dataLabelUtils.getLabelFormattedText(node.value, spaceAvaliableForLabels, null /*format*/, measureFormatter);
+                label = dataLabelUtils.getLabelFormattedText({
+                    label: node.value, maxWidth:
+                    spaceAvaliableForLabels, formatter: measureFormatter
+                });
                 // Add category if needed (we're showing category and the node depth is 2)
-                label = labelsSettings.showCategory && node.depth === 2 ? dataLabelUtils.getLabelFormattedText(node.name, spaceAvaliableForLabels) + " " + label : label;
+                if (labelsSettings.showCategory && node.depth === 2)
+                    label = dataLabelUtils.getLabelFormattedText({
+                        label: node.name,
+                        maxWidth: spaceAvaliableForLabels
+                    }) + " " + label;
             }
 
-            return dataLabelUtils.getLabelFormattedText(label, spaceAvaliableForLabels);
+            return dataLabelUtils.getLabelFormattedText({
+                label: label,
+                maxWidth: spaceAvaliableForLabels,
+                fontSize: labelsSettings.fontSize
+            });
         }
 
         public static getFill(d: TreemapNode, isHighlightRect: boolean): string {
@@ -963,8 +979,10 @@ module powerbi.visuals {
                 this.interactivityService.bind(<TreemapNode[]>nodes, this.behavior, behaviorOptions);
             }
 
-            TooltipManager.addTooltip(shapes, (tooltipEvent: TooltipEvent) => tooltipEvent.data.tooltipInfo);
-            TooltipManager.addTooltip(highlightShapes, (tooltipEvent: TooltipEvent) => tooltipEvent.data.highlightedTooltipInfo);
+            if (this.tooltipsEnabled) {
+                TooltipManager.addTooltip(shapes, (tooltipEvent: TooltipEvent) => tooltipEvent.data.tooltipInfo);
+                TooltipManager.addTooltip(highlightShapes, (tooltipEvent: TooltipEvent) => tooltipEvent.data.highlightedTooltipInfo);
+            }
 
             SVGUtil.flushAllD3TransitionsIfNeeded(this.options);
         }

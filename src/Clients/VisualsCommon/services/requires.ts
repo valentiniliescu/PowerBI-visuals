@@ -55,7 +55,7 @@ module jsCommon {
 		javaScriptFilesWithCallback?: IJavaScriptDependency[];
     }
 
-    export function requires(dependency: IDependency, to: () => void = () => { }): void {
+    export function requires(dependency: IDependency, to: () => void = $.noop): void {
         loadStyleSheets(dependency.cssFiles || []);
 
 		let scriptsToRun = dependency.javaScriptFilesWithCallback || [];
@@ -147,7 +147,7 @@ module jsCommon {
         });
     }
 
-    function parseJavaScript(script: IJavaScriptDependency, onComplete: () => void = () => { }): void {
+    function parseJavaScript(script: IJavaScriptDependency, onComplete: () => void = $.noop): void {
         if (!script) {
             onComplete();
             return;
@@ -168,7 +168,7 @@ module jsCommon {
         : parseInternalJavaScriptCode(sourceCodeOrFileName, targetCallback);
     }
 
-    function parseInternalJavaScriptCode(sourceCode: string, onComplete: () => void = () => { }): void {
+    function parseInternalJavaScriptCode(sourceCode: string, onComplete: () => void = $.noop): void {
         let script: HTMLElement;
         if (sourceCode) {
             script = <any>scriptElement.cloneNode();

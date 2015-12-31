@@ -37,6 +37,7 @@ module powerbi.visuals {
         visualBehaviorOptions?: any;
         xScale: D3.Scale.GenericScale<any>;
         yScale: D3.Scale.GenericScale<any>;
+        colorBorder?: boolean;
     }
 
     export class PlayChartWebBehavior implements IInteractiveBehavior {

@@ -30,7 +30,7 @@ module powerbi.visuals {
     const defaultLevelOfDetail = 11;
 
     export module MapUtil {
-        export var Settings = {
+        export const Settings = {
             /** Maximum Bing requests at once. The Bing have limit how many request at once you can do per socket. */
             MaxBingRequest: 6,
 
@@ -41,7 +41,6 @@ module powerbi.visuals {
             MaxCacheSizeOverflow: 100,
 
             // Bing Keys and URL
-            // This key has to be removed before this file is committed to GitHub 
             BingKey: "insert your key",
             BingUrl: "https://dev.virtualearth.net/REST/v1/Locations?",
             BingUrlGeodata: "https://platform.bing.com/geo/spatial/v1/public/Geodata?",
@@ -63,7 +62,7 @@ module powerbi.visuals {
         export const DefaultLevelOfDetail = 11;
         export const WorkerErrorName = "___error___";
 
-        export var CategoryTypes = {
+        export const CategoryTypes = {
             Address: "Address",
             City: "City",
             Continent: "Continent",
@@ -76,7 +75,7 @@ module powerbi.visuals {
             StateOrProvince: "StateOrProvince"
         };
 
-        var safeCharacters: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
+        const safeCharacters: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
 
         export function clip(n: number, minValue: number, maxValue: number): number {
             return Math.min(Math.max(n, minValue), maxValue);
@@ -140,10 +139,10 @@ module powerbi.visuals {
         }
 
         export function getLocationBoundaries(latLongArray: Float64Array): Microsoft.Maps.LocationRect {
-            let northWest = {
+            const northWest = {
                 latitude: -90, longitude: 180
             };
-            let southEast = {
+            const southEast = {
                 latitude: 90, longitude: -180
             };
 

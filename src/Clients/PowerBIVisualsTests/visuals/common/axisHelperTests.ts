@@ -30,35 +30,47 @@ module powerbitests {
     import AxisHelper = powerbi.visuals.AxisHelper;
     import ValueType = powerbi.ValueType;
     import axisScale = powerbi.visuals.axisScale;
+    import PrimitiveType = powerbi.PrimitiveType;
+    import valueFormatter = powerbi.visuals.valueFormatter;
 
     describe("AxisHelper invertOrdinalScale tests", () => {
-        var ordinalScale: D3.Scale.OrdinalScale;
-
-        beforeEach(() => {
-            ordinalScale = OrdinalScaleBuilder.buildOrdinalScale();
-        });
+        var domain: number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        var pixelSpan: number = 100;
 
         it("invertOrdinalScale in middle", () => {
-            var invertedValue = AxisHelper.invertOrdinalScale(ordinalScale, 50);
+            var ordinalScale: D3.Scale.OrdinalScale = AxisHelper.createOrdinalScale(pixelSpan, domain, 0.4);
+            var invertedValue = AxisHelper.invertOrdinalScale(ordinalScale, 49);
+            expect(invertedValue).toBe(4);
+            var invertedValue = AxisHelper.invertOrdinalScale(ordinalScale, 51);
+            expect(invertedValue).toBe(5);
+            ////
+            ordinalScale = AxisHelper.createOrdinalScale(pixelSpan, domain, 0); //zero
+            var invertedValue = AxisHelper.invertOrdinalScale(ordinalScale, 49);
+            expect(invertedValue).toBe(4);
+            var invertedValue = AxisHelper.invertOrdinalScale(ordinalScale, 51);
             expect(invertedValue).toBe(5);
         });
 
         it("invertOrdinalScale at start", () => {
+            var ordinalScale: D3.Scale.OrdinalScale = AxisHelper.createOrdinalScale(pixelSpan, domain, 0.4);
             var invertedValue = AxisHelper.invertOrdinalScale(ordinalScale, 0);
             expect(invertedValue).toBe(0);
         });
 
         it("invertOrdinalScale at end", () => {
+            var ordinalScale: D3.Scale.OrdinalScale = AxisHelper.createOrdinalScale(pixelSpan, domain, 0.4);
             var invertedValue = AxisHelper.invertOrdinalScale(ordinalScale, 99);
             expect(invertedValue).toBe(9);
         });
 
         it("invertOrdinalScale at before start", () => {
-            var invertedValue = AxisHelper.invertOrdinalScale(ordinalScale, -4);
+            var ordinalScale: D3.Scale.OrdinalScale = AxisHelper.createOrdinalScale(pixelSpan, domain, 0.4);
+            var invertedValue = AxisHelper.invertOrdinalScale(ordinalScale, -45);
             expect(invertedValue).toBe(0);
         });
 
         it("invertOrdinalScale at after end", () => {
+            var ordinalScale: D3.Scale.OrdinalScale = AxisHelper.createOrdinalScale(pixelSpan, domain, 0.4);
             var invertedValue = AxisHelper.invertOrdinalScale(ordinalScale, 1222);
             expect(invertedValue).toBe(9);
         });
@@ -131,16 +143,6 @@ module powerbitests {
     describe("AxisHelper createAxis tests", () => {
         var dataPercent = [0.0, 0.33, 0.49];
 
-        var metaDataColumnPercent: powerbi.DataViewMetadataColumn = {
-            displayName: 'Column',
-            type: ValueType.fromDescriptor({ numeric: true }),
-            objects: {
-                general: {
-                    formatString: '0 %;-0 %;0 %',
-                }
-            }
-        };
-
         var formatStringProp: powerbi.DataViewObjectPropertyIdentifier = {
             objectName: 'general',
             propertyName: 'formatString',
@@ -153,6 +155,7 @@ module powerbitests {
 
             var scale = <any>axisProperties.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is ordinal
             expect(scale.invert).toBeUndefined();
 
@@ -232,6 +235,7 @@ module powerbitests {
 
             var scale = <any>axisProperties.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is linear
             expect(scale.invert).toBeDefined();
 
@@ -256,6 +260,7 @@ module powerbitests {
 
             var scale = <any>axisProperties.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is linear
             expect(scale.invert).toBeDefined();
 
@@ -271,6 +276,7 @@ module powerbitests {
 
             var scale = <any>axisProperties.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is linear
             expect(scale.invert).toBeDefined();
 
@@ -285,6 +291,7 @@ module powerbitests {
 
             var scale = <any>axisProperties.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is linear
             expect(scale.invert).toBeDefined();
 
@@ -304,6 +311,7 @@ module powerbitests {
 
             var scale = <any>axisProperties.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is linear
             expect(scale.invert).toBeDefined();
 
@@ -318,6 +326,7 @@ module powerbitests {
 
             var scale = <any>axisProperties.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is linear
             expect(scale.invert).toBeDefined();
 
@@ -398,15 +407,43 @@ module powerbitests {
             var values = <any>axisProperties.values;
             expect(values).toBeDefined();
             expect(values.length).toEqual(3);
-            expect(values[0]).toBe("2014");
+            expect(values[0]).toBe("2014/10/15");
         });
 
-        it('create linear percent value scale',() => {
+        it('huge currency values', () => {
+            var axisProperties = AxisPropertiesBuilder.buildAxisProperties(
+                [0, 600000000000000],
+                AxisPropertiesBuilder.metaDataColumnCurrency
+            );
+
+            var scale = <any>axisProperties.scale;
+            expect(scale).toBeDefined();
+
+            var values = <any>axisProperties.values;
+            expect(values).toBeDefined();
+            expect(values.length).toEqual(2);
+            expect(values[0]).toBe('$0T');
+            expect(values[1]).toBe('$500T');
+        });
+
+        it('create linear percent value scale', () => {
+            
+            // Overriding format and leaving only positive format
+            let metaDataColumnPercent: powerbi.DataViewMetadataColumn = {
+                displayName: 'Column',
+                type: ValueType.fromDescriptor({ numeric: true }),
+                objects: {
+                    general: {
+                        formatString: '0 %',
+                    }
+                }
+            };
+            
             var os = AxisHelper.createAxis({
                 pixelSpan: 100,
                 dataDomain: [dataPercent[0], dataPercent[2]],
                 metaDataColumn: metaDataColumnPercent,
-                formatStringProp: formatStringProp,
+                formatString: valueFormatter.getFormatString(metaDataColumnPercent, formatStringProp),
                 outerPadding: 0.5,
                 isScalar: true,
                 isVertical: true,
@@ -428,7 +465,7 @@ module powerbitests {
                 pixelSpan: 100,
                 dataDomain: [AxisPropertiesBuilder.dataNumbers[0], AxisPropertiesBuilder.dataNumbers[2]],
                 metaDataColumn: AxisPropertiesBuilder.metaDataColumnNumeric,
-                formatStringProp: formatStringProp,
+                formatString: valueFormatter.getFormatString(AxisPropertiesBuilder.metaDataColumnNumeric, formatStringProp),
                 outerPadding: 0.5,
                 isScalar: true,
                 isVertical: false,
@@ -436,6 +473,7 @@ module powerbitests {
             });
             var scale = <any>os.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is log
             expect(scale.invert).toBeDefined();
 
@@ -454,7 +492,7 @@ module powerbitests {
                 pixelSpan: 100,
                 dataDomain: AxisPropertiesBuilder.domainNaN,
                 metaDataColumn: AxisPropertiesBuilder.metaDataColumnNumeric,
-                formatStringProp: formatStringProp,
+                formatString: valueFormatter.getFormatString(AxisPropertiesBuilder.metaDataColumnNumeric, formatStringProp),
                 outerPadding: 0.5,
                 isScalar: true,
                 isVertical: true,
@@ -462,6 +500,7 @@ module powerbitests {
             });
             var scale = <any>os.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is log
             expect(scale.invert).toBeDefined();
 
@@ -479,7 +518,7 @@ module powerbitests {
                 pixelSpan: 100,
                 dataDomain: [domain[0], domain[2]],
                 metaDataColumn: AxisPropertiesBuilder.metaDataColumnNumeric,
-                formatStringProp: formatStringProp,
+                formatString: valueFormatter.getFormatString(AxisPropertiesBuilder.metaDataColumnNumeric, formatStringProp),
                 outerPadding: 0.5,
                 isScalar: true,
                 isVertical: false,
@@ -487,6 +526,7 @@ module powerbitests {
             });
             var scale = <any>os.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is log
             expect(scale.invert).toBeDefined();
 
@@ -507,7 +547,7 @@ module powerbitests {
                 pixelSpan: 100,
                 dataDomain: [domain[0], domain[2]],
                 metaDataColumn: AxisPropertiesBuilder.metaDataColumnNumeric,
-                formatStringProp: formatStringProp,
+                formatString: valueFormatter.getFormatString(AxisPropertiesBuilder.metaDataColumnNumeric, formatStringProp),
                 outerPadding: 0.5,
                 isScalar: true,
                 isVertical: true,
@@ -515,6 +555,7 @@ module powerbitests {
             });
             var scale = <any>os.scale;
             expect(scale).toBeDefined();
+            
             // Proves scale is log
             expect(scale.invert).toBeDefined();
 
@@ -667,6 +708,7 @@ module powerbitests {
         });
 
         it("getRecommendedTickValues: very precise decimal values and funny d3 zero tick values", () => {
+            
             // Zero value originally returned from d3 ticks() call is "-1.7763568394002505e-17" (i.e. -1e-33)
             var expected = [-0.15000000000000002, -0.10000000000000002, -0.05000000000000002, 0, 0.04999999999999998, 0.09999999999999998];
             var scale = AxisHelper.createLinearScale(400, [-0.150000000000002, .10000000008000006]);
@@ -761,6 +803,91 @@ module powerbitests {
             expect(actual).toBe(3);
             actual = AxisHelper.getBestNumberOfTicks(NaN, NaN, dataViewMetadataColumnWithNonInteger, 6);
             expect(actual).toBe(3);
+        });
+    });
+
+    describe("AxisHelper createFormatter", () => {
+        let measureColumn: powerbi.DataViewMetadataColumn = {
+            displayName: 'sales', queryName: 'selectSales', isMeasure: true, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Integer),
+            format: '$0',
+        };
+        let dateColumn: powerbi.DataViewMetadataColumn = {
+            displayName: 'date', queryName: 'selectDate', isMeasure: false, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.DateTime),
+            format: 'MM/dd/yyyy',
+        };
+
+        it('createFormatter: value (hundreds)', () => {
+            let min = 0,
+                max = 200,
+                value = 100,
+                tickValues = [0,50,100,150,200];
+
+            expect(AxisHelper.createFormatter([min, max], [min, max], measureColumn.type, true, measureColumn.format, 6, tickValues, 'getValueFn', true)
+                .format(value))
+                .toBe('$100');
+        });
+
+        it('createFormatter: value (millions)', () => {
+            let min = 0,
+                max = 2e6,
+                value = 1e6,
+                tickValues = [0, 0.5e6, 1e6, 1.5e6, 2e6];
+
+            expect(AxisHelper.createFormatter([min, max], [min, max], measureColumn.type, true, measureColumn.format, 6, tickValues, 'getValueFn', true)
+                .format(value))
+                .toBe('$1M');
+        });
+
+        it('createFormatter: value (huge)', () => {
+            let min = 0,
+                max = 600000000000000,
+                value = 563732000000000,
+                tickValues = [0, 1e14, 2e14, 2e14, 4e14, 5e14, 6e14];
+
+            // Used to return '5.63732E+14', not the correct currency value
+            let expectedValue = '$563.73T';
+            expect(AxisHelper.createFormatter([min, max], [min, max], measureColumn.type, true, measureColumn.format, 6, tickValues, 'getValueFn', true)
+                .format(value))
+                .toBe(expectedValue);
+        });
+
+        it('createFormatter: 100% stacked', () => {
+            let min = 0,
+                max = 1,
+                value = 0.5,
+                tickValues =  [0,0.25,0.5,0.75,1];
+
+            expect(AxisHelper.createFormatter([min, max], [min, max], measureColumn.type, true, '0%', 6, tickValues, 'getValueFn', true)
+                .format(value))
+                .toBe('50%');
+        });
+
+        it('createFormatter: dateTime scalar', () => {
+            let min = new Date(2014, 6, 14).getTime(),
+                max = new Date(2014, 11, 14).getTime(),
+                value = new Date(2014, 9, 13).getTime();
+
+            expect(AxisHelper.createFormatter([min, max], [min, max], dateColumn.type, true, dateColumn.format, 6, [/*not used by datetime*/], 'getValueFn', true)
+                .format(new Date(value)))
+                .toBe('Oct 2014');
+        });
+
+        it('createFormatter: dateTime ordinal', () => {
+            let min = new Date(2014, 6, 14).getTime(),
+                max = new Date(2014, 11, 14).getTime(),
+                value = new Date(2014, 9, 13).getTime();
+
+            expect(AxisHelper.createFormatter([min, max], [min, max], dateColumn.type, false, dateColumn.format, 6, [/*not used by datetime*/], 'getValueFn', true)
+                .format(new Date(value)))
+                .toBe('10/13/2014');
+        });
+
+        it('createFormatter: dateTime scalar - filtered to single value', () => {
+            let min = new Date(2014, 6, 14).getTime();
+
+            expect(AxisHelper.createFormatter([min, min], [min, min], dateColumn.type, true, dateColumn.format, 6, [/*not used by datetime*/], 'getValueFn', true)
+                .format(new Date(min)))
+                .toBe('Jul 14');
         });
     });
 
@@ -878,16 +1005,19 @@ module powerbitests {
             renderYAxes: boolean = false,
             renderY2Axis: boolean = false,
             categoryThickness: number = undefined,
-            outerPadding: number = undefined) {
+            outerPadding: number = undefined,
+            isScalar: boolean = false) {
 
             this.xAxisProperties.willLabelsFit = !rotateX;
             this.xAxisProperties.willLabelsWordBreak = wordBreak;
+            this.xAxisProperties.scale = isScalar ? AxisHelper.createLinearScale(this.viewPort.width, [0,10]) : AxisHelper.createOrdinalScale(this.viewPort.width, [0,10]);
 
             if (categoryThickness != null) {
                 this.xAxisProperties.categoryThickness = categoryThickness;
                 this.xAxisProperties.xLabelMaxWidth = categoryThickness * 0.9;
                 this.xAxisProperties.outerPadding = categoryThickness * 0.5;
             }
+            
             // scalar line chart sets outer padding to zero since it isn't drawing rectangles
             if (outerPadding != null)
                 this.xAxisProperties.outerPadding = outerPadding;
@@ -955,6 +1085,7 @@ module powerbitests {
 
             expect(margins.xMax).toBe(25);
             expect(margins.yLeft).toBe(7);
+            
             // 11 for Mac OS and 12 for Windows
             expect(powerbitests.helpers.isInRange(margins.yRight, 11, 12)).toBe(true);
         });
@@ -964,7 +1095,7 @@ module powerbitests {
             var margins = localTickLabelBuilder.buildTickLabelMargins(false, false, false, true, true, false);
 
             expect(margins.xMax).toBe(10);
-            expect(margins.yLeft).toBe(25);
+            expect(margins.yLeft).toBe(35);
             expect(margins.yRight).toBe(0);
         });
 
@@ -973,7 +1104,7 @@ module powerbitests {
             var margins = localTickLabelBuilder.buildTickLabelMargins(true, false, false, true, true, false);
 
             expect(margins.xMax).toBe(25);
-            expect(margins.yLeft).toBe(25);
+            expect(margins.yLeft).toBe(35);
             expect(margins.yRight).toBe(0);
         });
 
@@ -982,7 +1113,7 @@ module powerbitests {
             var margins = localTickLabelBuilder.buildTickLabelMargins(true, false, false, true, false, false);
 
             expect(margins.xMax).toBe(25);
-            expect(margins.yLeft).toBe(25);
+            expect(margins.yLeft).toBe(35);
             expect(margins.yRight).toBe(0);
         });
 
@@ -992,7 +1123,7 @@ module powerbitests {
 
             expect(margins.xMax).toBe(10);
             expect(margins.yLeft).toBe(12);
-            expect(powerbitests.helpers.isInRange(margins.yRight, 23, 27)).toBe(true);
+            expect(powerbitests.helpers.isInRange(margins.yRight, 33, 37)).toBe(true);
         });
 
         it("xOverflowRight, line chart, small overhang, disable the secondary axis", () => {
@@ -1010,7 +1141,7 @@ module powerbitests {
 
             expect(margins.xMax).toBe(10);
             expect(margins.yLeft).toBe(0);
-            expect(powerbitests.helpers.isInRange(margins.yRight, 23, 27)).toBe(true);
+            expect(powerbitests.helpers.isInRange(margins.yRight, 33, 37)).toBe(true);
         });
 
         it("xOverflowRight, with rotate, disable both Y axes", () => {
@@ -1026,6 +1157,12 @@ module powerbitests {
             var localTickLabelBuilder = new AxisHelperTickLabelBuilder({height: 250, width: 250}, ['IPO', '83742 (Jun-15) %', 'Q4']);
             let margins = localTickLabelBuilder.buildTickLabelMargins(true, true, false, true, true, false);
             expect(margins.xMax).toBeGreaterThan(3 * localTickLabelBuilder.getFontSize() - 1);
+        });
+
+        it('Scalar axis, overflow right', () => {
+            var localTickLabelBuilder = new AxisHelperTickLabelBuilder({ height: 200, width: 200 }, ['Jan 2015','Feb 2015','Mar 2015','April 2015']);
+            var margins = localTickLabelBuilder.buildTickLabelMargins(false, false, false, true, true, false, undefined, undefined, true);
+            expect(margins.yRight).toBeGreaterThan(0);
         });
     });
 
@@ -1082,26 +1219,7 @@ module powerbitests {
             expect(newDomain[1]).toBe(undefined);
         });
     });
-
-    module OrdinalScaleBuilder {
-        var range: number[] = [0, 99];
-
-        var domain: number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-
-        function createOrdinalScale(): D3.Scale.OrdinalScale {
-            return d3.scale.ordinal();
-        }
-
-        export function buildOrdinalScale(): D3.Scale.OrdinalScale {
-            var ordinalScale = createOrdinalScale();
-
-            ordinalScale.rangeRoundBands(range, 0.1);
-            ordinalScale.domain(domain);
-
-            return ordinalScale;
-        }
-    }
-
+    
     module AxisPropertiesBuilder {
         var dataStrings = ["Sun", "Mon", "Holiday"];
 
@@ -1133,6 +1251,12 @@ module powerbitests {
             type: ValueType.fromDescriptor({ numeric: true })
         };
 
+        export var metaDataColumnCurrency: powerbi.DataViewMetadataColumn = {
+            displayName: displayName,
+            type: ValueType.fromDescriptor({ numeric: true }),
+            objects: { general: { formatString: '$0' } },
+        };
+
         var metaDataColumnBool: powerbi.DataViewMetadataColumn = {
             displayName: displayName,
             type: ValueType.fromDescriptor({ bool: true })
@@ -1140,7 +1264,9 @@ module powerbitests {
 
         var metaDataColumnTime: powerbi.DataViewMetadataColumn = {
             displayName: displayName,
-            type: ValueType.fromDescriptor({ dateTime: true })
+            type: ValueType.fromDescriptor({ dateTime: true }),
+            format: 'yyyy/MM/dd',
+            objects: { general: { formatString: 'yyyy/MM/dd' } },
         };
 
         var formatStringProp: powerbi.DataViewObjectPropertyIdentifier = {
@@ -1176,11 +1302,11 @@ module powerbitests {
                 pixelSpan: pixelSpan,
                 dataDomain: dataDomain,
                 metaDataColumn: metaDataColumn,
-                formatStringProp: formatStringProp,
+                formatString: valueFormatter.getFormatString(metaDataColumn, formatStringProp),
                 outerPadding: 0.5,
                 isScalar: false,
                 isVertical: false,
-                getValueFn: getValueFn
+                getValueFn: getValueFn,
             };
 
             return axisOptions;
@@ -1194,6 +1320,14 @@ module powerbitests {
                 getValueFnStrings);
 
             return axisOptions;
+        }
+
+        export function buildAxisProperties(dataDomain: any[], metadataColumn?: powerbi.DataViewMetadataColumn): powerbi.visuals.IAxisProperties {
+            var axisOptions = createAxisOptions(metadataColumn ? metadataColumn : metaDataColumnNumeric, dataDomain);
+            axisOptions.isScalar = true;
+            axisOptions.useTickIntervalForDisplayUnits = true;
+
+            return AxisHelper.createAxis(axisOptions);
         }
 
         export function buildAxisPropertiesString(): powerbi.visuals.IAxisProperties {
@@ -1249,7 +1383,7 @@ module powerbitests {
                     dataNumbers[2]
                 ]);
 
-            axisOptions.isScalar = true;            
+            axisOptions.isScalar = true;
 
             return AxisHelper.createAxis(axisOptions);
         }

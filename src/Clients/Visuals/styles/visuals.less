@@ -2,7 +2,7 @@
  *  Power BI Visualizations
  *
  *  Copyright (c) Microsoft Corporation
- *  All rights reserved. 
+ *  All rights reserved.
  *  MIT License
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -11,38 +11,31 @@
  *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  *  copies of the Software, and to permit persons to whom the Software is
  *  furnished to do so, subject to the following conditions:
- *   
- *  The above copyright notice and this permission notice shall be included in 
+ *
+ *  The above copyright notice and this permission notice shall be included in
  *  all copies or substantial portions of the Software.
- *   
- *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ *
+ *  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  *  THE SOFTWARE.
  */
 
 @import "sprites.less";
-@import "ms-kpi-glyphs.less";
+@import "../../StyleLibrary/less/powervisuals-glyphs.less";
 @import "../../PowerBI/styles/colorPalette.less";
 @import "../../PowerBI/styles/fonts.less";
 @import "../../PowerBI/styles/mixins.less";
 @import "../../PowerBI/styles/constants.less";
-@import (optional) "bingNews.less";
-@import (optional) "bingSocialTweets.less";
-@import (optional) "bingSocialNews.less";
-@import (optional) "webChart.less";
-@import (optional) "partitionMap.less";
-@import (optional) "sunburstChart.less";
 
-.slicerContainer {
+@defaultShapeRendering: crispEdges;
 
-    .slicerHeader {
-        margin: 0 0 0 8px;
-        box-sizing: border-box;
-    }
+.slicerHeader {
+    margin: 0 0 0 8px;
+    box-sizing: border-box;
 
     .headerText {
         color: @neutralPrimaryColor;
@@ -55,6 +48,26 @@
         float: none;
     }
 
+    .clear {
+        .sprite(@slicer-reset);
+        margin: 4px 2px;
+        float: right;
+        cursor: pointer;
+        display: block;
+        visibility: hidden;
+    }
+}
+
+.slicerContainer, .horizontalSlicerContainer {
+    &.hasSelection, &:hover {
+        .clear {
+            visibility: visible;
+        }
+    }
+}
+
+.slicerContainer {
+
     .slicerItemContainer {
         margin: 2px 0 0 8px;
         box-sizing: border-box;
@@ -64,6 +77,11 @@
         * {
             display: table-cell;
             vertical-align: bottom;
+        }
+
+        img {
+            max-width: 100px;
+            width: 100%;
         }
 
         &:hover {
@@ -125,13 +143,11 @@
 
             span.checkbox::before {
                 content: '';
-
                 height: 3px;
                 width: 3px;
                 position: absolute;
                 display: inline-block;
                 margin: 3px 0 0px 3px;
-
                 background-color: @neutralTertiaryAltColor;
                 box-shadow: 0px 0px 2px @neutralTertiaryAltColor;
                 border: none;
@@ -144,30 +160,102 @@
         font-size: 14px;
     }
 
-    .clear {
-        .sprite(@slicer-reset);
-        // The total margin is referred in the slicer.ts file. Any changes to these values should also be updated in the ts file
-        margin: 4px 2px;
-        float: right;
-        cursor: pointer;
-    }
-
     &.isMultiSelectEnabled .slicerCheckbox.selected:not(.partiallySelected) {
         /* TODO: Use a checkmark glyph rather than drawing a custom one using transforms and offsets. */
         span.checkbox::before {
             content: '';
-
             height: 8px;
             width: 3px;
             position: absolute;
             display: inline-block;
             margin: -2px 0 0 3px;
-
             border-right: 2px solid @whiteColor;
             border-bottom: 2px solid @whiteColor;
             transform: rotate(45deg);
         }
     }
+}
+
+.horizontalSlicerContainer {
+
+    .navigationArrow {
+        visibility: hidden;
+        background-color: white;
+
+        &.show {
+            visibility: visible;
+        }
+
+        &.right {
+            .sprite(@horizontal-slicer-right-arrow);
+        }
+
+        &.left {
+            .sprite(@horizontal-slicer-left-arrow);
+        }
+    }
+
+    .flexDisplay {
+        display: -ms-flexbox;
+        display: flex;
+        -ms-flex-direction: row;
+        flex-direction: row;
+    }
+
+    .slicerBody {
+        align-items: center;
+        -ms-flex-align: center;
+    }
+
+    .slicerItemsContainer {
+        vertical-align: top;
+    }
+
+    .slicerText {
+        display: -ms-flexbox;
+        display: -webkit-flex;
+        display: flex;
+        -webkit-flex-direction: column;
+        -ms-flex-direction: column;
+        flex-direction: column;
+        -webkit-justify-content: center;
+        -ms-flex-pack: center;
+        justify-content: center;
+        -webkit-align-items: center;
+        -ms-flex-align: center;
+        align-items: center;
+
+        &.selected, &.partiallySelected {
+            color: @whiteColor !important;
+        }
+
+        &:hover {
+            background-color: @neutralLightColor !important;
+        }
+
+        &.selected {
+            background-color: rgba(51,51,51,1.0) !important;
+        }
+
+        &.partiallySelected {
+            background-color: rgba(51,51,51,0.6) !important;
+        }
+
+        &.selected:hover, &.partiallySelected:hover {
+            background-color: @neutralTertiaryAltColor !important;
+        }
+
+        > span {
+            text-align: center;
+        }
+    }
+}
+
+.overflowingText {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    display: block;
 }
 
 .visual svg {
@@ -243,7 +331,7 @@
         .axis path, .axis line {
             fill: none;
             stroke: @neutralSecondaryAltColor;
-            shape-rendering: crispEdges;
+            shape-rendering: @defaultShapeRendering;
         }
     }
 
@@ -302,7 +390,7 @@
         .axis path, .axis line {
             fill: none;
             stroke: @neutralSecondaryAltColor;
-            shape-rendering: crispEdges;
+            shape-rendering: @defaultShapeRendering;
         }
     }
 }
@@ -327,14 +415,14 @@
         .axis path, .axis line {
             fill: none;
             stroke: @neutralSecondaryAltColor;
-            shape-rendering: crispEdges;
+            shape-rendering: @defaultShapeRendering;
         }
     }
 
     .waterfall-connector {
         stroke: @chartConnectorColor;
         stroke-width: 1px;
-        shape-rendering: crispEdges;
+        shape-rendering: @defaultShapeRendering;
     }
 }
 
@@ -359,13 +447,21 @@
     }
 
     .hover-line {
-        stroke: @chartAxisGridLineColor;
-        fill: rgba(235, 94, 94, 1.0);
+        stroke: @interactiveHoverLineColor;
+        pointer-events: none;
 
         .interactive {
-            stroke: @interactiveHoverLineColor;
             stroke-width: 3px;
             opacity: 1;
+        }
+
+        .selection-circle {
+            stroke: @chartAxisGridLineColor;
+        }
+
+        .circle-item {
+            stroke: none;
+            pointer-events: none;
         }
     }
 
@@ -385,7 +481,7 @@
         .axis path, .axis line {
             fill: none;
             stroke: @neutralSecondaryAltColor;
-            shape-rendering: crispEdges;
+            shape-rendering: @defaultShapeRendering;
         }
 
         .line {
@@ -398,7 +494,7 @@
 
 .funnelChart {
     line {
-        shape-rendering: crispEdges;
+        shape-rendering: @defaultShapeRendering;
     }
 
     .percentBars {
@@ -415,21 +511,15 @@
     }
 
     .axis {
-        path, line {
+        font-family: @regularFontFamily;
+        font-size: 11px;
+
+        path {
             fill: none;
-            stroke: #000;
         }
 
-        .data-labels {
-            font-size: 12px;
-        }
-
-        .tick line {
-            display: none;
-        }
-
-        .domain {
-            display: none;
+        .tick text {
+            fill: @neutralSecondaryAltColor;
         }
     }
 }
@@ -526,7 +616,7 @@
         .axis path, .axis line {
             fill: none;
             stroke: @neutralSecondaryAltColor;
-            shape-rendering: crispEdges;
+            shape-rendering: @defaultShapeRendering;
         }
     }
 }
@@ -559,16 +649,20 @@
         .axis path, .axis line {
             fill: none;
             stroke: @neutralSecondaryAltColor;
-            shape-rendering: crispEdges;
+            shape-rendering: @defaultShapeRendering;
         }
+    }
+
+    .play-axis-container {
+        position: absolute;
+        left: 16px;
+        bottom: 35px;
     }
 
     .button-container {
         height: 24px;
         width: 24px;
         overflow: hidden;
-        -moz-border-radius: 13px;
-        -webkit-border-radius: 13px;
         border-radius: 13px;
         border: 1px solid @neutralSecondaryColor;
         margin: 10px;
@@ -614,6 +708,10 @@
         right: 16px;
         color: @neutralSecondaryAltColor2;
         opacity: 0.5;
+        pointer-events: none;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
     }
 }
 
@@ -690,7 +788,6 @@
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
-            -o-user-select: none;
             user-select: none;
             cursor: default;
         }
@@ -728,6 +825,30 @@
                to trigger resizing is 4px (see TablixResizer.resizeHandleSize) and thus less than the 5px padding.
             */
             padding: 0px 5px 0px 10px;
+        }
+
+        .bi-sort-icon-container {
+            float: right;
+        }
+
+        .bi-table-column-header{
+             div.future {
+              display: none;
+             }
+
+             div.sorted {
+              display: inline-block;
+             }
+
+             &>div:hover {
+                div.sorted {
+                    display: none;
+                }
+
+                div.future {
+                    display: inline-block;
+                }
+            }
         }
 
         .bi-table-cell-numeric {
@@ -842,7 +963,6 @@
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
-            -o-user-select: none;
             user-select: none;
             cursor: default;
         }
@@ -876,6 +996,20 @@
             border-bottom-style: solid;
             border-bottom-color: #CCCCCC;
             padding: 0px 5px 0px 10px;
+        }
+
+        .bi-sort-icon-container {
+            float: right;
+        }
+
+        .bi-table-column-header{
+             div.future {
+              display: none;
+             }
+
+             div.sorted {
+              display: inline-block;
+             }
         }
 
         .bi-table-cell-numeric {
@@ -979,8 +1113,6 @@
     color: #333;
     background: rgba(255,255,255,1);
     /* css3 */
-    -webkit-border-radius: 0px;
-    -moz-border-radius: 0px;
     border-radius: 0px;
 }
 
@@ -1054,6 +1186,7 @@
         .labels {
             font-family: @regularFontFamily;
             fill: @whiteColor;
+            pointer-events: none;
 
             .majorLabel {
                 font-size: 12px;
@@ -1065,12 +1198,50 @@
         }
     }
 
-    .ms-kpi-glyph {
+    .powervisuals-glyph {
         font-size: inherit;
 
         &.big-kpi {
             font-size: 48px;
         }
+    }
+    /* Adding custom styles to the listView jQuery Scrollbar. */
+    .scroll-wrapper {
+        width: 100%;
+        height: 100%;
+        display: block;
+
+        .scroll-content {
+            height: inherit;
+        }
+
+        .scroll-element {
+            &.scroll-x {
+                height: 8px !important;
+            }
+
+            &.scroll-y {
+                width: 8px !important;
+            }
+
+            .scroll-element_track {
+                background-color: transparent !important;
+            }
+
+            .scroll-element_outer, .scroll-bar {
+                .no-border-radius;
+            }
+
+            .scroll-bar {
+                background-color: @neutralTertiaryAltColor !important;
+                opacity: 0;
+            }
+        }
+    }
+    /* Only show the scrollbars on hover or when being dragged. */
+    .scroll-wrapper:hover .scroll-element .scroll-bar,
+    .scroll-wrapper .scroll-element.scroll-draggable .scroll-bar {
+        opacity: 1;
     }
 }
 
@@ -1114,9 +1285,25 @@
         max-width: 390px;
     }
 
+    div.tooltip-header {
+        word-wrap: break-word;
+        max-width: 260px;
+        font-weight: bold;
+        color: @whiteColor;
+        letter-spacing: 1px;
+        padding-bottom: 4px;
+    }
+
     .tooltip-row {
         display: table-row;
         line-height: 16px;
+    }
+
+    div.tooltip-color-cell {
+        display: table-cell;
+        vertical-align: top;
+        max-width: 13px;
+        padding-right: 4px;
     }
 
     div.tooltip-title-cell {
@@ -1173,8 +1360,18 @@
         font-size: 12px;
         text-anchor: middle;
         font-family: @regularSecondaryFontFamily;
-        /* Enables tooltip when hovering on data label inside visual */
-        pointer-events: none;
+    }
+
+    .catagorylabel {
+        font-size: 12px;
+        text-anchor: middle;
+        font-family: @regularSecondaryFontFamily;
+    }
+}
+
+    .leader-lines {
+    .line-label{
+        opacity: 0.5;
     }
 }
 
@@ -1190,6 +1387,7 @@
 .richtextbox {
     color: @neutralPrimaryColor;
     pointer-events: all;
+    white-space: pre-wrap;
 
     a {
         color: @defaultLinkColor;
@@ -1207,12 +1405,10 @@
 }
 
 div.ql-toolbar {
-    padding: 4px;
-    background: @neutralPrimaryColor;
-    color: @whiteColor;
     white-space: nowrap;
     overflow-x: hidden;
     font-size: 14px;
+
     // TODO: fix SELECT dropdown arrow in IE
     /*
     select::-ms-expand {
@@ -1220,20 +1416,11 @@ div.ql-toolbar {
     }
     */
     .ql-format-group {
-        display: inline-block;
         vertical-align: middle;
-        margin: 0px 2px;
     }
 
     select.ql-picker {
-        margin: 3px;
         padding: 3px;
-        background: @neutralPrimaryColorAlt;
-        border: 1px solid @blackColor;
-    }
-
-    select.ql-font {
-        width: 122px;
     }
 
     label {
@@ -1242,8 +1429,16 @@ div.ql-toolbar {
 
     .ql-format-button {
         margin: 3px;
+        padding: 4px;
+        font-size: @largeFontSize;
         display: inline-block;
         vertical-align: middle;
+
+        &:hover,
+        &.ql-active {
+            background: @themePrimaryColor;
+            color: @neutralPrimaryColor;
+        }
     }
 
     .toolbar-url-input {
@@ -1251,7 +1446,11 @@ div.ql-toolbar {
         vertical-align: middle;
 
         .ql-link div {
-            height: 100%;
+            height: 24px;
+            width: 24px;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
         .ql-link-tooltip {
@@ -1302,98 +1501,76 @@ div.ql-toolbar {
         }
     }
 
-    .ql-format-button:hover {
-        background: @themePrimaryColor;
-        color: @neutralPrimaryColor;
+    &.stackedToolbar {
+        box-shadow: none;
+        position: inherit;
+
+        .ql-link-tooltip {
+            a {
+                margin: 0;
+            }
+
+            .url {
+                max-width: 135px;
+                overflow: hidden;
+                display: inline-block;
+            }
+
+            &.editing .url {
+                display: none;
+            }
+
+            .input {
+                width: 175px;
+                margin: 0;
+            }
+        }
+
+        .ql-format-group {
+            margin-top: 8px;
+            display: block;
+            float: left;
+        }
+
+        label {
+            display: none;
+        }
+
+        select.ql-font {
+            width: 180px;
+        }
+
+        select.ql-size {
+            width: 60px;
+            margin-left: 10px;
+        }
     }
 
-    .ql-format-button.ql-active {
-        background: @themePrimaryColor;
-        color: @neutralPrimaryColor;
+    &.overlayedToolbar {
+        padding: 4px;
+
+        select.ql-picker {
+            margin: 3px;
+        }
+
+        .ql-format-group {
+            display: inline-block;
+            margin: 0px 2px;
+        }
+
+        select.ql-font {
+            width: 122px;
+        }
     }
 
-    .ql-format-button[data-value="left"] {
-        .sprite(@left-align-text-white);
-    }
+    &.darkToolbar {
+        background: @neutralPrimaryColor;
+        color: @whiteColor;
 
-    .ql-format-button[data-value="left"].ql-active {
-        .sprite(@left-align-text-black);
-    }
-
-    .ql-format-button[data-value="left"]:hover {
-        .sprite(@left-align-text-black);
-    }
-
-    .ql-format-button[data-value="right"] {
-        .sprite(@right-align-text-white);
-    }
-
-    .ql-format-button[data-value="right"].ql-active {
-        .sprite(@right-align-text-black);
-    }
-
-    .ql-format-button[data-value="right"]:hover {
-        .sprite(@right-align-text-black);
-    }
-
-    .ql-format-button[data-value="center"] {
-        .sprite(@center-align-text-white);
-    }
-
-    .ql-format-button[data-value="center"].ql-active {
-        .sprite(@center-align-text-black);
-    }
-
-    .ql-format-button[data-value="center"]:hover {
-        .sprite(@center-align-text-black);
-    }
-
-    .ql-format-button.ql-bold {
-        .sprite(@bold-text-white);
-    }
-
-    .ql-format-button.ql-bold.ql-active {
-        .sprite(@bold-text-black);
-    }
-
-    .ql-format-button.ql-bold:hover {
-        .sprite(@bold-text-black);
-    }
-
-    .ql-format-button.ql-italic {
-        .sprite(@italic-text-white);
-    }
-
-    .ql-format-button.ql-italic.ql-active {
-        .sprite(@italic-text-black);
-    }
-
-    .ql-format-button.ql-italic:hover {
-        .sprite(@italic-text-black);
-    }
-
-    .ql-format-button.ql-underline {
-        .sprite(@underline-text-white);
-    }
-
-    .ql-format-button.ql-underline.ql-active {
-        .sprite(@underline-text-black);
-    }
-
-    .ql-format-button.ql-underline:hover {
-        .sprite(@underline-text-black);
-    }
-
-    .ql-format-button.ql-link {
-        .sprite(@insert-link-white);
-    }
-
-    .ql-format-button.ql-link.ql-active {
-        .sprite(@insert-link-black);
-    }
-
-    .ql-format-button.ql-link:hover {
-        .sprite(@insert-link-black);
+        select.ql-picker {
+            background: @neutralPrimaryColorAlt;
+            border: 1px solid @blackColor;
+        }
     }
 }
 
@@ -1471,7 +1648,7 @@ div.ql-toolbar {
     }
 }
 
-.clearCatcher {
+.clearCatcher, .backgroundRect {
     fill-opacity: 0;
 }
 
@@ -1480,10 +1657,21 @@ div.ql-toolbar {
 
     &.sad {
         .owlGaugeBg {
-            .st0{ fill:#EF4137; }
-            .st1{ fill:#FAAF42; }
-            .st2{ fill:#F15B2A; }
-            .st3{ fill:#F15B2A; }
+            .st0 {
+                fill: #EF4137;
+            }
+
+            .st1 {
+                fill: #FAAF42;
+            }
+
+            .st2 {
+                fill: #F15B2A;
+            }
+
+            .st3 {
+                fill: #F15B2A;
+            }
         }
 
         .owlGaugeTail {
@@ -1493,10 +1681,21 @@ div.ql-toolbar {
 
     &.meh {
         .owlGaugeBg {
-            .st0{ fill:#F18D05; }
-            .st1{ fill:#FAAF42; }
-            .st2{ fill:#F15B2A; }
-            .st3{ fill:#F15B2A; }
+            .st0 {
+                fill: #F18D05;
+            }
+
+            .st1 {
+                fill: #FAAF42;
+            }
+
+            .st2 {
+                fill: #F15B2A;
+            }
+
+            .st3 {
+                fill: #F15B2A;
+            }
         }
 
         .owlGaugeTail {
@@ -1506,10 +1705,21 @@ div.ql-toolbar {
 
     &.happy {
         .owlGaugeBg {
-            .st0{ fill:#32742C; }
-            .st1{ fill:#D0D102; }
-            .st2{ fill:#61AE24; }
-            .st3{ fill:#23AA65; }
+            .st0 {
+                fill: #32742C;
+            }
+
+            .st1 {
+                fill: #D0D102;
+            }
+
+            .st2 {
+                fill: #61AE24;
+            }
+
+            .st3 {
+                fill: #23AA65;
+            }
         }
 
         .owlGaugeTail {
@@ -1518,7 +1728,7 @@ div.ql-toolbar {
     }
 
     > svg {
-        position:absolute;
+        position: absolute;
         transition: all 0.25s;
     }
 
@@ -1549,123 +1759,36 @@ div.ql-toolbar {
     }
 
     @keyframes owlTailAmbientAnimation {
-        0% { transform: rotate(2deg); }
-        50% { transform: rotate(-2deg); }
-        100% { transform: rotate(2deg); }
-    }
-}
-    
-.streamGraph {
-    .axis{
-        path, line {
-            fill: none;
-            stroke: black;
-            shape-rendering: crispEdges;
+        0% {
+            transform: rotate(2deg);
         }
 
-        text {
-            font-family: sans-serif;
-            font-size: 11px;
+        50% {
+            transform: rotate(-2deg);
+        }
+
+        100% {
+            transform: rotate(2deg);
         }
     }
 }
 
-.radarChart {
-    .axis {
-        path, line {
-            fill: none;
-            stroke: grey;
-            stroke-width: 1px;
-        }
+.visual-sandbox {
+    border: none;
+    overflow: hidden;
 
-        text {
-            font-family: sans-serif;
-            font-size: 11px;
-        }
-    }
-    .segments {
-        path, line {
-            fill: none;
-            stroke: grey;
-            stroke-opacity: 0.75;
-            stroke-width: 0.3px;
-        }
+    //adding this because cors block fonts for sandboxed visuals.
+    .tooltip-container .tooltip-row{
+        font-size: 9px;
     }
 }
 
-.dotPlot {
-    .axis{
-        path, line {
-            fill: none;
-            stroke: black;
-            shape-rendering: crispEdges;
-        }
-
-        text {
-            font-family: sans-serif;
-            font-size: 11px;
-        }
-    }
-}
-.sunBurstPercentage{
-    font-weight:bold;
-    opacity:0;
-}
-.sunBurstPercentageFixed{
-    font-weight:bold;
-    opacity:0;
+.x-ref-line {
+    stroke-width: 3px;
+    stroke-opacity: 0.5;
 }
 
-.histogram {
-    @histogramAxesColor: @neutralSecondaryAltColor;
-    @histogramLegendTextColor: @blackColor;
-
-    font-family: @regularFontFamily;
-
-    .axis, .legends {
-        path, line {
-            fill: none;
-            stroke: @histogramAxesColor;
-            shape-rendering: crispEdges;
-        }
-
-        text {
-            fill: @histogramAxesColor;
-            font-size: 11px;
-        }
-    }
-
-    .legends {
-        text {
-            font-size: 12px;
-            fill: @histogramLegendTextColor;
-            text-anchor: middle;
-        }
-    }
-}
-
-.areaRangeChart {
-    @areaRangeChartAxesColor: @neutralSecondaryAltColor;
-    @areaRangeChartLegendTextColor: @blackColor;
-
-    font-family: @regularFontFamily;
-
-    .axis {
-        path, line {
-            fill: none;
-            stroke: @areaRangeChartAxesColor;
-            shape-rendering: crispEdges;
-        }
-
-        text {
-            fill: @areaRangeChartAxesColor;
-            font-size: 11px;
-        }
-    }
-
-    .chart {
-        path, line {
-            stroke-width: 1;
-        }
-    }
+.y1-ref-line {
+    stroke-width: 3px;
+    stroke-opacity: 0.5;
 }

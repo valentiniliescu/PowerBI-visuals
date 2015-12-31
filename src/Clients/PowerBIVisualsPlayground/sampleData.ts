@@ -33,6 +33,7 @@ module powerbi.visuals.sampleData {
     export class SampleData {
 
         private static data = [
+            new sampleDataViews.CarLogosData(),
             new sampleDataViews.DistrictSalesData(),
             new sampleDataViews.FileStorageData(),
             new sampleDataViews.ImageData(),
@@ -50,7 +51,10 @@ module powerbi.visuals.sampleData {
             new sampleDataViews.SimpleTreeData(),
             new sampleDataViews.ProductSalesByDate(),
             new sampleDataViews.SimpleDotPlotData(),
+            new sampleDataViews.SimpleTimelineData(),
             new sampleDataViews.SimpleHistogramData(),
+            new sampleDataViews.SimpleDataByCountries(),
+            new sampleDataViews.SimpleCountriesData(),
             new sampleDataViews.Plotly3DSurfaceData()
         ];
 

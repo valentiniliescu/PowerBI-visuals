@@ -34,6 +34,19 @@ module powerbi.data {
         single?: CompiledDataViewSingleMapping;
         tree?: CompiledDataViewTreeMapping;
         matrix?: CompiledDataViewMatrixMapping;
+        scriptResult?: CompiledDataViewScriptResultMapping;
+    }
+
+    export interface CompiledDataViewMappingScriptDefinition {
+        source: DataViewObjectPropertyIdentifier;
+        provider: DataViewObjectPropertyIdentifier;
+        imageFormat: string;
+        scriptInput?: ScriptInput;
+    }
+
+    export interface CompiledDataViewScriptResultMapping {
+        dataInput: CompiledDataViewMapping;
+        script: CompiledDataViewMappingScriptDefinition;
     }
 
     export interface CompiledDataViewMappingMetadata {
@@ -41,7 +54,7 @@ module powerbi.data {
         objects?: DataViewObjects;
     }
 
-    export interface CompiledDataViewCategoricalMapping extends HasDataVolume {
+    export interface CompiledDataViewCategoricalMapping extends HasDataVolume, HasReductionAlgorithm {
         categories?: CompiledDataViewRoleMappingWithReduction | CompiledDataViewListRoleMappingWithReduction;
         values?: CompiledDataViewRoleMapping | CompiledDataViewGroupedRoleMapping | CompiledDataViewListRoleMapping;
         includeEmptyGroups?: boolean;
@@ -93,11 +106,12 @@ module powerbi.data {
     }
 
     export interface CompiledDataViewGroupedRoleMapping {
-        group: {
-            by: CompiledDataViewRole;
-            select: CompiledDataViewRoleMapping[];
-            dataReductionAlgorithm?: ReductionAlgorithm;
-        };
+        group: CompiledDataViewGroupedRoleGroupItemMapping;
+    }
+
+    export interface CompiledDataViewGroupedRoleGroupItemMapping extends HasReductionAlgorithm {
+        by: CompiledDataViewRole;
+        select: CompiledDataViewRoleMapping[];
     }
 
     export interface CompiledDataViewListRoleMapping {
@@ -117,10 +131,12 @@ module powerbi.data {
         role: string;
         items: CompiledDataViewRoleItem[];
         subtotalType?: CompiledSubtotalType;
-        removeSort?: boolean;
+        showAll?: boolean;
+        activeItem?: string;
     }
 
     export interface CompiledDataViewRoleItem {
+        queryName: string;
         type?: ValueType;
     }
 } 

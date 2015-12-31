@@ -29,13 +29,16 @@
 module powerbi.visuals {
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
+    import PixelConverter = jsCommon.PixelConverter;
+    import ISize = shapes.ISize;
 
     export interface DonutConstructorOptions {
         sliceWidthRatio?: number;
         animator?: IDonutChartAnimator;
         isScrollable?: boolean;
         disableGeometricCulling?: boolean;
-        behavior?: DonutChartWebBehavior;
+        behavior?: IInteractiveBehavior;
+        tooltipsEnabled?: boolean;
     }
 
     /**
@@ -45,7 +48,7 @@ module powerbi.visuals {
         data: DonutDataPoint;
     }
 
-    export interface DonutDataPoint extends SelectableDataPoint, TooltipEnabledDataPoint, LabelEnabledDataPoint {
+    export interface DonutDataPoint extends SelectableDataPoint, TooltipEnabledDataPoint {
         measure: number;
         measureFormat?: string;
         percentage: number;
@@ -55,7 +58,11 @@ module powerbi.visuals {
         /** Data points that may be drilled into */
         internalDataPoints?: DonutDataPoint[];
         color: string;
-        labelColor: string;
+        strokeWidth: number;
+        //taken from column metadata
+        labelFormatString: string;
+        /** This is set to true only when it's the last slice and all slices have the same color*/
+        isLastInDonut?: boolean;
     }
 
     export interface DonutData {
@@ -123,9 +130,6 @@ module powerbi.visuals {
         private static DrillDownAnimationDuration = 1000;
         private static OuterArcRadiusRatio = 0.9;
         private static InnerArcRadiusRatio = 0.8;
-        private static FontsizeThreshold = 150;
-        private static SmallFontSize = '8px';
-        private static NormalFontSize = '11px';
         private static InteractiveLegendContainerHeight = 70;
         private static OpaqueOpacity = 1.0;
         private static SemiTransparentOpacity = 0.6;
@@ -138,9 +142,11 @@ module powerbi.visuals {
         public static EffectiveZeroValue = 0.000000001; // Very small multiplier so that we have a properly shaped zero arc to animate to/from.
         public static PolylineOpacity = 0.5;
 
+        private dataViews: DataView[];
         private sliceWidthRatio: number;
         private svg: D3.Selection;
         private mainGraphicsContext: D3.Selection;
+        private labelGraphicsContext: D3.Selection;
         private clearCatcher: D3.Selection;
         private legendContainer: D3.Selection;
         private interactiveLegendArrow: D3.Selection;
@@ -163,13 +169,14 @@ module powerbi.visuals {
         private interactivityState: InteractivityState;
         private chartRotationAnimationDuration: number;
         private interactivityService: IInteractivityService;
-        private behavior: DonutChartWebBehavior;
+        private behavior: IInteractiveBehavior;
         private legend: ILegend;
         private hasSetData: boolean;
         private isScrollable: boolean;
         private disableGeometricCulling: boolean;
         private hostService: IVisualHostServices;
         private settings: DonutChartSettings;
+        private tooltipsEnabled: boolean;
 
         /**
          * Note: Public for testing.
@@ -183,13 +190,14 @@ module powerbi.visuals {
                 this.isScrollable = options.isScrollable ? options.isScrollable : false;
                 this.disableGeometricCulling = options.disableGeometricCulling ? options.disableGeometricCulling : false;
                 this.behavior = options.behavior;
+                this.tooltipsEnabled = options.tooltipsEnabled;
             }
             if (this.sliceWidthRatio == null) {
                 this.sliceWidthRatio = DonutChart.defaultSliceWidthRatio;
             }
         }
 
-        public static converter(dataView: DataView, colors: IDataColorPalette, defaultDataPointColor?: string, viewport?: IViewport, disableGeometricCulling?: boolean): DonutData {
+        public static converter(dataView: DataView, colors: IDataColorPalette, defaultDataPointColor?: string, viewport?: IViewport, disableGeometricCulling?: boolean, interactivityService?: IInteractivityService): DonutData {
             let converter = new DonutChartConversion.DonutChartConverter(dataView, colors, defaultDataPointColor);
             converter.convert();
             let d3PieLayout = d3.layout.pie()
@@ -197,8 +205,14 @@ module powerbi.visuals {
                 .value((d: DonutDataPoint) => {
                     return d.percentage;
                 });
+
+            if (interactivityService) {
+                interactivityService.applySelectionStateToData(converter.dataPoints);
+                interactivityService.applySelectionStateToData(converter.legendData.dataPoints);
+            }
+
             let culledDataPoints = (!disableGeometricCulling && viewport) ? DonutChart.cullDataByViewport(converter.dataPoints, converter.maxValue, viewport) : converter.dataPoints;
-            let data: DonutData = {
+            return {
                 dataPointsToDeprecate: culledDataPoints,
                 dataPoints: d3PieLayout(culledDataPoints),
                 unCulledDataPoints: converter.dataPoints,
@@ -210,8 +224,6 @@ module powerbi.visuals {
                 maxValue: converter.maxValue,
                 visibleGeometryCulled: converter.dataPoints.length !== culledDataPoints.length,
             };
-
-            return data;
         }
 
         public init(options: VisualInitOptions) {
@@ -232,7 +244,7 @@ module powerbi.visuals {
                 dataPointsToEnumerate: [],
                 dataPoints: [],
                 unCulledDataPoints: [],
-                legendData: { title: "", dataPoints: [] },
+                legendData: { title: "", dataPoints: [], fontSize: SVGLegend.DefaultFontSizeInPt},
                 hasHighlights: false,
                 dataLabelsSettings: dataLabelUtils.getDefaultDonutLabelSettings(),
             };
@@ -285,8 +297,10 @@ module powerbi.visuals {
             this.mainGraphicsContext = this.svg.append('g');
             this.mainGraphicsContext.append("g")
                 .classed('slices', true);
-            this.mainGraphicsContext.append("g")
-                .classed('lines', true);
+
+            this.labelGraphicsContext = this.svg
+                .append("g")
+                .classed(NewDataLabelUtils.labelGraphicsContextClass.class, true);
 
             this.pie = d3.layout.pie()
                 .sort(null)
@@ -295,10 +309,14 @@ module powerbi.visuals {
                 });
         }
 
-        public onDataChanged(options: VisualDataChangedOptions): void {
+        public update(options: VisualUpdateOptions): void {
             debug.assertValue(options, 'options');
 
-            let dataViews = options.dataViews;
+            // Viewport resizing
+            let viewport = options.viewport;
+            this.parentViewport = viewport;
+
+            let dataViews = this.dataViews = options.dataViews;
             if (dataViews && dataViews.length > 0 && dataViews[0].categorical) {
                 let dataViewMetadata = dataViews[0].metadata;
                 let showAllDataPoints = undefined;
@@ -312,13 +330,11 @@ module powerbi.visuals {
                     }
                 }
 
-                this.data = DonutChart.converter(dataViews[0], this.colors, defaultDataPointColor, this.currentViewport, this.disableGeometricCulling);
+                this.data = DonutChart.converter(dataViews[0], this.colors, defaultDataPointColor, this.currentViewport, this.disableGeometricCulling, this.interactivityService);
                 this.data.showAllDataPoints = showAllDataPoints;
                 this.data.defaultDataPointColor = defaultDataPointColor;
                 if (!(this.options.interactivity && this.options.interactivity.isInteractiveLegend))
                     this.renderLegend();
-                if (this.interactivityService)
-                    this.interactivityService.applySelectionStateToData(this.data.dataPoints.map((d) => d.data));
             }
 
             else {
@@ -334,9 +350,7 @@ module powerbi.visuals {
             }
 
             this.initViewportDependantProperties();
-
             this.updateInternal(this.data, options.suppressAnimations);
-
             this.hasSetData = true;
 
             if (dataViews) {
@@ -350,37 +364,35 @@ module powerbi.visuals {
                     warnings.unshift(new GeometryCulledWarning());
                 }
 
-                if (warnings && warnings.length > 0)
                     this.hostService.setWarnings(warnings);
             }
         }
 
-        public onResizing(viewport: IViewport): void {
-            let duration = 0;
+        public onDataChanged(options: VisualDataChangedOptions): void {
+            debug.assertValue(options, 'options');
 
-            this.parentViewport = viewport;
-            if (this.currentViewport && (this.currentViewport.height === viewport.height && this.currentViewport.width === viewport.width))
-                return;
-            this.parentViewport = viewport;
-            if (this.hasSetData)
-                this.renderLegend();
-            this.initViewportDependantProperties(duration);
-            let d3PieLayout = d3.layout.pie()
-                .sort(null)
-                .value((d: DonutDataPoint) => {
-                    return d.percentage;
+            this.update({
+                dataViews: options.dataViews,
+                suppressAnimations: options.suppressAnimations,
+                viewport: this.currentViewport,
                 });
-            this.data.dataPoints = d3PieLayout(DonutChart.cullDataByViewport(this.data.unCulledDataPoints, this.data.maxValue, viewport));
-            if (this.data.dataPoints.length !== this.data.unCulledDataPoints.length)
-                this.data.visibleGeometryCulled = true;
-            else
-                this.data.visibleGeometryCulled = false;
-            this.updateInternal(this.data, true /* suppressAnimations */, duration);
-            this.previousRadius = this.radius;
+        }
+
+        public onResizing(viewport: IViewport): void {
+            this.update({
+                dataViews: this.dataViews,
+                suppressAnimations: true,
+                viewport: viewport,
+            });
         }
 
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
             let enumeration = new ObjectEnumerationBuilder();
+
+            let dataLabelsSettings = this.data && this.data.dataLabelsSettings
+                ? this.data.dataLabelsSettings
+                : dataLabelUtils.getDefaultDonutLabelSettings();
+
             switch (options.objectName) {
                 case 'legend':
                     this.enumerateLegend(enumeration);
@@ -391,18 +403,14 @@ module powerbi.visuals {
                 case 'labels':
                     let labelSettingOptions: VisualDataLabelsSettingsOptions = {
                         enumeration: enumeration,
-                        dataLabelsSettings: this.data ? this.data.dataLabelsSettings : dataLabelUtils.getDefaultDonutLabelSettings(),
+                        dataLabelsSettings: dataLabelsSettings,
                         show: true,
                         displayUnits: true,
                         precision: true,
+                        fontSize: true,
+                        labelStyle: true,
                     };
                     dataLabelUtils.enumerateDataLabels(labelSettingOptions);
-                    break;
-                case 'categoryLabels':
-                    if (this.data)
-                        dataLabelUtils.enumerateCategoryLabels(enumeration, this.data.dataLabelsSettings, false, true);
-                    else
-                        dataLabelUtils.enumerateCategoryLabels(enumeration, null, false, true);
                     break;
             }
             return enumeration.complete();
@@ -453,6 +461,8 @@ module powerbi.visuals {
             let show = DataViewObjects.getValue(legendObjectProperties, donutChartProps.legend.show, this.legend.isVisible());
             let showTitle = DataViewObjects.getValue(legendObjectProperties, donutChartProps.legend.showTitle, true);
             let titleText = DataViewObjects.getValue(legendObjectProperties, donutChartProps.legend.titleText, this.data.legendData.title);
+            let labelColor = DataViewObject.getValue(legendObjectProperties, legendProps.labelColor, this.data.legendData.labelColor);
+            let labelFontSize = DataViewObject.getValue(legendObjectProperties, legendProps.fontSize, this.data.legendData.fontSize);
 
             enumeration.pushInstance({
                 selector: null,
@@ -461,7 +471,9 @@ module powerbi.visuals {
                     show: show,
                     position: LegendPosition[this.legend.getOrientation()],
                     showTitle: showTitle,
-                    titleText: titleText
+                    titleText: titleText,
+                    labelColor: labelColor,
+                    fontSize: labelFontSize
                 }
             });
         }
@@ -494,7 +506,7 @@ module powerbi.visuals {
 
         private calculateRadius(): number {
             let viewport = this.currentViewport;
-            if (!this.isInteractive && this.data && (this.data.dataLabelsSettings.show || this.data.dataLabelsSettings.showCategory)) {
+            if (!this.isInteractive && this.data && this.data.dataLabelsSettings.show) {
                 // if we have category or data labels, use a sigmoid to blend the desired denominator from 2 to 3.
                 // if we are taller than we are wide, we need to use a larger denominator to leave horizontal room for the labels.
                 let hw = viewport.height / viewport.width;
@@ -539,6 +551,8 @@ module powerbi.visuals {
 
             this.previousRadius = this.radius;
             let radius = this.radius = this.calculateRadius();
+            let halfViewportWidth = viewport.width / 2;
+            let halfViewportHeight = viewport.height / 2;
 
             this.arc = d3.svg.arc();
 
@@ -547,9 +561,11 @@ module powerbi.visuals {
                 .outerRadius(radius * DonutChart.OuterArcRadiusRatio);
 
             if (this.isInteractive) {
-                this.mainGraphicsContext.attr('transform', SVGUtil.translate(viewport.width / 2, viewport.height / 2));
+                this.mainGraphicsContext.attr('transform', SVGUtil.translate(halfViewportWidth, halfViewportHeight));
+                this.labelGraphicsContext.attr('transform', SVGUtil.translate(halfViewportWidth, halfViewportHeight));
             } else {
-                this.mainGraphicsContext.transition().duration(duration).attr('transform', SVGUtil.translate(viewport.width / 2, viewport.height / 2));
+                this.mainGraphicsContext.transition().duration(duration).attr('transform', SVGUtil.translate(halfViewportWidth, halfViewportHeight));
+                this.labelGraphicsContext.transition().duration(duration).attr('transform', SVGUtil.translate(halfViewportWidth, halfViewportHeight));
             }
 
             SVGUtil.flushAllD3TransitionsIfNeeded(this.options);
@@ -575,43 +591,47 @@ module powerbi.visuals {
         private updateInternal(data: DonutData, suppressAnimations: boolean, duration: number = 0) {
             let viewport = this.currentViewport;
             duration = duration || AnimatorCommon.GetAnimationDuration(this.animator, suppressAnimations);
-            let outerArc = this.outerArc;
-            for (let i = 0; i < data.dataPoints.length; i++) {
-                let labelPoint = outerArc.centroid(data.dataPoints[i]);
-                data.dataPoints[i].data.labelX = labelPoint[0];
-                data.dataPoints[i].data.labelY = labelPoint[1];
-            }
-
             if (this.animator) {
-                let layout = DonutChart.getLayout(this.radius, this.sliceWidthRatio, viewport);
+                let layout = DonutChart.getLayout(this.radius, this.sliceWidthRatio, viewport, data.dataLabelsSettings);
                 let result: DonutChartAnimationResult;
                 let shapes: D3.UpdateSelection;
                 let highlightShapes: D3.UpdateSelection;
+                let labelSettings = data.dataLabelsSettings;
+                let labels: Label[] = [];
+                if (labelSettings && labelSettings.show) {
+                    labels = this.createLabels();
+                }
                 if (!suppressAnimations) {
                     let animationOptions: DonutChartAnimationOptions = {
                         viewModel: data,
                         colors: this.colors,
                         graphicsContext: this.mainGraphicsContext,
+                        labelGraphicsContext: this.labelGraphicsContext,
                         interactivityService: this.interactivityService,
                         layout: layout,
                         radius: this.radius,
                         sliceWidthRatio: this.sliceWidthRatio,
-                        viewport: viewport
+                        viewport: viewport,
+                        labels: labels,
+                        innerArcRadiusRatio: DonutChart.InnerArcRadiusRatio,
                     };
                     result = this.animator.animate(animationOptions);
                     shapes = result.shapes;
                     highlightShapes = result.highlightShapes;
                 }
                 if (suppressAnimations || result.failed) {
-                    shapes = DonutChart.drawDefaultShapes(this.svg, data, layout, this.colors, this.radius, this.interactivityService && this.interactivityService.hasSelection(), this.data.defaultDataPointColor);
-                    highlightShapes = DonutChart.drawDefaultHighlightShapes(this.svg, data, layout, this.colors, this.radius);
-                    DonutChart.drawDefaultCategoryLabels(this.mainGraphicsContext, data, layout, this.sliceWidthRatio, this.radius, this.currentViewport);
+                    shapes = DonutChart.drawDefaultShapes(this.svg, data, layout, this.colors, this.radius, this.interactivityService && this.interactivityService.hasSelection(), this.sliceWidthRatio, this.data.defaultDataPointColor);
+                    highlightShapes = DonutChart.drawDefaultHighlightShapes(this.svg, data, layout, this.colors, this.radius, this.sliceWidthRatio);
+                    NewDataLabelUtils.drawDefaultLabels(this.labelGraphicsContext, labels, false);
+                    NewDataLabelUtils.drawLabelLeaderLines(this.labelGraphicsContext, labels);
                 }
 
                 this.assignInteractions(shapes, highlightShapes, data);
 
-                TooltipManager.addTooltip(shapes, (tooltipEvent: TooltipEvent) => tooltipEvent.data.data.tooltipInfo);
-                TooltipManager.addTooltip(highlightShapes, (tooltipEvent: TooltipEvent) => tooltipEvent.data.data.tooltipInfo);
+                if (this.tooltipsEnabled) {
+                    TooltipManager.addTooltip(shapes, (tooltipEvent: TooltipEvent) => tooltipEvent.data.data.tooltipInfo);
+                    TooltipManager.addTooltip(highlightShapes, (tooltipEvent: TooltipEvent) => tooltipEvent.data.data.tooltipInfo);
+                }
             }
             else {
                 this.updateInternalToMove(data, duration);
@@ -620,22 +640,149 @@ module powerbi.visuals {
             SVGUtil.flushAllD3TransitionsIfNeeded(this.options);
         }
 
+        private createLabels(): Label[]{
+            let labels: Label[] = [];
+            let labelDataPoints: DonutLabelDataPoint[] = this.createLabelDataPoints();
+            let labelLayout = new DonutLabelLayout({
+                maximumOffset: NewDataLabelUtils.maxLabelOffset,
+                startingOffset: NewDataLabelUtils.startingLabelOffset
+            });
+            let donutProreties: DonutChartProperties = {
+                viewport: this.currentViewport,
+                radius: this.radius,
+                arc: this.arc.innerRadius(0).outerRadius(this.radius * DonutChart.InnerArcRadiusRatio),
+                outerArc: this.outerArc,
+                innerArcRadiusRatio: DonutChart.InnerArcRadiusRatio,
+                outerArcRadiusRatio: DonutChart.OuterArcRadiusRatio,
+                dataLabelsSettings: this.data.dataLabelsSettings,
+            };
+            labels = labelLayout.layout(labelDataPoints, donutProreties);
+            return labels;
+        }
+        private createLabelDataPoints(): DonutLabelDataPoint[] {
+            let data = this.data;
+            let labelDataPoints: DonutLabelDataPoint[] = [];
+            for (let i = 0; i < this.data.dataPoints.length; i++) {
+                let alternativeScale: number = null;
+                if (data.dataLabelsSettings.displayUnits === 0)
+                    alternativeScale = <number>d3.max(data.dataPoints, d => Math.abs(d.data.measure));
+                let label = this.createLabelDataPoint(data.dataPoints[i], alternativeScale);
+                labelDataPoints.push(label);
+            }
+            return labelDataPoints;
+        }
+        
+        private createLabelDataPoint(d: DonutArcDescriptor, alternativeScale: number): DonutLabelDataPoint {
+            let labelPoint = this.outerArc.centroid(d);
+            let viewport = this.currentViewport;
+            let labelX = NewDataLabelUtils.getXPositionForDonutLabel(labelPoint[0]);
+            let labelY = labelPoint[1];
+            let labelSettings = this.data.dataLabelsSettings;
+            let label: DonutLabelDataPoint;
+            let measureFormattersCache = dataLabelUtils.createColumnFormatterCacheManager();
+            let measureFormatter = measureFormattersCache.getOrCreate(d.data.measureFormat, labelSettings, alternativeScale);
+            let spaceAvailableForLabels = viewport.width / 2 - Math.abs(labelX) - NewDataLabelUtils.maxLabelOffset;
+            let properties: TextProperties;
+            let labelWidth: number;
+            let isTruncated = false;
+            /*When both category and data labels are turned on*/
+            if (labelSettings.show) {
+                switch (labelSettings.labelStyle) {
+                    case labelStyle.both: {
+                        //categoty label
+                        properties = {
+                            text: d.data.label,
+                            fontFamily: NewDataLabelUtils.LabelTextProperties.fontFamily,
+                            fontSize: PixelConverter.fromPoint(labelSettings.fontSize),
+                            fontWeight: NewDataLabelUtils.LabelTextProperties.fontWeight,
+                        };
+                        labelWidth = TextMeasurementService.measureSvgTextWidth(properties);
+                        if (labelWidth > spaceAvailableForLabels / 2)
+                            isTruncated = true;
+                        //data label
+                        let dataProperties = {
+                            text: " (" + measureFormatter.format(d.data.measure) + ")",
+                            fontFamily: NewDataLabelUtils.LabelTextProperties.fontFamily,
+                            fontSize: PixelConverter.fromPoint(labelSettings.fontSize),
+                            fontWeight: NewDataLabelUtils.LabelTextProperties.fontWeight,
+                        };
+                        let dataLabelWidth = TextMeasurementService.measureSvgTextWidth(dataProperties);
+                        // label width = category width + data width
+                        labelWidth += dataLabelWidth;
+                        if (dataLabelWidth > spaceAvailableForLabels / 2)
+                            isTruncated = true;
+                        break;
+                    }
+                    case labelStyle.category:
+                    case labelStyle.data: {
+                        properties = {
+                            text: labelSettings.labelStyle === labelStyle.category ? d.data.label : measureFormatter.format(d.data.measure),
+                            fontFamily: NewDataLabelUtils.LabelTextProperties.fontFamily,
+                            fontSize: PixelConverter.fromPoint(labelSettings.fontSize),
+                            fontWeight: NewDataLabelUtils.LabelTextProperties.fontWeight,
+                        };
+                        labelWidth = TextMeasurementService.measureSvgTextWidth(properties);
+                        if (labelWidth > spaceAvailableForLabels)
+                            isTruncated = true;
+
+                        break;
+                    }
+                }
+            }
+            let text = NewDataLabelUtils.setLabelTextDonutChart(d, labelX, viewport, labelSettings, alternativeScale);
+            properties = {
+                text: text,
+                fontFamily: NewDataLabelUtils.LabelTextProperties.fontFamily,
+                fontSize: PixelConverter.fromPoint(labelSettings.fontSize),
+                fontWeight: NewDataLabelUtils.LabelTextProperties.fontWeight,
+            };
+            let textSize: ISize = {
+                width: TextMeasurementService.measureSvgTextWidth(properties),
+                height: TextMeasurementService.measureSvgTextHeight(properties),
+            };
+            let position = labelX < 0 ? NewPointLabelPosition.Left : NewPointLabelPosition.Right;
+            let pointPosition: LabelParentPoint = {
+                point: {
+                    x: labelX,
+                    y: labelY,
+                },
+                validPositions: [position],
+                radius: 0,
+            };
+            label = {
+                isPreferred: true,
+                text: text,
+                textSize: textSize,
+                outsideFill: labelSettings.labelColor ? labelSettings.labelColor : NewDataLabelUtils.defaultLabelColor,
+                isParentRect: false,
+                fontSize: labelSettings.fontSize,
+                identity: d.data.identity,
+                donutArcDescriptor: d,
+                parentShape: pointPosition,
+                insideFill: NewDataLabelUtils.defaultInsideLabelColor,
+                alternativeScale: alternativeScale,
+                isTruncated: isTruncated,
+                parentType: LabelDataPointParentType.Point
+            };
+            return label;
+        }
+
         private renderLegend(): void {
             if (!this.isInteractive) {
-            let legendObjectProperties = this.data.legendObjectProperties;
-            if (legendObjectProperties) {
-                let legendData = this.data.legendData;
-                LegendData.update(legendData, legendObjectProperties);
-                let position = <string>legendObjectProperties[legendProps.position];
-                if (position)
-                    this.legend.changeOrientation(LegendPosition[position]);
+                let legendObjectProperties = this.data.legendObjectProperties;
+                if (legendObjectProperties) {
+                    let legendData = this.data.legendData;
+                    LegendData.update(legendData, legendObjectProperties);
+                    let position = <string>legendObjectProperties[legendProps.position];
+                    if (position)
+                        this.legend.changeOrientation(LegendPosition[position]);
 
-                this.legend.drawLegend(legendData, this.parentViewport);
-            } else {
-                this.legend.changeOrientation(LegendPosition.Top);
-                this.legend.drawLegend({ dataPoints: [] }, this.parentViewport);
+                    this.legend.drawLegend(legendData, this.parentViewport);
+                } else {
+                    this.legend.changeOrientation(LegendPosition.Top);
+                    this.legend.drawLegend({ dataPoints: [] }, this.parentViewport);
+                }
             }
-        }
         }
 
         private addInteractiveLegendArrow(): void {
@@ -882,10 +1029,14 @@ module powerbi.visuals {
                 .data(pie(is), key);
 
             let innerRadius = radius * sliceWidthRatio;
+            DonutChart.isSingleColor(data.dataPoints);
+
             slice
                 .style('fill', (d: DonutArcDescriptor) => d.data.color)
                 .style('fill-opacity', (d: DonutArcDescriptor) => ColumnUtil.getFillOpacity(d.data.selected, false, false, data.hasHighlights))
                 .style('stroke', 'white')
+                .style('stroke-dasharray', (d: DonutArcDescriptor) => DonutChart.drawStrokeForDonutChart(radius, DonutChart.InnerArcRadiusRatio, d, sliceWidthRatio))
+                .style('stroke-width', (d: DonutArcDescriptor) => d.data.strokeWidth)        
                 .transition().duration(duration)
                 .attrTween('d', function (d) {
                     let i = d3.interpolate(this._current, d),
@@ -911,8 +1062,13 @@ module powerbi.visuals {
 
             // For interactive chart, there shouldn't be slice labels (as you have the legend).
             if (!this.isInteractive) {
-                let layout = DonutChart.getLayout(radius, sliceWidthRatio, this.currentViewport);
-                DonutChart.drawDefaultCategoryLabels(this.mainGraphicsContext, data, layout, sliceWidthRatio, radius, this.currentViewport);
+                let labelSettings = data.dataLabelsSettings;
+                let labels: Label[] = [];
+                if (labelSettings && labelSettings.show) {
+                    labels = this.createLabels();
+                }
+                NewDataLabelUtils.drawDefaultLabels(this.labelGraphicsContext, labels, false);
+                NewDataLabelUtils.drawLabelLeaderLines(this.labelGraphicsContext, labels);
             }
             let highlightSlices = undefined;
             if (data.hasHighlights) {
@@ -928,10 +1084,14 @@ module powerbi.visuals {
                     .classed(DonutChart.sliceHighlightClass.class, true)
                     .each(function (d) { this._current = d; });
 
+                DonutChart.isSingleColor(data.dataPoints);
+
                 highlightSlices
                     .style('fill', (d: DonutArcDescriptor) => d.data.color)
                     .style('fill-opacity', 1.0)
                     .style('stroke', 'white')
+                    .style('stroke-dasharray', (d: DonutArcDescriptor) => DonutChart.drawStrokeForDonutChart(radius, DonutChart.InnerArcRadiusRatio, d, sliceWidthRatio, d.data.highlightRatio))
+                    .style('stroke-width', (d: DonutArcDescriptor) => d.data.highlightRatio === 0 ? 0 : d.data.strokeWidth)
                     .transition().duration(duration)
                     .attrTween('d', function (d: DonutArcDescriptor) {
                         let i = d3.interpolate(this._current, d),
@@ -964,9 +1124,11 @@ module powerbi.visuals {
 
             this.assignInteractions(slice, highlightSlices, data);
 
-            TooltipManager.addTooltip(slice, (tooltipEvent: TooltipEvent) => tooltipEvent.data.data.tooltipInfo);
-            if (data.hasHighlights) {
-                TooltipManager.addTooltip(highlightSlices, (tooltipEvent: TooltipEvent) => tooltipEvent.data.data.tooltipInfo);
+            if (this.tooltipsEnabled) {
+                TooltipManager.addTooltip(slice, (tooltipEvent: TooltipEvent) => tooltipEvent.data.data.tooltipInfo);
+                if (data.hasHighlights) {
+                    TooltipManager.addTooltip(highlightSlices, (tooltipEvent: TooltipEvent) => tooltipEvent.data.data.tooltipInfo);
+                }
             }
 
             SVGUtil.flushAllD3TransitionsIfNeeded(this.options);
@@ -978,7 +1140,7 @@ module powerbi.visuals {
             }
         }
 
-        public static drawDefaultShapes(graphicsContext: D3.Selection, donutData: DonutData, layout: DonutLayout, colors: IDataColorPalette, radius: number, hasSelection: boolean, defaultColor?: string): D3.UpdateSelection {
+        public static drawDefaultShapes(graphicsContext: D3.Selection, donutData: DonutData, layout: DonutLayout, colors: IDataColorPalette, radius: number, hasSelection: boolean, sliceWidthRatio: number, defaultColor?: string): D3.UpdateSelection {
             let shapes = graphicsContext.select('.slices')
                 .selectAll('path' + DonutChart.sliceClass.selector)
                 .data(donutData.dataPoints, (d: DonutArcDescriptor) => d.data.identity.getKey());
@@ -987,9 +1149,13 @@ module powerbi.visuals {
                 .insert('path')
                 .classed(DonutChart.sliceClass.class, true);
 
+            DonutChart.isSingleColor(donutData.dataPoints);
+
             shapes
                 .style('fill', (d: DonutArcDescriptor) => d.data.color)
                 .style('fill-opacity', (d: DonutArcDescriptor) => ColumnUtil.getFillOpacity(d.data.selected, false, hasSelection, donutData.hasHighlights))
+                .style('stroke-dasharray', (d: DonutArcDescriptor) => DonutChart.drawStrokeForDonutChart(radius, DonutChart.InnerArcRadiusRatio, d, sliceWidthRatio))
+                .style('stroke-width', (d: DonutArcDescriptor) => d.data.strokeWidth)
                 .attr(layout.shapeLayout);
 
             shapes.exit()
@@ -998,7 +1164,7 @@ module powerbi.visuals {
             return shapes;
         }
 
-        public static drawDefaultHighlightShapes(graphicsContext: D3.Selection, donutData: DonutData, layout: DonutLayout, colors: IDataColorPalette, radius: number): D3.UpdateSelection {
+        public static drawDefaultHighlightShapes(graphicsContext: D3.Selection, donutData: DonutData, layout: DonutLayout, colors: IDataColorPalette, radius: number, sliceWidthRatio: number): D3.UpdateSelection {
             let shapes = graphicsContext.select('.slices')
                 .selectAll('path' + DonutChart.sliceHighlightClass.selector)
                 .data(donutData.dataPoints.filter((value: DonutArcDescriptor) => value.data.highlightRatio != null), (d: DonutArcDescriptor) => d.data.identity.getKey());
@@ -1008,10 +1174,14 @@ module powerbi.visuals {
                 .classed(DonutChart.sliceHighlightClass.class, true)
                 .each(function (d) { this._current = d; });
 
+            DonutChart.isSingleColor(donutData.dataPoints);
+
             shapes
                 .style('fill', (d: DonutArcDescriptor) => d.data.color)
                 .style('fill-opacity', (d: DonutArcDescriptor) => ColumnUtil.getFillOpacity(d.data.selected, true, false, donutData.hasHighlights))
                 .style('stroke', 'white')
+                .style('stroke-dasharray', (d: DonutArcDescriptor) => DonutChart.drawStrokeForDonutChart(radius, DonutChart.InnerArcRadiusRatio, d, sliceWidthRatio, d.data.highlightRatio))
+                .style('stroke-width', (d: DonutArcDescriptor) => d.data.highlightRatio === 0 ? 0 : d.data.strokeWidth)
                 .attr(layout.highlightShapeLayout);
 
             shapes.exit()
@@ -1019,43 +1189,65 @@ module powerbi.visuals {
 
             return shapes;
         }
-
-        public static drawDefaultCategoryLabels(graphicsContext: D3.Selection, donutData: DonutData, layout: DonutLayout, sliceWidthRatio: number, radius: number, viewport: IViewport): void {
-            /** Multiplier to place the end point of the reference line at 0.05 * radius away from the outer edge of the donut/pie. */
-            let arc = d3.svg.arc()
-                .innerRadius(0)
-                .outerRadius(radius * DonutChart.InnerArcRadiusRatio);
-            let outerArc = d3.svg.arc()
-                .innerRadius(radius * DonutChart.OuterArcRadiusRatio)
-                .outerRadius(radius * DonutChart.OuterArcRadiusRatio);
-
-            if (donutData.dataLabelsSettings.show || donutData.dataLabelsSettings.showCategory) {
-
-                let alternativeScale: number = null;
-
-                if (donutData.dataLabelsSettings.show) {
-                    //use the model format
-                    if (donutData.dataLabelsSettings.displayUnits === 0)
-                        alternativeScale = <number>d3.max(donutData.dataPoints, d => Math.abs(d.data.measure));
-                }
-                let labelLayout = dataLabelUtils.getDonutChartLabelLayout(donutData.dataLabelsSettings, radius, outerArc, viewport, alternativeScale);
-
-                dataLabelUtils.drawDefaultLabelsForDonutChart(donutData.dataPoints, graphicsContext, labelLayout, viewport, radius, arc, outerArc);
+        
+        /**
+            Set true to the last data point when all slices have the same color
+        */
+        public static isSingleColor(dataPoints: DonutArcDescriptor[]): void {
+            if (dataPoints.length > 1) {
+                let lastPoint = dataPoints.length - 1;
+                dataPoints[lastPoint].data.isLastInDonut = dataPoints[lastPoint].data.color === dataPoints[0].data.color;
             }
-            else
-                dataLabelUtils.cleanDataLabels(graphicsContext, true);
         }
 
+        public static drawStrokeForDonutChart(radius: number, innerArcRadiusRatio: number, d: DonutArcDescriptor, sliceWidthRatio: number, highlightRatio: number = 1): string {
+            let sliceRadius = radius * innerArcRadiusRatio * highlightRatio;
+            let sliceArc = (d.endAngle - d.startAngle) * sliceRadius;
+            let sectionWithoutStroke: number;
+            let sectionWithStroke: number;
+
+            /*Donut chart*/
+            if (sliceWidthRatio) {
+                let innerRadius = radius * sliceWidthRatio;
+                let outerRadius = highlightRatio * radius * (DonutChart.InnerArcRadiusRatio - sliceWidthRatio);
+                let innerSliceArc = (d.endAngle - d.startAngle) * innerRadius;
+                if (d.data.highlightRatio)
+                    sliceArc = (d.endAngle - d.startAngle) * (outerRadius + innerRadius);
+
+                if (d.data.isLastInDonut) {
+                    //if all slices have the same color, the stroke of the last slice needs to be drawn on both radiuses
+                    return 0 + " " + sliceArc + " " + outerRadius + " " + innerSliceArc + " " + outerRadius;
+                }
+                sectionWithoutStroke = sliceArc + outerRadius + innerSliceArc;
+                sectionWithStroke = outerRadius;
+            }
+
+            /*Pie Chart*/
+            else {
+                if (d.data.isLastInDonut) {
+                    //if all slices have the same color, the stroke of the last slice needs to be drawn on both radiuses
+                    sectionWithoutStroke = sliceArc;
+                    sectionWithStroke = sliceRadius * 2;
+                }
+                else {
+                    sectionWithoutStroke = sliceArc + sliceRadius;
+                    sectionWithStroke = sliceRadius;
+                }
+            }
+            
+            return 0 + " " + sectionWithoutStroke + " " + sectionWithStroke;
+        }
+       
         public onClearSelection() {
             if (this.interactivityService)
                 this.interactivityService.clearSelection();
         }
 
-        public static getLayout(radius: number, sliceWidthRatio: number, viewport: IViewport): DonutLayout {
+        public static getLayout(radius: number, sliceWidthRatio: number, viewport: IViewport, labelSettings: VisualDataLabelsSettings): DonutLayout {
             let innerRadius = radius * sliceWidthRatio;
             let arc = d3.svg.arc().innerRadius(innerRadius);
             let arcWithRadius = arc.outerRadius(radius * DonutChart.InnerArcRadiusRatio);
-            let fontSize = viewport.height < DonutChart.FontsizeThreshold ? DonutChart.SmallFontSize : DonutChart.NormalFontSize;
+            let fontSize = PixelConverter.fromPoint(labelSettings.fontSize);
             return {
                 fontSize: fontSize,
                 shapeLayout: {
@@ -1089,8 +1281,12 @@ module powerbi.visuals {
             let cullRatio = this.invisibleArcLengthInPixels / (estimatedRadius * DonutChart.twoPi);
             let cullableValue = cullRatio * maxValue;
             let culledDataPoints: DonutDataPoint[] = [];
+            let prevPointColor: string;
             for (let datapoint of dataPoints) {
                 if (datapoint.measure >= cullableValue) {
+                    //updates the stroke width
+                    datapoint.strokeWidth = prevPointColor === datapoint.color ? 1 : 0;
+                    prevPointColor = datapoint.color;
                     culledDataPoints.push(datapoint);
                 }
             }
@@ -1446,6 +1642,7 @@ module powerbi.visuals {
             private grouped: DataViewValueColumnGroup[];
             private isMultiMeasure: boolean;
             private isSingleMeasure: boolean;
+            private isDynamicSeries: boolean;
             private seriesCount: number;
             private categoryIdentities: DataViewScopeIdentity[];
             private categoryValues: any[];
@@ -1483,6 +1680,7 @@ module powerbi.visuals {
                 let grouped = this.grouped = dataViewCategorical && dataViewCategorical.values ? dataViewCategorical.values.grouped() : undefined;
                 this.isMultiMeasure = grouped && grouped.length > 0 && grouped[0].values && grouped[0].values.length > 1;
                 this.isSingleMeasure = grouped && grouped.length === 1 && grouped[0].values && grouped[0].values.length === 1;
+                this.isDynamicSeries = !!(dataViewCategorical.values && dataViewCategorical.values.source);
 
                 this.hasHighlights = this.seriesCount > 0 && !_.isEmpty(dataViewCategorical.values) && !!dataViewCategorical.values[0].highlights;
                 this.highlightsOverflow = false;
@@ -1515,20 +1713,17 @@ module powerbi.visuals {
             public convert(): void {
                 let convertedData: ConvertedDataPoint[];
                 if (this.total !== 0) {
-                    // If category exists, we render labels using category values. If not, we render labels
-                    // using measure labels.
+                    // We render based on categories, series, or measures in that order of preference
                     if (this.categoryValues) {
                         convertedData = this.convertCategoricalWithSlicing();
                     }
-                    else {
-                        if (this.isSingleMeasure || this.isMultiMeasure) {
-                            // Either single- or multi-measure (no category or series)
-                            convertedData = this.convertMeasures();
-                        }
-                        else {
+                    else if (this.isDynamicSeries) {
                             // Series but no category.
                             convertedData = this.convertSeries();
                         }
+                    else {
+                        // No category or series; only measures.
+                        convertedData = this.convertMeasures();
                     }
                 }
                 else {
@@ -1551,12 +1746,13 @@ module powerbi.visuals {
                 if (dataViewMetadata) {
                     let objects: DataViewObjects = dataViewMetadata.objects;
                     if (objects) {
-                        this.legendObjectProperties = objects['legend'];
+                        this.legendObjectProperties = <DataViewObject>objects['legend'];
                     }
                 }
 
                 this.dataPoints = [];
                 let formatStringProp = donutChartProps.general.formatString;
+                let prevPointColor: string;
 
                 for (let i = 0, dataPointCount = convertedData.length; i < dataPointCount; i++) {
                     let point = convertedData[i];
@@ -1600,7 +1796,8 @@ module powerbi.visuals {
                     let value: number = point.measureValue.measure;
                     let highlightedValue: number = this.hasHighlights && point.highlightMeasureValue.value !== 0 ? point.highlightMeasureValue.measure : undefined;
                     let tooltipInfo: TooltipDataItem[] = TooltipBuilder.createTooltipInfo(formatStringProp, categorical, categoryValue, value, null, null, valueIndex, i, highlightedValue);
-                    
+                    let strokeWidth = prevPointColor === point.color && value && value > 0 ? 1 : 0;
+                    prevPointColor = value && value > 0 ? point.color : prevPointColor;
                     this.dataPoints.push({
                         identity: point.identity,
                         measure: measure,
@@ -1612,12 +1809,12 @@ module powerbi.visuals {
                         selected: false,
                         tooltipInfo: tooltipInfo,
                         color: point.color,
-                        labelColor: this.dataLabelsSettings.labelColor,
-                        labelFormatString: valuesMetadata.format
+                        strokeWidth: strokeWidth,
+                        labelFormatString: valuesMetadata.format,
                     });
                 }
 
-                this.legendData = { title: this.getLegendTitle(), dataPoints: this.legendDataPoints };
+                this.legendData = this.convertLegendData();
             }
 
             private getLegendTitle(): string {
@@ -1811,10 +2008,8 @@ module powerbi.visuals {
             }
 
             private convertDataLabelSettings(): VisualDataLabelsSettings {
-                var dataViewMetadata = this.dataViewMetadata;
-                var values = this.dataViewCategorical.values;
-                var labelFormatString = !_.isEmpty(values) ? valueFormatter.getFormatString(values[0].source, donutChartProps.general.formatString) : undefined;
-                var dataLabelsSettings = dataLabelUtils.getDefaultDonutLabelSettings(labelFormatString);
+                let dataViewMetadata = this.dataViewMetadata;
+                let dataLabelsSettings = dataLabelUtils.getDefaultDonutLabelSettings();
 
                 if (dataViewMetadata) {
                     let objects: DataViewObjects = dataViewMetadata.objects;
@@ -1822,30 +2017,21 @@ module powerbi.visuals {
                         // Handle lables settings
                         let labelsObj = <DataLabelObject>objects['labels'];
                         if (labelsObj) {
-                            if (labelsObj.show !== undefined)
-                                dataLabelsSettings.show = labelsObj.show;
-                            if (labelsObj.color !== undefined) {
-                                dataLabelsSettings.labelColor = labelsObj.color.solid.color;
-                            }
-                            if (labelsObj.labelDisplayUnits !== undefined) {
-                                dataLabelsSettings.displayUnits = labelsObj.labelDisplayUnits;
-                            }
-                            if (labelsObj.labelPrecision !== undefined) {
-                                dataLabelsSettings.precision = (labelsObj.labelPrecision >= 0) ? labelsObj.labelPrecision : 0;
-                            }
-                        }
-
-                        let categoryLabelsObject = objects['categoryLabels'];
-                        if (categoryLabelsObject) {
-                            // Update category label visibility
-                            let category = <boolean>categoryLabelsObject['show'];
-                            if (category !== undefined)
-                                dataLabelsSettings.showCategory = category;
+                            dataLabelUtils.updateLabelSettingsFromLabelsObject(labelsObj, dataLabelsSettings);
                         }
                     }
                 }
 
                 return dataLabelsSettings;
+            }
+
+            private convertLegendData(): LegendData {
+               return {
+                    dataPoints: this.legendDataPoints,
+                    labelColor: LegendData.DefaultLegendLabelFillColor,
+                    title: this.getLegendTitle(),
+                    fontSize: SVGLegend.DefaultFontSizeInPt,
+                };
             }
         }
     }

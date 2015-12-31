@@ -27,7 +27,7 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var basicShapeCapabilities: VisualCapabilities = {
+    export const basicShapeCapabilities: VisualCapabilities = {
         objects: {
             line: {
                 displayName: data.createDisplayNameGetter('Visual_BasicShape_Line'),
@@ -69,15 +69,6 @@ module powerbi.visuals {
                     },
                 }
             },
-            lockAspect: {
-                displayName: data.createDisplayNameGetter('Visual_BasicShape_LockAspect'),
-                properties: {
-                    show: {
-                        displayName: data.createDisplayNameGetter('Visual_Show'),
-                        type: { bool: true }
-                    }
-                }
-            },
             rotation: {
                 displayName: data.createDisplayNameGetter('Visual_BasicShape_Rotate'),
                 properties: {
@@ -96,7 +87,8 @@ module powerbi.visuals {
             }
         },
         suppressDefaultTitle: true,
-        canRotate: false
+        canRotate: false,
+        supportsSelection: false,
     };
 
     export const basicShapeProps = {
@@ -113,9 +105,6 @@ module powerbi.visuals {
             transparency: <DataViewObjectPropertyIdentifier>{ objectName: 'fill', propertyName: 'transparency' },
             fillColor: <DataViewObjectPropertyIdentifier>{ objectName: 'fill', propertyName: 'fillColor' },
             show: <DataViewObjectPropertyIdentifier>{ objectName: 'fill', propertyName: 'show' }
-        },
-        lockAspect: {
-            show: <DataViewObjectPropertyIdentifier>{ objectName: 'lockAspect', propertyName: 'show' }
         },
         rotation: {
             angle: <DataViewObjectPropertyIdentifier>{ objectName: 'rotation', propertyName: 'angle' }
