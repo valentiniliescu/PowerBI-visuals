@@ -30,7 +30,7 @@ module powerbitests {
     import visuals = powerbi.visuals;
 
     describe("ColorAllocatorFactory - linear gradient two colors", () => {
-        var colorer: powerbi.IColorAllocator;
+        let colorer: powerbi.IColorAllocator;
 
         beforeEach(() => {
             colorer = visuals.createColorAllocatorFactory().linearGradient2({
@@ -63,8 +63,8 @@ module powerbitests {
     });
 
     describe("ColorAllocatorFactory - linear gradient three colors", () => {
-        var defaultColorer: powerbi.IColorAllocator;
-        var options: powerbi.LinearGradient3;
+        let defaultColorer: powerbi.IColorAllocator;
+        let options: powerbi.LinearGradient3;
 
         beforeEach(() => {
             options = {
@@ -86,21 +86,21 @@ module powerbitests {
 
         it("LinearGradient3: mid value", () => {
             options.mid.value = 170;
-            var colorer = visuals.createColorAllocatorFactory().linearGradient3(options, false);
+            let colorer = visuals.createColorAllocatorFactory().linearGradient3(options, false);
 
             helpers.assertColorsMatch(colorer.color(170), "#ffffff");
         });
 
         it("LinearGradient3: intermediate value", () => {
             options.mid.value = 176;
-            var colorer = visuals.createColorAllocatorFactory().linearGradient3(options, false);
+            let colorer = visuals.createColorAllocatorFactory().linearGradient3(options, false);
 
             helpers.assertColorsMatch(colorer.color(178), "#eaeaff");
         });
 
         it("LinearGradient3: between min & mid", () => {
             options.mid.value = 176;
-            var colorer = visuals.createColorAllocatorFactory().linearGradient3(options, false);
+            let colorer = visuals.createColorAllocatorFactory().linearGradient3(options, false);
 
             helpers.assertColorsMatch(colorer.color(170), "#ffebeb");
         });
@@ -111,7 +111,7 @@ module powerbitests {
         });
 
         it("LinearGradient3: splitted scales", () => {
-            var colorer = visuals.createColorAllocatorFactory().linearGradient3({
+            let colorer = visuals.createColorAllocatorFactory().linearGradient3({
                 min: { value: -50, color: "#ffff00" },
                 mid: { value: 0, color: "#ffffff" },
                 max: { value: 2000, color: "#0000ff" }

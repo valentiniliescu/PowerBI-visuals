@@ -27,6 +27,8 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.data {
+    import JsonComparer = jsCommon.JsonComparer;
+
     /** Defines the values for particular objects. */
     export interface DataViewObjectDefinitions {
         [objectName: string]: DataViewObjectDefinition[];
@@ -82,10 +84,9 @@ module powerbi.data {
             if (!defn)
                 return;
 
-            //note: We decided that delete is acceptable here and that we don't need optimization here
-            delete defn.properties[propertyName];
+            DataViewObjectDefinition.deleteSingleProperty(defn, propertyName);
         }
-
+        
         export function getValue(
             defns: DataViewObjectDefinitions,
             propertyId: DataViewObjectPropertyIdentifier,
@@ -114,6 +115,13 @@ module powerbi.data {
             defns: DataViewObjectDefinitions,
             objectName: string,
             selector: Selector): DataViewObjectDefinition {
+            debug.assertAnyValue(defns, 'defns');
+            debug.assertValue(objectName, 'objectName');
+            debug.assertAnyValue(selector, 'selector');
+
+            if (!defns)
+                return;
+
             let defnsForObject = defns[objectName];
             if (!defnsForObject)
                 return;
@@ -125,11 +133,98 @@ module powerbi.data {
             }
         }
 
-        export function propertiesAreEqual(
-            currentObject: DataViewObjectPropertyDefinitions,
-            modifiedObject: DataViewObjectPropertyDefinitions): boolean {
+        export function propertiesAreEqual(a: DataViewObjectPropertyDefinition, b: DataViewObjectPropertyDefinition): boolean {
+            if (a instanceof SemanticFilter && b instanceof SemanticFilter) {
+                return SemanticFilter.isSameFilter(<SemanticFilter>a, <SemanticFilter>b);
+            }
 
-            return jsCommon.JsonComparer.equals(currentObject, modifiedObject);
+            return JsonComparer.equals(a, b);
+        }
+
+        export function allPropertiesAreEqual(a: DataViewObjectPropertyDefinitions, b: DataViewObjectPropertyDefinitions): boolean {
+            debug.assertValue(a, 'a');
+            debug.assertValue(b, 'b');
+
+            if (Object.keys(a).length !== Object.keys(b).length)
+                return false;
+
+            for (let property in a) {
+                if (!propertiesAreEqual(a[property], b[property]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        export function encodePropertyValue(value: DataViewPropertyValue, valueTypeDescriptor: ValueTypeDescriptor): DataViewObjectPropertyDefinition {
+            if (valueTypeDescriptor.bool) {
+                if (typeof (value) !== 'boolean')
+                    value = false; // This is fallback, which doesn't really belong here.
+
+                return SQExprBuilder.boolean(<boolean>value);
+            }
+            else if (valueTypeDescriptor.text || (valueTypeDescriptor.scripting && valueTypeDescriptor.scripting.source)) {
+                return SQExprBuilder.text(<string>value);
+            }
+            else if (valueTypeDescriptor.numeric) {
+                if ($.isNumeric(value))
+                    return SQExprBuilder.double(+value);
+            }
+            else if ((<StructuralTypeDescriptor>valueTypeDescriptor).fill) {
+                if (value) {
+                    return {
+                        solid: { color: SQExprBuilder.text(<string>value) }
+                    };
+                }
+            }
+            else if (valueTypeDescriptor.formatting) {
+                if (valueTypeDescriptor.formatting.labelDisplayUnits) {
+                    return SQExprBuilder.double(+value);
+                }
+                else {
+                    return SQExprBuilder.text(<string>value);
+                }
+            }
+            else if (valueTypeDescriptor.enumeration) {
+                if ($.isNumeric(value))
+                    return SQExprBuilder.double(+value);
+                else
+                    return SQExprBuilder.text(<string>value);
+            }
+            else if (valueTypeDescriptor.misc) {
+                if (value) {
+                    value = SQExprBuilder.text(<string>value);
+                } else {
+                    value = null;
+                }
+            }
+            else if ((<StructuralTypeDescriptor>valueTypeDescriptor).image) {
+                if (value) {
+                    let imageValue = <ImageValue>value;
+                    let imageDefinition: ImageDefinition = {
+                        name: SQExprBuilder.text(imageValue.name),
+                        url: SQExprBuilder.text(imageValue.url),
+                    };
+
+                    if (imageValue.scaling)
+                        imageDefinition.scaling = SQExprBuilder.text(imageValue.scaling);
+
+                    return imageDefinition;
+                }
+            }
+
+            return value;
+        }
+    }
+
+    export module DataViewObjectDefinition {
+
+        export function deleteSingleProperty(
+            defn: DataViewObjectDefinition,
+            propertyName: string): void {
+
+            //note: We decided that delete is acceptable here and that we don't need optimization here
+            delete defn.properties[propertyName];
         }
     }
 }

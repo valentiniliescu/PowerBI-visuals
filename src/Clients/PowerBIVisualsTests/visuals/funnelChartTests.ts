@@ -56,15 +56,16 @@ module powerbitests {
     import VisualBuilder = powerbitests.helpers.VisualBuilder;
     import Spy = jasmine.Spy;
     import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
+    import PixelConverter = jsCommon.PixelConverter;
 
-    var minHeightFunnelCategoryLabelsVisible: number = visualPluginFactory.MobileVisualPluginService.MinHeightFunnelCategoryLabelsVisible;
-    var categoryLabelsVisibleGreaterThanMinHeight: number = minHeightFunnelCategoryLabelsVisible + 1;
-    var categoryLabelsSmallerThanMinHeight: number = minHeightFunnelCategoryLabelsVisible - 1;
-    var categoryLabelsVisibleGreaterThanMinHeightString: string = categoryLabelsVisibleGreaterThanMinHeight.toString();
-    var categoryLabelsVisibleSmallerThanMinHeightString: string = categoryLabelsSmallerThanMinHeight.toString();
+    let minHeightFunnelCategoryLabelsVisible: number = visualPluginFactory.MobileVisualPluginService.MinHeightFunnelCategoryLabelsVisible;
+    let categoryLabelsVisibleGreaterThanMinHeight: number = minHeightFunnelCategoryLabelsVisible + 1;
+    let categoryLabelsSmallerThanMinHeight: number = minHeightFunnelCategoryLabelsVisible - 1;
+    let categoryLabelsVisibleGreaterThanMinHeightString: string = categoryLabelsVisibleGreaterThanMinHeight.toString();
+    let categoryLabelsVisibleSmallerThanMinHeightString: string = categoryLabelsSmallerThanMinHeight.toString();
 
-    var labelColor: string = dataLabelUtils.defaultLabelColor;
-    var defaultInsideLabelColor: string = "#ffffff";
+    let labelColor: string = dataLabelUtils.defaultLabelColor;
+    let defaultInsideLabelColor: string = "#ffffff";
 
     powerbitests.mocks.setLocale();
 
@@ -94,8 +95,8 @@ module powerbitests {
     describe("FunnelChart Dataview Validation", () => {
         let dataViewBuilder: DataViewBuilder;
 
-        var colors: IDataColorPalette;
-        var hostServices: powerbi.IVisualHostServices;
+        let colors: IDataColorPalette;
+        let hostServices: powerbi.IVisualHostServices;
 
         beforeEach(() => {
             dataViewBuilder = new DataViewBuilder();
@@ -104,7 +105,7 @@ module powerbitests {
             hostServices = mocks.createVisualHostServices();
         });
 
-        var dataViewMetadataOneMeasure: DataViewMetadata = {
+        let dataViewMetadataOneMeasure: DataViewMetadata = {
             columns: [
                 { displayName: "col1", queryName: "col1" },
                 { displayName: "col2", queryName: "col2", isMeasure: true, roles: { "Y": true } },
@@ -119,7 +120,7 @@ module powerbitests {
             ]
         };
 
-        var categoryColumnRef = SQExprBuilder.fieldDef({ schema: "s", entity: "e", column: "p" });
+        let categoryColumnRef = SQExprBuilder.fieldDef({ schema: "s", entity: "e", column: "p" });
 
         it("Check explicit color is applied", () => {
             let categoryValues: any[] = [
@@ -154,7 +155,7 @@ module powerbitests {
                 
             let dataView: DataView = dataViewBuilder.build();
 
-            var actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices);
+            let actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices);
 
             helpers.assertColorsMatch(actualData.slices[0].color, "#FF0000");
             expect(actualData.slices[0].labelFill).toBe(labelColor);
@@ -190,9 +191,9 @@ module powerbitests {
 
             let dataView: DataView = dataViewBuilder.build();
 
-            var defaultDataPointColor: string = "#00FF00";
+            let defaultDataPointColor: string = "#00FF00";
 
-            var actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices, defaultDataPointColor);
+            let actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices, defaultDataPointColor);
 
             actualData.slices.forEach(slice => {
                 helpers.assertColorsMatch(slice.color, defaultDataPointColor);
@@ -204,7 +205,7 @@ module powerbitests {
 
             // clone 2 measure version and define objects
 
-            var dataViewMetadata: DataViewMetadata = {
+            let dataViewMetadata: DataViewMetadata = {
                 columns: [
                     { displayName: "col2", queryName: "col2", isMeasure: true, roles: { "Y": true }, objects: { dataPoint: { fill: { solid: { color: "#FF0000" } } } } },
                     { displayName: "col3", queryName: "col3", isMeasure: true, roles: { "Y": true }, objects: { dataPoint: { fill: { solid: { color: "#00FF00" } } } } }
@@ -227,12 +228,12 @@ module powerbitests {
             
             let dataView: DataView = dataViewBuilder.build();
             
-            var actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices);
-            var selectionIds: SelectionId[] = [
+            let actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices);
+            let selectionIds: SelectionId[] = [
                 SelectionId.createWithMeasure("col2"),
                 SelectionId.createWithMeasure("col3")];
 
-            var expectedData: FunnelData = {
+            let expectedData: FunnelData = {
                 slices: [
                     {
                         value: 100,
@@ -263,6 +264,7 @@ module powerbitests {
                 highlightsOverflow: false,
                 canShowDataLabels: true,
                 dataLabelsSettings: dataLabelUtils.getDefaultFunnelLabelSettings(),
+                percentBarLabelSettings: dataLabelUtils.getDefaultLabelSettings(true),
                 hasNegativeValues: false,
                 allValuesAreNegative: false,
             };
@@ -298,15 +300,15 @@ module powerbitests {
                 
             let dataView: DataView = dataViewBuilder.build();
             
-            var actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices);
+            let actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices);
             let categoryQueryName: string = dataView.categorical.categories[0].source.queryName;
-            var selectionIds: SelectionId[] = [
+            let selectionIds: SelectionId[] = [
                 SelectionId.createWithSelectorForColumnAndMeasure(buildSelector(categoryQueryName, categoryIdentities[0]), "col2"),
                 SelectionId.createWithSelectorForColumnAndMeasure(buildSelector(categoryQueryName, categoryIdentities[1]), "col2"),
                 SelectionId.createWithSelectorForColumnAndMeasure(buildSelector(categoryQueryName, categoryIdentities[2]), "col2")];
-            var sliceColor: string = colors.getColorByIndex(0).value;
+            let sliceColor: string = colors.getColorByIndex(0).value;
 
-            var expectedData: FunnelData = {
+            let expectedData: FunnelData = {
                 slices: [
                     {
                         value: 100,
@@ -348,6 +350,7 @@ module powerbitests {
                 highlightsOverflow: false,
                 canShowDataLabels: true,
                 dataLabelsSettings: dataLabelUtils.getDefaultFunnelLabelSettings(),
+                percentBarLabelSettings: dataLabelUtils.getDefaultLabelSettings(true),
                 hasNegativeValues: false,
                 allValuesAreNegative: false,
             };
@@ -388,13 +391,14 @@ module powerbitests {
             
             let dataView: DataView = dataViewBuilder.build();
             
-            var defaultDataPointColor: string = "#00FF00";
+            let defaultDataPointColor: string = "#00FF00";
 
-            var actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices, defaultDataPointColor);
+            let actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices, defaultDataPointColor);
            
             //first tooltip is regular because highlighted value is 0
             expect(actualData.slices[0].tooltipInfo).toEqual([{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }, { displayName: "Percent of first", value: "100.00 %" }]);
             expect(actualData.slices[1].tooltipInfo).toEqual([{ displayName: "col1", value: "John Domo" }, { displayName: "col2", value: "100" }]);
+            
             //tooltips with highlighted value
             expect(actualData.slices[2].tooltipInfo).toEqual([{ displayName: "col1", value: "Delta Force" }, { displayName: "col2", value: "200" }, { displayName: powerbi.visuals.ToolTipComponent.localizationOptions.highlightedValueDisplayName, value: "140" }, { displayName: "Percent of first", value: "200.00 %" }, { displayName: "Percent of previous", value: "200.00 %" }]);
             expect(actualData.slices[3].tooltipInfo).toEqual([{ displayName: "col1", value: "Delta Force" }, { displayName: "col2", value: "200" }, { displayName: powerbi.visuals.ToolTipComponent.localizationOptions.highlightedValueDisplayName, value: "140" }]);
@@ -422,13 +426,13 @@ module powerbitests {
             
             let dataView: DataView = dataViewBuilder.build();
             
-            var actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices);
-            var selectionIds: SelectionId[] = [
+            let actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices);
+            let selectionIds: SelectionId[] = [
                 SelectionId.createWithMeasure("col2"),
                 SelectionId.createWithMeasure("col3")];
-            var sliceColor: string = colors.getColorByIndex(0).value;
+            let sliceColor: string = colors.getColorByIndex(0).value;
 
-            var expectedData: FunnelData = {
+            let expectedData: FunnelData = {
                 slices: [
                     {
                         value: 100,
@@ -459,6 +463,7 @@ module powerbitests {
                 highlightsOverflow: false,
                 canShowDataLabels: true,
                 dataLabelsSettings: dataLabelUtils.getDefaultFunnelLabelSettings(),
+                percentBarLabelSettings: dataLabelUtils.getDefaultLabelSettings(true),
                 hasNegativeValues: false,
                 allValuesAreNegative: false,
             };
@@ -554,6 +559,7 @@ module powerbitests {
                 highlightsOverflow: false,
                 canShowDataLabels: true,
                 dataLabelsSettings: dataLabelUtils.getDefaultFunnelLabelSettings(),
+                percentBarLabelSettings: dataLabelUtils.getDefaultLabelSettings(true),
                 hasNegativeValues: false,
                 allValuesAreNegative: false,
             };
@@ -582,7 +588,7 @@ module powerbitests {
 
             let dataView: DataView = dataViewBuilder.build();
 
-            var actualData = FunnelChart.converter(dataView, colors, hostServices);
+            let actualData = FunnelChart.converter(dataView, colors, hostServices);
 
             // Negative values warning flags
             expect(actualData.hasNegativeValues).toBeTruthy();
@@ -617,7 +623,7 @@ module powerbitests {
 
             let dataView: DataView = dataViewBuilder.build();
 
-            var actualData = FunnelChart.converter(dataView, colors, hostServices);
+            let actualData = FunnelChart.converter(dataView, colors, hostServices);
 
             // Negative values warning flags
             expect(actualData.hasNegativeValues).toBeFalsy();
@@ -635,7 +641,7 @@ module powerbitests {
     });
 
         it('non-categorical multi-measure tooltip values test', () => {
-            var dataViewMetadata: DataViewMetadata = {
+            let dataViewMetadata: DataViewMetadata = {
                 columns: [
                     { displayName: "a", queryName: "a", isMeasure: true, roles: { "Y": true } },
                     { displayName: "b", queryName: "b", isMeasure: true, roles: { "Y": true } },
@@ -662,7 +668,7 @@ module powerbitests {
             
             let dataView: DataView = dataViewBuilder.build();
             
-            var actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices);
+            let actualData: FunnelData = FunnelChart.converter(dataView, colors, hostServices);
 
             expect(actualData.slices[0].tooltipInfo).toEqual([{ displayName: "a", value: "1" }, { displayName: "Percent of first", value: "100.00 %" }]);
             expect(actualData.slices[1].tooltipInfo).toEqual([{ displayName: "b", value: "2" }, { displayName: "Percent of first", value: "200.00 %" }, { displayName: "Percent of previous", value: "200.00 %" }]);
@@ -675,7 +681,7 @@ module powerbitests {
         
         let visualBuilder: VisualBuilder;
         
-        var dataViewMetadataCategorySeriesColumns: DataViewMetadata = {
+        let dataViewMetadataCategorySeriesColumns: DataViewMetadata = {
             columns: [
                 { queryName: "select0", displayName: "Squad", properties: { "Category": true }, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Text) },
                 { displayName: "Period", properties: { "Series": true }, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double) },
@@ -684,10 +690,10 @@ module powerbitests {
                 { displayName: null, groupName: "201503", isMeasure: true, roles: { "Y": true }, properties: { "Values": true }, type: ValueType.fromPrimitiveTypeAndCategory(PrimitiveType.Double) },
             ]
         };
-        var categoryColumnRef: SQExpr =
+        let categoryColumnRef: SQExpr =
             SQExprBuilder.fieldDef({ schema: "s", entity: "e", column: "Squad" });
-        var DefaultOpacity: string = "" + FunnelChart.DefaultBarOpacity;
-        var DimmedOpacity: string = "" + FunnelChart.DimmedBarOpacity;
+        let DefaultOpacity: string = "" + FunnelChart.DefaultBarOpacity;
+        let DimmedOpacity: string = "" + FunnelChart.DimmedBarOpacity;
 
         let interactiveCategoryValues: any[] = [
             "a",
@@ -723,7 +729,7 @@ module powerbitests {
                 .buildNewValue()
             .buildValueColumns();
         
-        var interactiveDataViewOptions: VisualDataChangedOptions = {
+        let interactiveDataViewOptions: VisualDataChangedOptions = {
             dataViews: [dataViewBuilder.build()]
         };
 
@@ -758,7 +764,7 @@ module powerbitests {
                 .buildNewValue()
             .buildValueColumns();
         
-        var smallerInteractiveDataViewOptions: powerbi.VisualDataChangedOptions = {
+        let smallerInteractiveDataViewOptions: powerbi.VisualDataChangedOptions = {
             dataViews: [dataViewBuilder.build()]
         };
 
@@ -811,7 +817,7 @@ module powerbitests {
         }
 
         it("Interactors are rendered with a minimum size", (done) => {
-            var options = getOptionsForValues([0.001, 200, 700]);
+            let options = getOptionsForValues([0.001, 200, 700]);
             visualBuilder.visual.onDataChanged(options);
 
             setTimeout(() => {
@@ -821,16 +827,16 @@ module powerbitests {
                 expect(interactors.length).toBe(1);
                 expect(interactors.eq(0).attr("x")).toBe(bars.eq(0).attr("x"));
 
-                var firstInteractorHeight: number = parseInt(interactors.eq(0).attr("height"), 10);
+                let firstInteractorHeight: number = parseInt(interactors.eq(0).attr("height"), 10);
                 expect(firstInteractorHeight).toBe(FunnelChart.MinimumInteractorSize);
                 done();
             }, DefaultWaitForRender);
         });
 
         it("NaN in values shows warning", (done) => {
-            var warningSpy: Spy = jasmine.createSpy("warning");
+            let warningSpy: Spy = jasmine.createSpy("warning");
             visualBuilder.host.setWarnings = warningSpy;
-            var options: VisualDataChangedOptions = getOptionsForValues([110, 120, NaN]);
+            let options: VisualDataChangedOptions = getOptionsForValues([110, 120, NaN]);
             visualBuilder.visual.onDataChanged(options);
 
             setTimeout(() => {
@@ -842,10 +848,10 @@ module powerbitests {
         });
 
         it("Negative Infinity in values shows warning", (done) => {
-            var warningSpy: Spy = jasmine.createSpy("warning");
+            let warningSpy: Spy = jasmine.createSpy("warning");
             visualBuilder.host.setWarnings = warningSpy;
 
-            var options: VisualDataChangedOptions = getOptionsForValues([110, 120, Number.NEGATIVE_INFINITY]);
+            let options: VisualDataChangedOptions = getOptionsForValues([110, 120, Number.NEGATIVE_INFINITY]);
             visualBuilder.visual.onDataChanged(options);
 
             setTimeout(() => {
@@ -857,10 +863,10 @@ module powerbitests {
         });
 
         it("Positive Infinity in values shows warning", (done) => {
-            var warningSpy: Spy = jasmine.createSpy("warning");
+            let warningSpy: Spy = jasmine.createSpy("warning");
             visualBuilder.host.setWarnings = warningSpy;
 
-            var options: VisualDataChangedOptions = getOptionsForValues([110, 120, Number.POSITIVE_INFINITY]);
+            let options: VisualDataChangedOptions = getOptionsForValues([110, 120, Number.POSITIVE_INFINITY]);
             visualBuilder.visual.onDataChanged(options);
 
             setTimeout(() => {
@@ -872,10 +878,10 @@ module powerbitests {
         });
 
         it("Out of range value in values shows warning", (done) => {
-            var warningSpy: Spy = jasmine.createSpy("warning");
+            let warningSpy: Spy = jasmine.createSpy("warning");
             visualBuilder.host.setWarnings = warningSpy;
 
-            var options: VisualDataChangedOptions = getOptionsForValues([110, 120, 1e301]);
+            let options: VisualDataChangedOptions = getOptionsForValues([110, 120, 1e301]);
             visualBuilder.visual.onDataChanged(options);
 
             setTimeout(() => {
@@ -887,10 +893,10 @@ module powerbitests {
         });
 
         it('Negative value in values shows warning', (done) => {
-            var warningSpy: Spy = jasmine.createSpy('warning');
+            let warningSpy: Spy = jasmine.createSpy('warning');
             visualBuilder.host.setWarnings = warningSpy;
 
-            var options = getOptionsForValues([110, -120, 1e301]);
+            let options = getOptionsForValues([110, -120, 1e301]);
             visualBuilder.visual.onDataChanged(options);
 
             setTimeout(() => {
@@ -902,10 +908,10 @@ module powerbitests {
         });
 
         it('All values are negative in values shows warning', (done) => {
-            var warningSpy: Spy = jasmine.createSpy('warning');
+            let warningSpy: Spy = jasmine.createSpy('warning');
             visualBuilder.host.setWarnings = warningSpy;
 
-            var options = getOptionsForValues([-110, -120, -1e301]);
+            let options = getOptionsForValues([-110, -120, -1e301]);
             visualBuilder.visual.onDataChanged(options);
 
             setTimeout(() => {
@@ -916,15 +922,15 @@ module powerbitests {
             });
         });
 
-        it('All good in values shows warning', (done) => {
-            var warningSpy: Spy = jasmine.createSpy('warning');
+        it('All good in values does not show warning', (done) => {
+            let warningSpy: Spy = jasmine.createSpy('warning');
             visualBuilder.host.setWarnings = warningSpy;
 
-            var options: VisualDataChangedOptions = getOptionsForValues([110, 120, 300]);
+            let options: VisualDataChangedOptions = getOptionsForValues([110, 120, 300]);
             visualBuilder.visual.onDataChanged(options);
 
             setTimeout(() => {
-                expect(warningSpy).not.toHaveBeenCalled();
+                expect(warningSpy).toHaveBeenCalledWith([]);
                 done();
             });
         });
@@ -933,7 +939,7 @@ module powerbitests {
             visualBuilder.visual.onDataChanged(interactiveDataViewOptions);
 
             setTimeout(() => {
-                var bars: JQuery = $(FunnelChart.Selectors.funnel.bars.selector);
+                let bars: JQuery = $(FunnelChart.Selectors.funnel.bars.selector);
 
                 spyOn(visualBuilder.host, "onSelect").and.callThrough();
 
@@ -965,8 +971,8 @@ module powerbitests {
             visualBuilder.visual.onDataChanged(smallerInteractiveDataViewOptions);
 
             setTimeout(() => {
-                var bars: JQuery = $(FunnelChart.Selectors.funnel.bars.selector);
-                var interactors: JQuery = $(FunnelChart.Selectors.funnel.interactors.selector);
+                let bars: JQuery = $(FunnelChart.Selectors.funnel.bars.selector);
+                let interactors: JQuery = $(FunnelChart.Selectors.funnel.interactors.selector);
 
                 spyOn(visualBuilder.host, "onSelect").and.callThrough();
 
@@ -997,7 +1003,7 @@ module powerbitests {
         it("funnel chart category multi-select", (done) => {
             visualBuilder.visual.onDataChanged(interactiveDataViewOptions);
             setTimeout(() => {
-                var bars: JQuery = $(FunnelChart.Selectors.funnel.bars.selector);
+                let bars: JQuery = $(FunnelChart.Selectors.funnel.bars.selector);
 
                 spyOn(visualBuilder.host, "onSelect").and.callThrough();
 
@@ -1049,7 +1055,7 @@ module powerbitests {
             visualBuilder.visual.onDataChanged(interactiveDataViewOptions);
 
             setTimeout(() => {
-                var bars: JQuery = $(FunnelChart.Selectors.funnel.bars.selector);
+                let bars: JQuery = $(FunnelChart.Selectors.funnel.bars.selector);
 
                 spyOn(visualBuilder.host, "onSelect").and.callThrough();
 
@@ -1087,7 +1093,7 @@ module powerbitests {
             visualBuilder.visual.onDataChanged(interactiveDataViewOptions);
 
             setTimeout(() => {
-                var bars: JQuery = $(FunnelChart.Selectors.funnel.bars.selector);
+                let bars: JQuery = $(FunnelChart.Selectors.funnel.bars.selector);
 
                 spyOn(visualBuilder.host, "onSelect").and.callThrough();
 
@@ -1111,7 +1117,7 @@ module powerbitests {
                         ]
                     });
 
-                var clearCatcher: JQuery = $(".clearCatcher");
+                let clearCatcher: JQuery = $(".clearCatcher");
                 (<any>clearCatcher.first()).d3Click(0, 0);
 
                 expect(bars[0].style.fillOpacity).toBe(DefaultOpacity);
@@ -1131,8 +1137,8 @@ module powerbitests {
         
         let visualBuilder: VisualBuilder;
         
-        var translate: number = 62;
-        var dataViewMetadata: DataViewMetadata = {
+        let translate: number = 62;
+        let dataViewMetadata: DataViewMetadata = {
             columns: [
                 { displayName: "col1", queryName: "select0" },
                 { displayName: "col2", queryName: "select1", isMeasure: true, roles: { "Y": true }, objects: { general: { formatString: "$0" } } },
@@ -1141,7 +1147,7 @@ module powerbitests {
                 labels: { show: true, labelPrecision: 0 }
             }
         };
-        var categoryColumnRef: SQExpr = SQExprBuilder.fieldDef({ schema: "s", entity: "e", column: "col1" });
+        let categoryColumnRef: SQExpr = SQExprBuilder.fieldDef({ schema: "s", entity: "e", column: "col1" });
 
         beforeEach(() => {
             dataViewBuilder = new DataViewBuilder();
@@ -1306,7 +1312,7 @@ module powerbitests {
             
             visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
             setTimeout(() => {
-                var rect: JQuery = $(".funnelChart").find(".funnelBar").first();
+                let rect: JQuery = $(".funnelChart").find(".funnelBar").first();
                 expect(rect.attr("width")).toBeLessThan(40);
                 done();
             }, DefaultWaitForRender);
@@ -1319,7 +1325,7 @@ module powerbitests {
                 "Jean Tablau"
             ];
             
-            var dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
+            let dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
             dataViewMetadataWithLabelsObject.objects = { labels: { labelPosition: labelPosition.insideCenter } };
             
             dataViewBuilder.setMetadata(dataViewMetadataWithLabelsObject);
@@ -1345,15 +1351,16 @@ module powerbitests {
             
             visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
             setTimeout(() => {
+                
                 // The funnel bars are rotated 90 degrees, so for the bars, "y" and "height" correspond
                 // to what we would think of as the position and size along the x-axis.
                 // The funnel data labels are not rotated, so for the labels we need to use "x" and "width".
 
-                var labels: JQuery = $(".funnelChart .labels text");
-                var firstBarHeight: number = +$(".funnelChart").find(".funnelBar").first().attr("height");
-                var firstBarY: number = +$(".funnelChart").find(".funnelBar").first().attr("y");
-                var lastBarHeight: number = +$(".funnelChart").find(".funnelBar").last().attr("height");
-                var lastBarY: number = +$(".funnelChart").find(".funnelBar").last().attr("y");
+                let labels: JQuery = $(".funnelChart .labels text");
+                let firstBarHeight: number = +$(".funnelChart").find(".funnelBar").first().attr("height");
+                let firstBarY: number = +$(".funnelChart").find(".funnelBar").first().attr("y");
+                let lastBarHeight: number = +$(".funnelChart").find(".funnelBar").last().attr("height");
+                let lastBarY: number = +$(".funnelChart").find(".funnelBar").last().attr("y");
 
                 expect(labels.length).toBe(3);
                 expect($(labels[0]).attr("x")).toEqual($(labels[1]).attr("x"));
@@ -1452,7 +1459,7 @@ module powerbitests {
             
             visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
             setTimeout(() => {
-                let labels = $(FunnelChart.Selectors.labels.dataLabels.selector);
+                let labels = $(".funnelChart .labels .data-labels");
                 expect(labels.eq(1).text()).toBe("-$100");
 
                 done();
@@ -1714,11 +1721,99 @@ module powerbitests {
             }, DefaultWaitForRender);
         });
 
+        it("Ensure percent bars hide when settings are off", (done) => {
+            let categoryValues: any[] = [
+                "John Domo",
+                "Delta Force",
+                "Bugs Bunny",
+                "Mickey Mouse",
+                "Donald Duck",
+                "VRM Jones"
+            ];
+
+            let percentBarOffMetadata: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
+            percentBarOffMetadata.objects = { percentBarLabel: { show: false } };
+            
+            dataViewBuilder.setMetadata(percentBarOffMetadata);
+
+            dataViewBuilder.categoryBuilder()
+                .setSource(percentBarOffMetadata.columns[0])
+                .setValues(categoryValues)
+                .setIdentity(categoryValues.map((value: any) => {
+                    return mocks.dataViewScopeIdentity(value);
+                }))
+                .setIdentityFields([categoryColumnRef])
+                .buildCategory();
+
+            dataViewBuilder.valueColumnsBuilder()
+                .newValueBuilder()
+                .setSource(percentBarOffMetadata.columns[1])
+                .setValues([50, 200, 300, 400, 500, 600])
+                .setSubtotal(2000)
+                .buildNewValue()
+                .buildValueColumns();
+
+            let dataView: DataView = dataViewBuilder.build();
+
+            visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
+            setTimeout(() => {
+                FunnelChartHelpers.validatePercentBars(false, dataView);
+                expect($(".funnelChart g").length).toBe(10);
+                expect($(".funnelChart .axis").find("text").length).toBe(6);
+                expect($(".funnelChart .labels text").length).toBe(6);
+
+                done();
+            }, DefaultWaitForRender);
+        });
+
+        it("Ensure percent bars font size", (done) => {
+            let fontSize = 15;
+            let categoryValues: any[] = [
+                "John Domo",
+                "Delta Force",
+                "Bugs Bunny",
+                "Mickey Mouse",
+                "Donald Duck",
+                "VRM Jones"
+            ];
+
+            let percentBarOnMetadata: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
+            percentBarOnMetadata.objects = { percentBarLabel: { show: true, fontSize: fontSize  } };
+
+            dataViewBuilder.setMetadata(percentBarOnMetadata);
+
+            dataViewBuilder.categoryBuilder()
+                .setSource(percentBarOnMetadata.columns[0])
+                .setValues(categoryValues)
+                .setIdentity(categoryValues.map((value: any) => {
+                    return mocks.dataViewScopeIdentity(value);
+                }))
+                .setIdentityFields([categoryColumnRef])
+                .buildCategory();
+
+            dataViewBuilder.valueColumnsBuilder()
+                .newValueBuilder()
+                .setSource(percentBarOnMetadata.columns[1])
+                .setValues([50, 200, 300, 400, 500, 600])
+                .setSubtotal(2000)
+                .buildNewValue()
+                .buildValueColumns();
+
+            let dataView: DataView = dataViewBuilder.build();
+
+            visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
+            setTimeout(() => {
+                FunnelChartHelpers.validatePercentBars(true, dataView, fontSize);
+
+                done();
+            }, DefaultWaitForRender);
+        });
+
         it("Default labels validation", (done) => {
-            var metadataWithDisplayUnits: DataViewMetadata = $.extend(true, {}, dataViewMetadata);
+            let metadataWithDisplayUnits: DataViewMetadata = $.extend(true, {}, dataViewMetadata);
             metadataWithDisplayUnits.objects = { labels: { labelDisplayUnits: 1000 } };
 
-            var fontSize: string = "12px";
+            let fontSize: string = "12px";
             
             let categoryValues: any[] = [
                 "John Domo",
@@ -1749,16 +1844,17 @@ module powerbitests {
             
             visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
             setTimeout(() => {
+                
                 // The funnel bars are rotated 90 degrees, so for the bars, "y" and "height" correspond
                 // to what we would think of as the position and size along the x-axis.
                 // The funnel data labels are not rotated, so for the labels we need to use "x" and "width".
                 // Format supplied without precision
 
-                var labels: JQuery = $(".funnelChart .labels text");
-                var firstBarY: number = +$(".funnelChart").find(".funnelBar").first().attr("y");
-                var firstBarHeight: number = +$(".funnelChart").find(".funnelBar").first().attr("height");
-                var lastBarY: number = +$(".funnelChart").find(".funnelBar").last().attr("y");
-                var lastBarHeight: number = +$(".funnelChart").find(".funnelBar").last().attr("height");
+                let labels: JQuery = $(".funnelChart .labels text");
+                let firstBarY: number = +$(".funnelChart").find(".funnelBar").first().attr("y");
+                let firstBarHeight: number = +$(".funnelChart").find(".funnelBar").first().attr("height");
+                let lastBarY: number = +$(".funnelChart").find(".funnelBar").last().attr("y");
+                let lastBarHeight: number = +$(".funnelChart").find(".funnelBar").last().attr("height");
 
                 expect(labels.length).toBe(3);
                 helpers.assertColorsMatch($(labels[0]).css("fill"), defaultInsideLabelColor);
@@ -1779,9 +1875,47 @@ module powerbitests {
                 done();
             }, DefaultWaitForRender);
         });
+
+        it("Change text size validation", (done) => {
+            
+            var assert = () => {
+                let labels: JQuery = $(".funnelChart .labels text");
+
+                expect(labels.length).toBe(3);
+                expect($(labels.first().css("font-size")).selector).toBe('16px');
+                expect($(labels[0]).text()).toEqual("$1K");
+
+                done();
+            };
+
+            FunnelChartHelpers.testLabelsFontSize(
+                dataViewBuilder,
+                categoryColumnRef,
+                visualBuilder,
+                dataViewMetadata,
+                12,
+                assert);
+        });
+
+        it("labels filtered when heigher than bar height", (done) => {
+
+            var assert = () => {
+                let labels: JQuery = $(".funnelChart .labels text");
+                expect(labels.length).toBe(0);
+                done();
+            };
+
+            FunnelChartHelpers.testLabelsFontSize(
+                dataViewBuilder,
+                categoryColumnRef,
+                visualBuilder,
+                dataViewMetadata,
+                40,
+                assert);
+        });
         
         it("Default labels validation - with value 0", (done) => {
-            var metadataWithDisplayUnits: DataViewMetadata = $.extend(true, {}, dataViewMetadata);
+            let metadataWithDisplayUnits: DataViewMetadata = $.extend(true, {}, dataViewMetadata);
             metadataWithDisplayUnits.objects = { labels: { labelDisplayUnits: 1000 } };
             
             let categoryValues: any[] = [
@@ -1813,16 +1947,19 @@ module powerbitests {
             
             visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
             setTimeout(() => {
+                
                 // The funnel bars are rotated 90 degrees, so for the bars, "y" and "height" correspond
                 // to what we would think of as the position and size along the x-axis.
                 // The funnel data labels are not rotated, so for the labels we need to use "x" and "width".
 
-                var labels: JQuery = $(".funnelChart .labels text");
+                let labels: JQuery = $(".funnelChart .labels text");
                 expect(labels.length).toBe(3);
                 expect($(labels[2]).text()).toEqual("$0K");
                 helpers.assertColorsMatch($(labels[0]).css("fill"), defaultInsideLabelColor);
+                
                 //last value is 0, should be default color 
                 helpers.assertColorsMatch($(labels[2]).css("fill"), labelColor);
+                
                 // Check that all labels are centering 
                 expect($(labels[2]).attr("x")).toEqual($(labels[0]).attr("x"));
                 expect($(labels[2]).attr("x")).toEqual($(labels[1]).attr("x"));
@@ -1861,13 +1998,14 @@ module powerbitests {
             
             visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
             setTimeout(() => {
+                
                 // The funnel bars are rotated 90 degrees, so for the bars, "y" and "height" correspond
                 // to what we would think of as the position and size along the x-axis.
                 // The funnel data labels are not rotated, so for the labels we need to use "x" and "width".
 
-                var labels: JQuery = $(".funnelChart .labels text");
-                var firstBarY: number = +$(".funnelChart").find(".funnelBar").first().attr("y");
-                var firstBarHeight: number = +$(".funnelChart").find(".funnelBar").first().attr("height");
+                let labels: JQuery = $(".funnelChart .labels text");
+                let firstBarY: number = +$(".funnelChart").find(".funnelBar").first().attr("y");
+                let firstBarHeight: number = +$(".funnelChart").find(".funnelBar").first().attr("height");
 
                 // The first label should be white and should be inside the bar.
                 expect($(labels[0]).text()).toEqual("$2K");
@@ -1876,8 +2014,9 @@ module powerbitests {
                 expect($(labels[0]).attr("x")).toBeLessThan(firstBarY + firstBarHeight + translate);
 
                 // The third label should be the same as the fill color and should be outside the bar.
-                var thirdBarY: number = +$(".funnelChart").find(".funnelBar").eq(2).attr("y");
-                var thirdBarHeight: number = +$(".funnelChart").find(".funnelBar").eq(2).attr("height");
+                let thirdBarY: number = +$(".funnelChart").find(".funnelBar").eq(2).attr("y");
+                let thirdBarHeight: number = +$(".funnelChart").find(".funnelBar").eq(2).attr("height");
+                
                 //Data labels precision = 0
                 expect($(labels[2]).text()).toEqual("$0K");
                 helpers.assertColorsMatch($(labels[2]).css("fill"), labelColor);
@@ -1888,7 +2027,7 @@ module powerbitests {
         });
 
         it("Change labels position validation", (done) => {
-            var dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
+            let dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
             dataViewMetadataWithLabelsObject.objects = { labels: { labelPosition: labelPosition.insideBase } };
 
             let categoryValues: any[] = [
@@ -1920,16 +2059,17 @@ module powerbitests {
             
             visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
             setTimeout(() => {
-                var labels: JQuery = $(".funnelChart .labels .data-labels");
-                var firstBarX: number = +$(".funnelChart").find(".funnelBar").first().attr("x");
-                var firstBarWidth: number = +$(".funnelChart").find(".funnelBar").first().attr("height");
-                var firstBarTranslated: number = firstBarX - translate;
-                var firstBar: number = firstBarTranslated + firstBarWidth;
+                let labels: JQuery = $(".funnelChart .labels .data-labels");
+                let firstBarX: number = +$(".funnelChart").find(".funnelBar").first().attr("x");
+                let firstBarWidth: number = +$(".funnelChart").find(".funnelBar").first().attr("height");
+                let firstBarTranslated: number = firstBarX - translate;
+                let firstBar: number = firstBarTranslated + firstBarWidth;
 
                 expect(labels.length).toBe(3);
                 helpers.assertColorsMatch($(labels[0]).css("fill"), defaultInsideLabelColor);
                 helpers.assertColorsMatch($(labels[1]).css("fill"), defaultInsideLabelColor);
                 helpers.assertColorsMatch($(labels[2]).css("fill"), defaultInsideLabelColor);
+                
                 //Check that the labels position is inside
                 expect($(labels[0]).attr("x")).toBeGreaterThan(firstBarTranslated);
                 expect($(labels[0]).attr("x")).toBeLessThan(firstBar);
@@ -1938,9 +2078,9 @@ module powerbitests {
         });
 
         it("Change labels color validation", (done) => {
-            var color: string = "#CC0099";
+            let color: string = "#CC0099";
             
-            var dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
+            let dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
             dataViewMetadataWithLabelsObject.objects = {
                 labels: {
                     color: { solid: { color: "#CC0099" } },
@@ -1976,11 +2116,13 @@ module powerbitests {
             
             visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
             setTimeout(() => {
-                var labels: JQuery = $(".funnelChart .labels text");
+                let labels: JQuery = $(".funnelChart .labels text");
                 expect(labels.length).toBe(3);
+                
                 //inside labels are white
                 helpers.assertColorsMatch($(labels[0]).css("fill"), defaultInsideLabelColor);
                 helpers.assertColorsMatch($(labels[1]).css("fill"), defaultInsideLabelColor);
+                
                 //outside labels are changed
                 helpers.assertColorsMatch($(labels[2]).css("fill"), color);
                 done();
@@ -1988,7 +2130,7 @@ module powerbitests {
         });
 
         it("Hide labels validation", (done) => {
-            var dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
+            let dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
             dataViewMetadataWithLabelsObject.objects = { labels: { show: false } };
 
             let categoryValues: any[] = [
@@ -2020,7 +2162,7 @@ module powerbitests {
             
             visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
             setTimeout(() => {
-                var labels: JQuery = $(".funnelChart .labels text");
+                let labels: JQuery = $(".funnelChart .labels text");
                 expect(labels.length).toBe(0);
                 done();
             }, DefaultWaitForRender);
@@ -2102,7 +2244,7 @@ module powerbitests {
             visualBuilder.visual.onDataChanged({ dataViews: [dataViewNoHighlights] });
 
             setTimeout(() => {
-                var labels: JQuery = $(".funnelChart .labels text");
+                let labels: JQuery = $(".funnelChart .labels text");
                 expect(labels.length).toBe(3);
                 helpers.assertColorsMatch($(labels[0]).css("fill"), defaultInsideLabelColor);
                 expect($(labels[0]).text()).toEqual("$100");
@@ -2210,7 +2352,7 @@ module powerbitests {
                 "Mr Bing"
             ];
             
-            var dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
+            let dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
             dataViewMetadataWithLabelsObject.objects = {
                 labels: { show: true, labelDisplayUnits: 1000, labelPrecision: 0 }
             };
@@ -2250,7 +2392,7 @@ module powerbitests {
                 "Mr Bing"
             ];
             
-            var dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
+            let dataViewMetadataWithLabelsObject: DataViewMetadata = powerbi.Prototype.inherit(dataViewMetadata);
             dataViewMetadataWithLabelsObject.objects = {
                 labels: { show: true, labelDisplayUnits: 1000, labelPrecision: 2 }
             };
@@ -2284,10 +2426,11 @@ module powerbitests {
         });
 
         it("Default decimal labels validation", (done) => {
-            var metadataWithDisplayUnits = $.extend(true, {}, dataViewMetadata);
+            let metadataWithDisplayUnits = $.extend(true, {}, dataViewMetadata);
             metadataWithDisplayUnits.objects = { labels: { labelDisplayUnits: 1000 } };
+            metadataWithDisplayUnits.columns[1].objects.general.formatString = "$#,0.00"; // Match format string to output result
 
-            var fontSize = "12px";
+            let fontSize = "12px";
             
             let categoryValues: any = [
                 "John Domo",
@@ -2319,15 +2462,16 @@ module powerbitests {
             dataView.categorical.values[0].source["objects"]["general"]["formatString"] = "$0.00";
             visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
             setTimeout(() => {
+                
                 // The funnel bars are rotated 90 degrees, so for the bars, "y" and "height" correspond
                 // to what we would think of as the position and size along the x-axis.
                 // The funnel data labels are not rotated, so for the labels we need to use "x" and "width".
 
-                var labels = $(".funnelChart .labels text");
-                var firstBarY = +$(".funnelChart").find(".funnelBar").first().attr("y");
-                var firstBarHeight = +$(".funnelChart").find(".funnelBar").first().attr("height");
-                var lastBarY = +$(".funnelChart").find(".funnelBar").last().attr("y");
-                var lastBarHeight = +$(".funnelChart").find(".funnelBar").last().attr("height");
+                let labels = $(".funnelChart .labels text");
+                let firstBarY = +$(".funnelChart").find(".funnelBar").first().attr("y");
+                let firstBarHeight = +$(".funnelChart").find(".funnelBar").first().attr("height");
+                let lastBarY = +$(".funnelChart").find(".funnelBar").last().attr("y");
+                let lastBarHeight = +$(".funnelChart").find(".funnelBar").last().attr("height");
 
                 expect(labels.length).toBe(3);
                 helpers.assertColorsMatch($(labels[0]).css("fill"), defaultInsideLabelColor);
@@ -2348,6 +2492,98 @@ module powerbitests {
                 done();
             }, DefaultWaitForRender);
         });
+
+        it("Category Labels with repeated items due to source formatting", (done) => {
+            let visualBuilder: VisualBuilder = new VisualBuilder(
+                visualPluginFactory.create(),
+                "funnel",
+                500,
+                500
+            );
+            visualBuilder.build();
+
+            var dataViewMetadata: DataViewMetadata = {
+                columns: [
+                    {
+                        displayName: "Date",
+                        queryName: "select0",
+                        format: "%d\-MMM",
+                        objects: { general: { formatString: "%d\-MMM" } },
+                        type: ValueType.fromDescriptor({ dateTime: true }),
+                        roles: { 'Category': true }
+                    },
+                    {
+                        displayName: "Sales",
+                        queryName: "select1",
+                        format: "g",
+                        isMeasure: true,
+                        roles: { "Y": true },
+                        objects: { general: { formatString: "g" } }
+                    },
+                ]
+            };
+
+            let categoryValues: Date[] = [
+                new Date(2010, 0, 1),   //1-Jan-2010
+                new Date(2010, 1, 1),
+                new Date(2010, 2, 1),
+                new Date(2011, 0, 1),
+                new Date(2012, 0, 1),
+                new Date(2013, 0, 1)
+            ];
+
+            var categoryIdentities = [
+                mocks.dataViewScopeIdentity("2010/1/1"),
+                mocks.dataViewScopeIdentity("2010/2/1"),
+                mocks.dataViewScopeIdentity("2010/3/1"),
+                mocks.dataViewScopeIdentity("2011/1/1"),
+                mocks.dataViewScopeIdentity("2012/1/1"),
+                mocks.dataViewScopeIdentity("2013/1/1")
+            ];
+
+            let dataView = {
+                metadata: dataViewMetadata,
+                categorical: {
+                    categories: [{
+                        source: dataViewMetadata.columns[0],
+                        values: categoryValues,
+                        identity: categoryIdentities,
+                    }],
+                    values: powerbi.data.DataViewTransform.createValueColumns([
+                        {
+                            source: dataViewMetadata.columns[1],
+                            min: 1,
+                            max: 6,
+                            subtotal: 21,
+                            values: [1, 2, 3, 4, 5, 6]
+                        }])
+                }
+            };
+
+            let Months = [
+                "Jan",
+                "Feb",
+                "Mar",
+                "Apr",
+                "May",
+                "Jun",
+                "Jul",
+                "Aug",
+                "Sep",
+                "Oct",
+                "Nov",
+                "Dec"];
+
+            visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
+            setTimeout(() => {
+                expect($(".funnelChart .axis").find("text").length).toBe(categoryValues.length);
+                for (let i = 0, len = categoryValues.length; i < len; i++) {
+                    expect($(".funnelChart .axis").find("text")[i].textContent).toBe(categoryValues[i].getDate() + "-" + Months[categoryValues[i].getMonth()]);
+                }
+                done();
+            }, DefaultWaitForRender);
+        }
+            );
     });
 
     describe("funnel chart web animation", () => {
@@ -2355,14 +2591,14 @@ module powerbitests {
         
         let visualBuilder: VisualBuilder;
         
-        var dataViewMetadata: DataViewMetadata = {
+        let dataViewMetadata: DataViewMetadata = {
             columns: [
                 { displayName: "col1", queryName: "col1" },
                 { displayName: "col2", queryName: "col2", roles: { "Y": true } },
                 { displayName: "col3", queryName: "col3", roles: { "Y": true } },
             ]
         };
-        var categoryColumnRef: SQExpr =
+        let categoryColumnRef: SQExpr =
             SQExprBuilder.fieldDef({ schema: "s", entity: "e", column: "col1" });
 
         beforeEach(() => {
@@ -2450,7 +2686,7 @@ module powerbitests {
             
             let dataViewHighlightsB: DataView = dataViewBuilder.build();
 
-            var animator: WebFunnelAnimator = <WebFunnelAnimator>(<FunnelChart>visualBuilder.visual).animator;
+            let animator: WebFunnelAnimator = <WebFunnelAnimator>(<FunnelChart>visualBuilder.visual).animator;
             spyOn(animator, "animate").and.callThrough();
 
             visualBuilder.visual.onDataChanged({ dataViews: [dataViewNoHighlights] });
@@ -2534,10 +2770,10 @@ module powerbitests {
             
             let dataViewHighlightsB: DataView = dataViewBuilder.build();
 
-            var animator: WebFunnelAnimator = <WebFunnelAnimator>(<FunnelChart>visualBuilder.visual).animator;
+            let animator: WebFunnelAnimator = <WebFunnelAnimator>(<FunnelChart>visualBuilder.visual).animator;
             expect(animator).toBeTruthy();
 
-            var animatorSpy: Spy = spyOn(animator, "animate");
+            let animatorSpy: Spy = spyOn(animator, "animate");
             animatorSpy.and.callThrough();
 
             visualBuilder.visual.onDataChanged({ dataViews: [dataViewNoHighlights] });
@@ -2634,7 +2870,7 @@ module powerbitests {
             
             let dataViewHighlightsB: DataView = dataViewBuilder.build();
 
-            var animator: WebFunnelAnimator = <WebFunnelAnimator>(<FunnelChart>visualBuilder.visual).animator;
+            let animator: WebFunnelAnimator = <WebFunnelAnimator>(<FunnelChart>visualBuilder.visual).animator;
             spyOn(animator, "animate").and.callThrough();
 
             visualBuilder.visual.onDataChanged({ suppressAnimations: true, dataViews: [dataViewNoHighlights] });
@@ -2679,7 +2915,7 @@ module powerbitests {
             
             let dataViewHighlights: DataView = dataViewBuilder.build();
 
-            var animator: WebFunnelAnimator = <WebFunnelAnimator>(<FunnelChart>visualBuilder.visual).animator;
+            let animator: WebFunnelAnimator = <WebFunnelAnimator>(<FunnelChart>visualBuilder.visual).animator;
             spyOn(animator, "animate").and.callThrough();
 
             visualBuilder.visual.onDataChanged({ dataViews: [dataViewHighlights] });
@@ -2709,7 +2945,7 @@ module powerbitests {
         
         let visualBuilder: VisualBuilder;
         
-        var dataViewMetadata: DataViewMetadata = {
+        let dataViewMetadata: DataViewMetadata = {
             columns: [
                 {
                     displayName: "col1",
@@ -2733,7 +2969,7 @@ module powerbitests {
             ]
         };
 
-        var dataViewGradientMetadata: DataViewMetadata = {
+        let dataViewGradientMetadata: DataViewMetadata = {
             columns: [
                 { displayName: "col1", queryName: "col1" },
                 { displayName: "col2", queryName: "col2", isMeasure: true, roles: { "Y": true } },
@@ -2741,7 +2977,7 @@ module powerbitests {
             ]
         };
 
-        var dataViewGradientAndYMetadata: DataViewMetadata = {
+        let dataViewGradientAndYMetadata: DataViewMetadata = {
             columns: [
                 { displayName: "col1", queryName: "col1" },
                 { displayName: "col2", queryName: "col2", isMeasure: true, roles: { "Y": true, "Gradient": true } },
@@ -2749,7 +2985,7 @@ module powerbitests {
             ]
         };
 
-        var categoryColumnRef: SQExpr =
+        let categoryColumnRef: SQExpr =
             SQExprBuilder.fieldDef({ schema: "s", entity: "e", column: "col1" });
 
         beforeEach(() => {
@@ -2799,7 +3035,7 @@ module powerbitests {
             };
 
             visualBuilder.visual.onDataChanged(dataChangedOptions);
-            var points = <VisualObjectInstanceEnumerationObject>visualBuilder.visual.enumerateObjectInstances({ objectName: 'dataPoint' });
+            let points = <VisualObjectInstanceEnumerationObject>visualBuilder.visual.enumerateObjectInstances({ objectName: 'dataPoint' });
             expect(points.instances.length).toBe(4);
             expect(points.instances[1].displayName).toBe('a');
             expect(points.instances[1].properties['fill']).toBeDefined();
@@ -2824,7 +3060,7 @@ module powerbitests {
             };
 
             visualBuilder.visual.onDataChanged(dataChangedOptions);
-            var points = <VisualObjectInstanceEnumerationObject>visualBuilder.visual.enumerateObjectInstances({ objectName: 'dataPoint' });
+            let points = <VisualObjectInstanceEnumerationObject>visualBuilder.visual.enumerateObjectInstances({ objectName: 'dataPoint' });
             expect(points.instances.length).toBe(3);
             expect(points.instances[1].displayName).toBe('col2');
             expect(points.instances[1].properties['fill']).toBeDefined();
@@ -2833,9 +3069,9 @@ module powerbitests {
         });
 
         it("Gradient color", () => {
-            var dataColors: IDataColorPalette = visualStyles.create().colorPalette.dataColors;
-            var colors: string[] = ["#d9f2fb", "#ff557f", "#b1eab7"];
-            var objectDefinitions: DataViewObjects[] = [
+            let dataColors: IDataColorPalette = visualStyles.create().colorPalette.dataColors;
+            let colors: string[] = ["#d9f2fb", "#ff557f", "#b1eab7"];
+            let objectDefinitions: DataViewObjects[] = [
                 { dataPoint: { fill: { solid: { color: colors[0] } } } },
                 { dataPoint: { fill: { solid: { color: colors[1] } } } },
                 { dataPoint: { fill: { solid: { color: colors[2] } } } }
@@ -2868,9 +3104,9 @@ module powerbitests {
             
             let dataView: DataView = dataViewBuilder.build();
 
-            var defaultDataPointColor: string = "#00FF00";
+            let defaultDataPointColor: string = "#00FF00";
 
-            var actualData: FunnelData = FunnelChart.converter(dataView, dataColors, visualBuilder.host, defaultDataPointColor);
+            let actualData: FunnelData = FunnelChart.converter(dataView, dataColors, visualBuilder.host, defaultDataPointColor);
 
             helpers.assertColorsMatch(actualData.slices[0].color, colors[0]);
             helpers.assertColorsMatch(actualData.slices[1].color, colors[1]);
@@ -2878,9 +3114,9 @@ module powerbitests {
         });
 
         it("Gradient color - validate tool tip", () => {
-            var dataColors: IDataColorPalette = visualStyles.create().colorPalette.dataColors;
-            var colors: string[] = ["#d9f2fb", "#ff557f", "#b1eab7"];
-            var objectDefinitions: DataViewObjects[] = [
+            let dataColors: IDataColorPalette = visualStyles.create().colorPalette.dataColors;
+            let colors: string[] = ["#d9f2fb", "#ff557f", "#b1eab7"];
+            let objectDefinitions: DataViewObjects[] = [
                 { dataPoint: { fill: { solid: { color: colors[0] } } } },
                 { dataPoint: { fill: { solid: { color: colors[1] } } } },
                 { dataPoint: { fill: { solid: { color: colors[2] } } } }
@@ -2915,8 +3151,8 @@ module powerbitests {
             
             let dataView: DataView = dataViewBuilder.build();
 
-            var defaultDataPointColor: string = "#00FF00";
-            var actualData: FunnelData = FunnelChart.converter(dataView, dataColors, visualBuilder.host, defaultDataPointColor);
+            let defaultDataPointColor: string = "#00FF00";
+            let actualData: FunnelData = FunnelChart.converter(dataView, dataColors, visualBuilder.host, defaultDataPointColor);
 
             expect(actualData.slices[0].tooltipInfo).toEqual([{ displayName: "col1", value: "a" }, { displayName: "col2", value: "100" }, { displayName: "col3", value: "200" }, { displayName: "Percent of first", value: "100.00 %" }]);
             expect(actualData.slices[1].tooltipInfo).toEqual([{ displayName: "col1", value: "b" }, { displayName: "col2", value: "200" }, { displayName: "col3", value: "400" }, { displayName: "Percent of first", value: "200.00 %" }, { displayName: "Percent of previous", value: "200.00 %" }]);
@@ -2924,9 +3160,9 @@ module powerbitests {
         });
 
         it("Gradient and Y have the index - validate tool tip", () => {
-            var dataColors: IDataColorPalette = visualStyles.create().colorPalette.dataColors;
-            var colors: string[] = ["#d9f2fb", "#ff557f", "#b1eab7"];
-            var objectDefinitions: DataViewObjects[] = [
+            let dataColors: IDataColorPalette = visualStyles.create().colorPalette.dataColors;
+            let colors: string[] = ["#d9f2fb", "#ff557f", "#b1eab7"];
+            let objectDefinitions: DataViewObjects[] = [
                 { dataPoint: { fill: { solid: { color: colors[0] } } } },
                 { dataPoint: { fill: { solid: { color: colors[1] } } } },
                 { dataPoint: { fill: { solid: { color: colors[2] } } } }
@@ -2961,8 +3197,8 @@ module powerbitests {
             
             let dataView: DataView = dataViewBuilder.build();
 
-            var defaultDataPointColor: string = "#00FF00";
-            var actualData: FunnelData = FunnelChart.converter(dataView, dataColors, visualBuilder.host, defaultDataPointColor);
+            let defaultDataPointColor: string = "#00FF00";
+            let actualData: FunnelData = FunnelChart.converter(dataView, dataColors, visualBuilder.host, defaultDataPointColor);
 
             expect(actualData.slices[0].tooltipInfo).toEqual([{ displayName: "col1", value: "a" }, { displayName: "col2", value: "100" }, { displayName: "Percent of first", value: "100.00 %" }]);
             expect(actualData.slices[1].tooltipInfo).toEqual([{ displayName: "col1", value: "b" }, { displayName: "col2", value: "200" }, { displayName: "Percent of first", value: "200.00 %" }, { displayName: "Percent of previous", value: "200.00 %" }]);
@@ -2970,9 +3206,9 @@ module powerbitests {
         });
 
         it("converter does filter Gradient role", () => {
-            var dataColors: IDataColorPalette = visualStyles.create().colorPalette.dataColors;
+            let dataColors: IDataColorPalette = visualStyles.create().colorPalette.dataColors;
 
-            var dataViewGradientMetadata: DataViewMetadata = {
+            let dataViewGradientMetadata: DataViewMetadata = {
                 columns: [
                     { displayName: "col1", queryName: "col1" },
                     { displayName: "col2", queryName: "col2", isMeasure: true, roles: { "Gradient": true } },
@@ -3016,7 +3252,7 @@ module powerbitests {
         });
 
         it("converter does not filter Gradient + Y role", () => {
-            var dataColors: IDataColorPalette = visualStyles.create().colorPalette.dataColors;
+            let dataColors: IDataColorPalette = visualStyles.create().colorPalette.dataColors;
 
             let categoryValues: any[] = [
                 "a",
@@ -3098,35 +3334,43 @@ module powerbitests {
     });
 
     export module FunnelChartHelpers {
-        var PercentBarValueFormatRegex: RegExp = /^[0-9\,]+(\.[0-9]{1})?%$/gi;
+        let PercentBarValueFormatRegex: RegExp = /^[0-9\,]+(\.[0-9]{1})?%$/gi;
 
-        function validatePercentValues(dataView: DataView): void {
-            var values: any[] = dataView.categorical.values[0].values;
-            var highlights: any[] = dataView.categorical.values[0].highlights;
-            var hasHighlights: boolean = !!highlights;
+        function validatePercentValues(dataView: DataView, fontSize?: number): void {
+            let values: any[] = dataView.categorical.values[0].values;
+            let highlights: any[] = dataView.categorical.values[0].highlights;
+            let hasHighlights: boolean = !!highlights;
             
-            var topPercent: string = $(FunnelChart.Selectors.percentBar.text.selector)[0].textContent;
-            var bottomPercent: string = $(FunnelChart.Selectors.percentBar.text.selector)[1].textContent;
+            let topElement = $(FunnelChart.Selectors.percentBar.text.selector).first();
+            let bottomElement = $(FunnelChart.Selectors.percentBar.text.selector).last();
+
+            let topPercent: string = topElement.text();
+            let bottomPercent: string = bottomElement.text();
 
             [topPercent, bottomPercent].map((percent: string) => {
-                var validFormat = !!percent.match(PercentBarValueFormatRegex);
+                let validFormat = !!percent.match(PercentBarValueFormatRegex);
                 expect(validFormat).toBeTruthy();
 
-                var bottomPercentValue: number = hasHighlights
+                let bottomPercentValue: number = hasHighlights
                     ? highlights[highlights.length - 1] / highlights[0]
                     : values[values.length - 1] / values[0];
-                var bottomPercentText: string =
+                let bottomPercentText: string =
                     formattingService.formatValue(
                         bottomPercentValue,
                         powerbi.visuals.valueFormatter.getLocalizedString("Percentage1"));
 
                 expect(topPercent).toBe("100%");
                 expect(bottomPercent).toBe(bottomPercentText);
+
+                if (fontSize) {
+                    expect(topElement.css('font-size')).toBe(PixelConverter.fromPoint(fontSize));
+                    expect(bottomElement.css('font-size')).toBe(PixelConverter.fromPoint(fontSize));
+                }
             });
         }
 
         function validatePercentBarComponents(shown: boolean): void {
-            var count: number = shown ? 2 : 0;
+            let count: number = shown ? 2 : 0;
             
             expect($(FunnelChart.Selectors.percentBar.mainLine.selector).length).toBe(count);
             expect($(FunnelChart.Selectors.percentBar.leftTick.selector).length).toBe(count);
@@ -3134,20 +3378,20 @@ module powerbitests {
             expect($(FunnelChart.Selectors.percentBar.text.selector).length).toBe(count);
         }
 
-        export function validatePercentBars(shown: boolean, dataView: DataView): void {
+        export function validatePercentBars(shown: boolean, dataView: DataView, fontSize?: number): void {
             validatePercentBarComponents(shown);
 
             if (shown) {
-                validatePercentValues(dataView);
+                validatePercentValues(dataView, fontSize);
             }
         }
 
         export function validateDataLabels(dataView: powerbi.DataView): void {
-            var values = dataView.categorical.values[0].values;
-            var highlights = dataView.categorical.values[0].highlights;
-            var hasHighlights = !!highlights;
+            let values = dataView.categorical.values[0].values;
+            let highlights = dataView.categorical.values[0].highlights;
+            let hasHighlights = !!highlights;
 
-            let allDataLabelsMatch = _.every($(FunnelChart.Selectors.labels.dataLabels.selector), (label: HTMLElement, i: number) => {
+            let allDataLabelsMatch = _.every($(".funnelChart .labels .data-labels"), (label: HTMLElement, i: number) => {
                 let expectedValue = hasHighlights ? highlights[i] : values[i];
                 let labelValue = label.textContent.match(/([\d\.\,]+)/g)[0];
                 return expectedValue === parseInt(labelValue, 10);
@@ -3175,7 +3419,7 @@ module powerbitests {
             
             visualBuilder.build();
             
-            var dataViewMetadata: DataViewMetadata = {
+            let dataViewMetadata: DataViewMetadata = {
                 columns: [
                     { displayName: "col1", queryName: "col1" },
                     { displayName: "col2", queryName: "col2", isMeasure: true, roles: { "Y": true } },
@@ -3208,6 +3452,44 @@ module powerbitests {
             visualBuilder.visual.onDataChanged({
                 dataViews: [dataViewBuilder.build()]
             });
+        }
+
+        export function testLabelsFontSize(dataViewBuilder: DataViewBuilder, categoryColumnRef:SQExpr, visualBuilder: VisualBuilder, dataViewMetadata: DataViewMetadata, fontSizeInPt: number, assertCallback: () => void) {
+
+            let metadataWithDisplayUnits: DataViewMetadata = $.extend(true, {}, dataViewMetadata);
+            metadataWithDisplayUnits.objects = { labels: { labelDisplayUnits: 1000, fontSize: fontSizeInPt } };
+
+            let categoryValues: any[] = [
+                "John Domo",
+                "Delta Force",
+                "Mr Bing"
+            ];
+
+            dataViewBuilder.setMetadata(metadataWithDisplayUnits);
+
+            dataViewBuilder.categoryBuilder()
+                .setSource(dataViewMetadata.columns[0])
+                .setValues(categoryValues)
+                .setIdentity(categoryValues.map((value: any) => {
+                    return mocks.dataViewScopeIdentity(value);
+                }))
+                .setIdentityFields([categoryColumnRef])
+                .buildCategory();
+
+            dataViewBuilder.valueColumnsBuilder()
+                .newValueBuilder()
+                .setSource(dataViewMetadata.columns[1])
+                .setValues([555, 2000, 20])
+                .setSubtotal(2575)
+                .buildNewValue()
+                .buildValueColumns();
+
+            let dataView: DataView = dataViewBuilder.build();
+
+            visualBuilder.visual.onDataChanged({ dataViews: [dataView] });
+            setTimeout(() => {
+                assertCallback();
+            }, DefaultWaitForRender);
         }
     }
 }

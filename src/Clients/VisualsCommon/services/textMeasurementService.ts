@@ -59,6 +59,7 @@ module powerbi {
 
     export module TextMeasurementService {
         const ellipsis = '…';
+        const OverflowingText = jsCommon.CssConstants.createClassAndSelector('overflowingText');
 
         let spanElement: JQuery;
         let svgTextElement: D3.Selection;
@@ -92,7 +93,7 @@ module powerbi {
             if (spanElement && spanElement.remove) {
                 spanElement.remove();
             }
-            
+
             spanElement = null;
         }
 
@@ -139,25 +140,28 @@ module powerbi {
          * This method estimates the height of the text with the given SVG text properties.
          * @param {TextProperties} textProperties - The text properties to use for text measurement
          */
-        export function estimateSvgTextHeight(textProperties: TextProperties): number {
+        export function estimateSvgTextHeight(textProperties: TextProperties, tightFightForNumeric: boolean = false): number {
             debug.assertValue(textProperties, 'textProperties');
 
             let propertiesKey = textProperties.fontFamily + textProperties.fontSize;
             let height: number = ephemeralStorageService.getData(propertiesKey);
-            if (height)
-                return height;
 
-            // To estimate we check the height of a particular character, once it is cached, subsequent
-            // calls should always get the height from the cache (regardless of the text).
-            let estimatedTextProperties: TextProperties = {
-                fontFamily: textProperties.fontFamily,
-                fontSize: textProperties.fontSize,
-                text: "M",
-            };
+            if (height == null) {
+                // To estimate we check the height of a particular character, once it is cached, subsequent
+                // calls should always get the height from the cache (regardless of the text).
+                let estimatedTextProperties: TextProperties = {
+                    fontFamily: textProperties.fontFamily,
+                    fontSize: textProperties.fontSize,
+                    text: "M",
+                };
 
-            height = measureSvgTextHeight(estimatedTextProperties);
-            ephemeralStorageService.setData(propertiesKey, height);
+                height = measureSvgTextHeight(estimatedTextProperties);
+                ephemeralStorageService.setData(propertiesKey, height);
+            }
 
+            if (tightFightForNumeric) {
+                height *= 0.7;
+            }
             return height;
         }
 
@@ -243,7 +247,7 @@ module powerbi {
             let min = 1;
             let max = text.length;
             let i = ellipsis.length;
-            
+
             while (min <= max) {
                 // num | 0 prefered to Math.floor(num) for performance benefits
                 i = (min + max) / 2 | 0;
@@ -321,9 +325,47 @@ module powerbi {
                         'x': 0,
                         'dy': i === 0 ? firstDY : height,
                     })
-                    // Truncate
+                // Truncate
                     .text(getTailoredTextOrDefault(properties, maxWidth));
             }
+        }
+
+        /**
+       * Word break textContent of span element into <span>s
+       * Each span will be the height of a single line of text
+       * @param textElement - the element containing the text to wrap
+       * @param maxWidth - the maximum width available
+       * @param maxHeight - the maximum height available (defaults to single line)
+       * @param linePadding - (optional) padding to add to line height
+      */
+        export function wordBreakOverflowingText(textElement: any, maxWidth: number, maxHeight: number, linePadding: number = 0): void {
+            debug.assertValue(textElement, 'textElement');
+
+            let properties = getSvgMeasurementProperties(<SVGTextElement>textElement);
+            let height = estimateSvgTextHeight(properties) + linePadding;
+            let maxNumLines = Math.max(1, Math.floor(maxHeight / height));
+            
+            // Store and clear text content
+            let labelText = textElement.textContent;
+            textElement.textContent = null;
+
+            // Append a span for each word broken section
+            let words = jsCommon.WordBreaker.splitByWidth(labelText, properties, measureSvgTextWidth, maxWidth, maxNumLines);
+
+            // splitByWidth() occasionally returns unnecessary empty strings, so get rid of them.
+            // TODO: Fix splitByWidth.
+            words = _.compact(words);
+
+            let spanItem = d3.select(textElement)
+                .selectAll(OverflowingText.selector)
+                .data(words, (d: String) => $.inArray(d, words));
+
+            spanItem
+                .enter()
+                .append("span")
+                .classed(OverflowingText.class, true)
+                .text((d: string) => d)
+                .style("width", jsCommon.PixelConverter.toString(maxWidth));
         }
     }
 }

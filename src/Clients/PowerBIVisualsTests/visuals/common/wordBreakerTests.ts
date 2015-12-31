@@ -173,7 +173,7 @@ module powerbitests {
         describe('can split into words by width and breakers', () => {
             let words;
             let textWidthMeasurer = powerbi.TextMeasurementService.measureSvgTextWidth;
-            var textProperties: powerbi.TextProperties = {
+            let textProperties: powerbi.TextProperties = {
                 fontFamily: "Arial",
                 fontSize: "10px"
             };

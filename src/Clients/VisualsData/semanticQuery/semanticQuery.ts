@@ -393,16 +393,24 @@ module powerbi.data {
             return new SemanticFilter(from, where);
         }
 
-        public static getDefaultValueFilter(fieldSQExpr: SQExpr): SemanticFilter {
-            debug.assertValue(fieldSQExpr, 'fieldSQExpr');
-
-            return SemanticFilter.fromSQExpr(SQExprBuilder.equal(fieldSQExpr, SQExprBuilder.defaultValue()));
+        public static getDefaultValueFilter(fieldSQExprs: SQExpr | SQExpr[]): SemanticFilter {
+            return SemanticFilter.getDataViewScopeIdentityComparisonFilters(fieldSQExprs, SQExprBuilder.defaultValue());
         }
 
-        public static getAnyValueFilter(fieldSQExpr: SQExpr): SemanticFilter {
-            debug.assertValue(fieldSQExpr, 'fieldSQExpr');
+        public static getAnyValueFilter(fieldSQExprs: SQExpr | SQExpr[]): SemanticFilter {
+            return SemanticFilter.getDataViewScopeIdentityComparisonFilters(fieldSQExprs, SQExprBuilder.anyValue());
+        }
 
-            return SemanticFilter.fromSQExpr(SQExprBuilder.equal(fieldSQExpr, SQExprBuilder.anyValue()));
+        private static getDataViewScopeIdentityComparisonFilters(fieldSQExprs: SQExpr | SQExpr[], value: SQExpr): SemanticFilter {
+            debug.assertValue(fieldSQExprs, 'fieldSQExprs');
+            debug.assertValue(value, 'value');
+
+            if (fieldSQExprs instanceof Array) {
+                let values: SQConstantExpr[] = Array.apply(null, Array(fieldSQExprs.length)).map(() => { return value; });
+                return SemanticFilter.fromSQExpr(SQExprUtils.getDataViewScopeIdentityComparisonExpr(<SQExpr[]>fieldSQExprs, values));
+            }
+
+            return SemanticFilter.fromSQExpr(SQExprBuilder.equal(<SQExpr>fieldSQExprs, value));
         }
 
         public from(): SQFrom {

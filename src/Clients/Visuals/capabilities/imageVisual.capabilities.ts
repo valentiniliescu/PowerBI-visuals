@@ -27,21 +27,12 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var imageVisualCapabilities: VisualCapabilities = {
+    export const imageVisualCapabilities: VisualCapabilities = {
         objects: {
             general: {
                 properties: {
                     imageUrl: {
                         type: { misc: { imageUrl: true } }
-                    }
-                }
-            },
-            lockAspect: {
-                displayName: data.createDisplayNameGetter('Visual_BasicShape_LockAspect'),
-                properties: {
-                    show: {
-                        displayName: data.createDisplayNameGetter('Visual_Show'),
-                        type: { bool: true }
                     }
                 }
             },
@@ -56,5 +47,6 @@ module powerbi.visuals {
             },
         },
         suppressDefaultTitle: true,
+        supportsSelection: false,
     };
 } 

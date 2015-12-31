@@ -28,6 +28,7 @@
 
 module powerbi.visuals {
     import Color = jsCommon.Color;
+    import PixelConverter = jsCommon.PixelConverter;
 
     export interface ScatterChartConstructorOptions extends CartesianVisualConstructorOptions {
     }
@@ -39,6 +40,7 @@ module powerbi.visuals {
         radius: RadiusData;
         fill: string;
         category: string;
+        fontSize?: number;
     }
 
     export interface RadiusData {
@@ -104,19 +106,35 @@ module powerbi.visuals {
         colorByCategory?: boolean;
     }
 
-    export class ScatterChart implements ICartesianVisual {
+    /*
+     * Represents standard Cartesian quadrant numbering:
+     * 2 1
+     * 3 4
+    */
+    export const enum QuadrantNumber {
+        First,
+        Second,
+        Third,
+        Fourth
+    }
+
+    export class ScatterChart implements ICartesianVisual, PlayableVisual {
         private static ScatterChartCircleTagName = 'circle';
         private static BubbleRadius = 3 * 2;
         public static DefaultBubbleOpacity = 0.85;
         public static DimmedBubbleOpacity = 0.4;
         public static StrokeDarkenColorValue = 255 * 0.25;
+        //label layout settings
+        public static dataLabelLayoutStartingOffset: number = 2;
+        public static dataLabelLayoutOffsetIterationDelta: number = 6;
+        public static dataLabelLayoutMaximumOffset: number = ScatterChart.dataLabelLayoutStartingOffset + (2 * ScatterChart.dataLabelLayoutOffsetIterationDelta);
         // Chart Area and size range values as defined by PV charts
         private static AreaOf300By300Chart = 90000;
         private static MinSizeRange = 200;
         private static MaxSizeRange = 3000;
         private static ClassName = 'scatterChart';
         private static MainGraphicsContextClassName = 'mainGraphicsContext';
-        private static validLabelPositions = [NewPointLabelPosition.Above, NewPointLabelPosition.Below, NewPointLabelPosition.Left, NewPointLabelPosition.Right];
+        private static validLabelPositions = [NewPointLabelPosition.Below, NewPointLabelPosition.Above, NewPointLabelPosition.Right, NewPointLabelPosition.Left, NewPointLabelPosition.BelowRight, NewPointLabelPosition.BelowLeft, NewPointLabelPosition.AboveRight, NewPointLabelPosition.AboveLeft];
 
         private static DotClasses: jsCommon.CssConstants.ClassAndSelector = jsCommon.CssConstants.createClassAndSelector('dot');
 
@@ -124,6 +142,7 @@ module powerbi.visuals {
         private element: JQuery;
         private mainGraphicsContext: D3.Selection;
         private mainGraphicsG: D3.Selection;
+        private mainGraphicsBackgroundRect: D3.Selection;
         private labelGraphicsContext: D3.Selection;
         private currentViewport: IViewport;
         private style: IVisualStyle;
@@ -143,9 +162,11 @@ module powerbi.visuals {
         private categoryAxisProperties: DataViewObject;
         private valueAxisProperties: DataViewObject;
         private animator: IGenericAnimator;
+        private tooltipsEnabled: boolean;
 
         constructor(options: ScatterChartConstructorOptions) {
             if (options) {
+                this.tooltipsEnabled = options.tooltipsEnabled;
                 this.interactivityService = options.interactivityService;
                 this.animator = options.animator;
             }
@@ -168,29 +189,30 @@ module powerbi.visuals {
             this.mainGraphicsG = svg.append('g')
                 .classed(ScatterChart.MainGraphicsContextClassName, true);
 
-            this.mainGraphicsContext = this.mainGraphicsG.append('svg');
+            if (this.isInteractiveChart) {
+                // The backgroundRect catch user interactions when clicking/dragging on the background of the chart.
+                this.mainGraphicsBackgroundRect = this.mainGraphicsG
+                    .append("rect")
+                    .classed("backgroundRect", true)
+                    .attr({ width: "100%", height: "100%" });
+            }
 
-            this.labelGraphicsContext = svg.append('g')
-                .classed(NewDataLabelUtils.labelGraphicsContextClass.class, true);
+            this.mainGraphicsContext = this.mainGraphicsG.append('svg');
+            this.labelGraphicsContext = options.labelsContext;
         }
 
         private static getObjectProperties(dataViewMetadata: DataViewMetadata, dataLabelsSettings?: PointDataLabelsSettings): ScatterObjectProperties {
             let objectProperties: ScatterObjectProperties = {};
-            if(dataViewMetadata && dataViewMetadata.objects) {
-                var objects = dataViewMetadata.objects;
+            if (dataViewMetadata && dataViewMetadata.objects) {
+                let objects = dataViewMetadata.objects;
 
                 objectProperties.defaultDataPointColor = DataViewObjects.getFillColor(objects, columnChartProps.dataPoint.defaultColor);
                 objectProperties.showAllDataPoints = DataViewObjects.getValue<boolean>(objects, columnChartProps.dataPoint.showAllDataPoints);
 
-                var labelsObj = objects['categoryLabels'];
-                if (labelsObj && dataLabelsSettings) {
-                    dataLabelsSettings.show = (labelsObj['show'] !== undefined) ? <boolean>labelsObj['show'] : dataLabelsSettings.show;
-                    dataLabelsSettings.precision = (labelsObj['labelsPrecision'] !== undefined) ? +<string>labelsObj['labelsPrecision'] : dataLabelsSettings.precision;
-                    if (labelsObj['color'] !== undefined) {
-                        dataLabelsSettings.labelColor = (<Fill>labelsObj['color']).solid.color;
-                    }
-                }
-                
+                let labelsObj = <DataLabelObject>objects['categoryLabels'];
+                if (labelsObj && dataLabelsSettings)
+                    dataLabelUtils.updateLabelSettingsFromLabelsObject(labelsObj, dataLabelsSettings);
+
                 objectProperties.fillPoint = DataViewObjects.getValue(objects, scatterChartProps.fillPoint.show, false);
                 objectProperties.colorBorder = DataViewObjects.getValue(objects, scatterChartProps.colorBorder.show, false);
                 objectProperties.colorByCategory = DataViewObjects.getValue(objects, scatterChartProps.colorByCategory.show, false);
@@ -244,7 +266,7 @@ module powerbi.visuals {
                 categories,
                 categoryValues,
                 categoryFormatter,
-                categoryIdentities, 
+                categoryIdentities,
                 categoryObjects,
                 colorPalette,
                 currentViewport,
@@ -254,20 +276,14 @@ module powerbi.visuals {
                 categoryQueryName,
                 objProps.colorByCategory);
 
-            if (interactivityService) {
-                interactivityService.applySelectionStateToData(dataPoints);
-            }
-
             let legendItems = hasDynamicSeries
                 ? ScatterChart.createSeriesLegend(dataValues, colorPalette, dataValues, valueFormatter.getFormatString(dvSource, scatterChartProps.general.formatString), objProps.defaultDataPointColor)
                 : [];
 
             let legendTitle = dataValues && dvSource ? dvSource.displayName : "";
             if (!legendTitle) {
-                legendTitle = categories && categories[0].source.displayName ? categories[0].source.displayName : "";
+                legendTitle = categories && categories.length > 0 && categories[0].source.displayName ? categories[0].source.displayName : "";
             }
-
-            let legendData = { title: legendTitle, dataPoints: legendItems };
 
             let sizeRange = ScatterChart.getSizeRangeForGroups(grouped, scatterMetadata.idx.size);
 
@@ -278,11 +294,16 @@ module powerbi.visuals {
                 scatterMetadata.axesLabels.y = null;
             }
 
+            if (interactivityService) {
+                interactivityService.applySelectionStateToData(dataPoints);
+                interactivityService.applySelectionStateToData(legendItems);
+            }
+
             return {
                 xCol: scatterMetadata.cols.x,
                 yCol: scatterMetadata.cols.y,
                 dataPoints: dataPoints,
-                legendData: legendData,
+                legendData: { title: legendTitle, dataPoints: legendItems },
                 axesLabels: scatterMetadata.axesLabels,
                 size: scatterMetadata.cols.size,
                 sizeRange: sizeRange,
@@ -330,7 +351,7 @@ module powerbi.visuals {
             labelSettings: PointDataLabelsSettings,
             defaultDataPointColor?: string,
             categoryQueryName?: string,
-            colorByCategory?: boolean): ScatterChartDataPoint[]{
+            colorByCategory?: boolean): ScatterChartDataPoint[] {
 
             let dataPoints: ScatterChartDataPoint[] = [],
                 indicies = metadata.idx,
@@ -404,7 +425,7 @@ module powerbi.visuals {
                         size: size,
                         radius: { sizeMeasure: measureSize, index: categoryIdx },
                         fill: color,
-                        category: categoryFormatter.format(categoryValue),
+                        category: categories != null ? categoryFormatter.format(categoryValue) : grouping.name,
                         selected: false,
                         identity: identity,
                         tooltipInfo: tooltipInfo,
@@ -557,7 +578,36 @@ module powerbi.visuals {
             };
         }
 
-        public setData(dataViews: DataView[]) {
+        public renderAtFrameIndex(frameIndex: number): void {
+            if (this.playData && frameIndex < this.playData.allViewModels.length) {
+                this.data = <ScatterChartData>this.playData.allViewModels[frameIndex];
+                let renderResult = this.render(false);
+
+                let labelLayoutOptions = NewDataLabelUtils.getDataLabelLayoutOptions(CartesianChartType.Scatter);
+                let labelLayout = new LabelLayout(labelLayoutOptions);
+                let resultsLabelDataPoints = renderResult.labelDataPoints;
+                let labelDataPointsGroup: LabelDataPointsGroup = {
+                    labelDataPoints: resultsLabelDataPoints,
+                    maxNumberOfLabels: resultsLabelDataPoints.length
+                };
+                let dataLabels = labelLayout.layout([labelDataPointsGroup], this.currentViewport);
+                NewDataLabelUtils.animateDefaultLabels(this.labelGraphicsContext, dataLabels, PlayChart.FrameAnimationDuration, false, 'linear');
+
+                if (labelLayoutOptions.allowLeaderLines) {
+                    let filteredLabels = _.filter(dataLabels, (d: Label) => d.leaderLinePoints != null && !_.isEmpty(d.leaderLinePoints) && d.identity != null);
+                    NewDataLabelUtils.drawLabelLeaderLines(this.labelGraphicsContext, filteredLabels, (d: Label) => d.identity.getKey());
+                }
+
+                if (this.interactivityService) {
+                    let playBehavior = new PlayChartWebBehavior();
+                    let scatterBehavior = new ScatterChartWebBehavior();
+                    (<PlayBehaviorOptions>(renderResult.behaviorOptions)).visualBehavior = scatterBehavior;
+                    this.interactivityService.bind(renderResult.dataPoints, playBehavior, renderResult.behaviorOptions);
+                }
+            }
+        }
+
+        public setData(dataViews: DataView[], resized?: boolean) {
             this.data = ScatterChart.getDefaultData();
 
             if (dataViews.length > 0) {
@@ -576,23 +626,38 @@ module powerbi.visuals {
                         valueAxisProperties: this.valueAxisProperties,
                     };
 
-                    if (dataView.matrix && !dataView.categorical) {
+                    let categoryRoleIsPlay = dataView.categorical
+                        && dataView.categorical.categories
+                        && dataView.categorical.categories[0]
+                        && dataView.categorical.categories[0].source
+                        && dataView.categorical.categories[0].source.roles
+                        && dataView.categorical.categories[0].source.roles['Play'];
+
+                    if (dataView.matrix && (!dataView.categorical || categoryRoleIsPlay)) {
                         if (!this.playData) {
                             this.playData = PlayChart.getDefaultPlayData();
                             PlayChart.init(this.options, this.playData);
                         }
-                        this.playData = PlayChart.setData(this.playData, dataView, ScatterChart.converter, converterOptions);
+                        this.playData = PlayChart.setData(this.playData, dataView, ScatterChart.converter, converterOptions, resized);
                         this.mergeSizeRanges();
                         this.data = <ScatterChartData>this.playData.currentViewModel;
+                        this.playData.renderAtFrameIndexFn = (frameIndex) => this.renderAtFrameIndex(frameIndex);
                     }
-                    else if (dataView.categorical && dataView.categorical.values) {
+                    else {
                         if (this.playData) {
                             PlayChart.clearPlayDOM(this.playData);
                             this.playData = null;
                         }
-                        this.data = ScatterChart.converter(dataView, converterOptions);
+
+                        if (dataView.categorical && dataView.categorical.values) {
+                            this.data = ScatterChart.converter(dataView, converterOptions);
+                        }
                     }
                 }
+            }
+            else if (this.playData) {
+                PlayChart.clearPlayDOM(this.playData);
+                this.playData = null;
             }
         }
 
@@ -600,8 +665,11 @@ module powerbi.visuals {
             if (this.playData && this.playData.currentViewModel) {
                 let mergedSizeRange: NumberRange = (<ScatterChartData>this.playData.currentViewModel).sizeRange;
                 for (let data of this.playData.allViewModels) {
-                    mergedSizeRange.min = Math.min(mergedSizeRange.min, (<ScatterChartData>data).sizeRange.min);
-                    mergedSizeRange.max = Math.max(mergedSizeRange.max, (<ScatterChartData>data).sizeRange.max);
+                    let sizeRange = (<ScatterChartData>data).sizeRange;
+                    if (sizeRange.min != null)
+                        mergedSizeRange.min = Math.min(mergedSizeRange.min, sizeRange.min);
+                    if (sizeRange.max != null)
+                        mergedSizeRange.max = Math.max(mergedSizeRange.max, sizeRange.max);
                 }
                 for (let data of this.playData.allViewModels) {
                     (<ScatterChartData>data).sizeRange = mergedSizeRange;
@@ -620,18 +688,27 @@ module powerbi.visuals {
         public enumerateObjectInstances(enumeration: ObjectEnumerationBuilder, options: EnumerateVisualObjectInstancesOptions): void {
             switch (options.objectName) {
                 case 'colorByCategory':
-                    enumeration.pushInstance({
-                        objectName: 'colorByCategory',
-                        selector: null,
-                        properties: {
-                            show: this.data ? this.data.colorByCategory : false,
-                        },
-                    });
+                    if (this.data) {
+                        // Color by Legend takes precedent during render. Hide the slice but keep the colorByCategory value unchanged in case they remove the Legend field.
+                        if (!this.data.hasDynamicSeries) {
+                            enumeration.pushInstance({
+                                objectName: 'colorByCategory',
+                                selector: null,
+                                properties: {
+                                    show: this.data.colorByCategory,
+                                },
+                            });
+                        }
+                    }
                     break;
                 case 'dataPoint':
-                    let categoricalDataView: DataViewCategorical = this.dataView && this.dataView.categorical ? this.dataView.categorical : null;
-                    if (!GradientUtils.hasGradientRole(categoricalDataView))
-                        return this.enumerateDataPoints(enumeration);
+                    // TODO: DataViewMatix (for PlayAxis) doesn't support category- or series-specific properites yet.
+                    if (!this.playData) {
+                        let categoricalDataView: DataViewCategorical = this.dataView && this.dataView.categorical ? this.dataView.categorical : null;
+                        if (!GradientUtils.hasGradientRole(categoricalDataView))
+                            return this.enumerateDataPoints(enumeration);
+                    }
+                    break;
                 case 'categoryAxis':
                     enumeration.pushInstance({
                         selector: null,
@@ -778,7 +855,7 @@ module powerbi.visuals {
                 pixelSpan: width,
                 dataDomain: combinedXDomain,
                 metaDataColumn: data.xCol,
-                formatStringProp: scatterChartProps.general.formatString,
+                formatString: valueFormatter.getFormatString(data.xCol, scatterChartProps.general.formatString),
                 outerPadding: 0,
                 isScalar: true,
                 isVertical: false,
@@ -798,7 +875,7 @@ module powerbi.visuals {
                 pixelSpan: height,
                 dataDomain: combinedDomain,
                 metaDataColumn: data.yCol,
-                formatStringProp: scatterChartProps.general.formatString,
+                formatString: valueFormatter.getFormatString(data.yCol, scatterChartProps.general.formatString),
                 outerPadding: 0,
                 isScalar: true,
                 isVertical: true,
@@ -840,15 +917,16 @@ module powerbi.visuals {
                 duration = PlayChart.FrameAnimationDuration;
             }
 
+            let easeType = this.playData ? 'linear' : 'cubic-in-out'; //cubic-in-out is the d3.ease default
             let scatterMarkers: D3.UpdateSelection;
             if (this.hasSizeMeasure()) {
                 // Bubbles must be drawn from largest to smallest.
                 dataPoints = dataPoints.sort(ScatterChart.sortBubbles);
-                scatterMarkers = this.drawScatterMarkers(dataPoints, hasSelection, data.sizeRange, duration);
+                scatterMarkers = this.drawScatterMarkers(dataPoints, hasSelection, data.sizeRange, duration, easeType);
                 scatterMarkers.order();
             }
             else {
-                scatterMarkers = this.drawScatterMarkers(dataPoints, hasSelection, data.sizeRange, duration);
+                scatterMarkers = this.drawScatterMarkers(dataPoints, hasSelection, data.sizeRange, duration, easeType);
             }
 
             let labelDataPoints: LabelDataPoint[] = [];
@@ -881,15 +959,18 @@ module powerbi.visuals {
                         //visualBehavior: will be set in cartesianChart when this returns
                         xScale: this.xAxisProperties.scale,
                         yScale: this.yAxisProperties.scale,
+                        colorBorder: this.data.colorBorder,
                     };
                 }
             }
 
-            TooltipManager.addTooltip(scatterMarkers, (tooltipEvent: TooltipEvent) => tooltipEvent.data.tooltipInfo);
+            if (this.tooltipsEnabled)
+                TooltipManager.addTooltip(scatterMarkers, (tooltipEvent: TooltipEvent) => tooltipEvent.data.tooltipInfo);
 
             let playRenderResult;
-            if (this.playData)
-                playRenderResult = PlayChart.render(this.playData, playBehaviorOptions, this.interactivityService, suppressAnimations);
+            if (this.playData) {
+                playRenderResult = PlayChart.render(this.playData, playBehaviorOptions, this.options.interactivity, this.interactivityService, suppressAnimations);
+            }
 
             SVGUtil.flushAllD3TransitionsIfNeeded(this.options);
 
@@ -897,17 +978,18 @@ module powerbi.visuals {
                 dataPoints: playRenderResult ?
                     playRenderResult.dataPoints :
                     data.dataPoints,
-                behaviorOptions: playBehaviorOptions || behaviorOptions,
+                behaviorOptions: playBehaviorOptions && !this.options.interactivity.isInteractiveLegend ? playBehaviorOptions : behaviorOptions,
                 labelDataPoints: labelDataPoints,
+                labelsAreNumeric: false,
             };
         }
 
-        private drawScatterMarkers(scatterData: ScatterChartDataPoint[], hasSelection: boolean, sizeRange: NumberRange, duration: number) {
+        private drawScatterMarkers(scatterData: ScatterChartDataPoint[], hasSelection: boolean, sizeRange: NumberRange, duration: number, easeType?: string) {
             let xScale = this.xAxisProperties.scale;
             let yScale = this.yAxisProperties.scale;
             let shouldEnableFill = (!sizeRange || !sizeRange.min) && this.data.fillPoint;
             let colorBorder = this.data.colorBorder;
-            
+
             let markers = this.mainGraphicsContext.selectAll(ScatterChart.DotClasses.selector).data(scatterData, (d: ScatterChartDataPoint) => d.identity.getKey());
 
             markers.enter().append(ScatterChart.ScatterChartCircleTagName)
@@ -917,13 +999,14 @@ module powerbi.visuals {
 
             markers
                 .style({
-                'stroke-opacity': (d: ScatterChartDataPoint) => (d.size != null && colorBorder) ? 1 : ScatterChart.getBubbleOpacity(d, hasSelection),
+                    'stroke-opacity': (d: ScatterChartDataPoint) => (d.size != null && colorBorder) ? 1 : ScatterChart.getBubbleOpacity(d, hasSelection),
                     'stroke-width': '1px',
                     'stroke': (d: ScatterChartDataPoint) => ScatterChart.getStrokeFill(d, colorBorder),
                     'fill': (d: ScatterChartDataPoint) => d.fill,
                     'fill-opacity': (d: ScatterChartDataPoint) => (d.size != null || shouldEnableFill) ? ScatterChart.getBubbleOpacity(d, hasSelection) : 0,
                 })
                 .transition()
+                .ease(easeType)
                 .duration(duration)
                 .style('opacity', 1) // fill-opacity is used for selected / highlight changes, opacity is for enter/exit fadein/fadeout
                 .attr({
@@ -935,6 +1018,7 @@ module powerbi.visuals {
             markers
                 .exit()
                 .transition()
+                .ease(easeType)
                 .duration(duration)
                 .style('opacity', 0) //fade out bubbles that are removed
                 .attr('r', 0)
@@ -1012,13 +1096,14 @@ module powerbi.visuals {
             return axisType.scalar;
         }
 
-        private createLabelDataPoints(): LabelDataPoint[]{
+        private createLabelDataPoints(): LabelDataPoint[] {
             let xScale = this.xAxisProperties.scale;
             let yScale = this.yAxisProperties.scale;
             let sizeRange = this.data.sizeRange;
             let labelDataPoints: LabelDataPoint[] = [];
             let dataPoints = this.data.dataPoints;
             let labelSettings = this.data.dataLabelsSettings;
+            let preferredLabelsKeys = this.getPreferredLabelsKeys(dataPoints);
 
             for (let dataPoint of dataPoints) {
                 let text = dataPoint.category;
@@ -1026,14 +1111,14 @@ module powerbi.visuals {
                 let properties: TextProperties = {
                     text: text,
                     fontFamily: NewDataLabelUtils.LabelTextProperties.fontFamily,
-                    fontSize: NewDataLabelUtils.LabelTextProperties.fontSize,
+                    fontSize: PixelConverter.fromPoint(labelSettings.fontSize || NewDataLabelUtils.DefaultLabelFontSizeInPt),
                     fontWeight: NewDataLabelUtils.LabelTextProperties.fontWeight,
                 };
                 let textWidth = TextMeasurementService.measureSvgTextWidth(properties);
                 let textHeight = TextMeasurementService.estimateSvgTextHeight(properties);
-                
+
                 labelDataPoints.push({
-                    isPreferred: true,
+                    isPreferred: preferredLabelsKeys ? this.isLabelPreferred(dataPoint.identity.getKey(), preferredLabelsKeys) : false,
                     text: text,
                     textSize: {
                         width: textWidth,
@@ -1041,7 +1126,7 @@ module powerbi.visuals {
                     },
                     outsideFill: labelSettings.labelColor ? labelSettings.labelColor : NewDataLabelUtils.defaultLabelColor,
                     insideFill: NewDataLabelUtils.defaultInsideLabelColor,
-                    isParentRect: false,
+                    parentType: LabelDataPointParentType.Point,
                     parentShape: {
                         point: {
                             x: xScale(dataPoint.x),
@@ -1051,6 +1136,7 @@ module powerbi.visuals {
                         validPositions: ScatterChart.validLabelPositions,
                     },
                     identity: dataPoint.identity,
+                    fontSize: labelSettings.fontSize || NewDataLabelUtils.DefaultLabelFontSizeInPt,
                 });
             }
 
@@ -1064,6 +1150,86 @@ module powerbi.visuals {
 
             // Tie-break equal size bubbles using identity.
             return b.identity.getKey().localeCompare(a.identity.getKey());
+        }
+
+        private getPreferredLabelsKeys(dataPoints: ScatterChartDataPoint[]): string[] {
+            let width = this.currentViewport.width - (this.margin.left + this.margin.right);
+            let height = this.currentViewport.height - (this.margin.top + this.margin.bottom);
+            let visualCenter = new Point(width / 2, height / 2);
+            let quadrantsCenters: Point[] = this.getQuadrantsCenters(width, height);
+
+            return this.getCandidateLabels(visualCenter, quadrantsCenters, dataPoints);
+        }
+
+        private getQuadrantsCenters(visualWidth: number, visualHeight: number): Point[] {
+            let quadrantsCenters: Point[] = [];
+            let quarterWidth = visualWidth / 4;
+            let quarterHeight = visualHeight / 4;
+
+            quadrantsCenters.push(new Point(quarterWidth, quarterHeight));
+            quadrantsCenters.push(new Point(quarterWidth * 3, quarterHeight));
+            quadrantsCenters.push(new Point(quarterWidth, quarterHeight * 3));
+            quadrantsCenters.push(new Point(quarterWidth * 3, quarterHeight * 3));
+
+            return quadrantsCenters;
+        }
+
+        private getCandidateLabels(visualCenter: Point, quadrantsCenters: Point[], datapoints: ScatterChartDataPoint[]): string[] {
+            let minDistances: number[] = [Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE];
+            let ids: SelectionId[] = [];
+
+            let xScale = this.xAxisProperties.scale;
+            let yScale = this.yAxisProperties.scale;
+            let distance: number;
+
+            for (let dp of datapoints) {
+                let x = xScale(dp.x);
+                let y = yScale(dp.y);
+                let quadrantNumber = this.getPointQuadrantNumber(x, y, visualCenter);
+                if (this.hasSizeMeasure()) {
+                    //since the array is sorted by size , the preferred label will be the first label in the quardent
+                    if (!ids[quadrantNumber])
+                        ids[quadrantNumber] = dp.identity;
+                }
+                else {
+                    distance = this.getDistanceBetweenPoints(quadrantsCenters[quadrantNumber].x, quadrantsCenters[quadrantNumber].y, x, y);
+                    if (distance < minDistances[quadrantNumber]) {
+                        ids[quadrantNumber] = dp.identity;
+                        minDistances[quadrantNumber] = distance;
+                    }
+                }
+
+            }
+            let preferredLabelsKeys: string[] = [];
+            for (let id of ids) {
+                if (id)
+                    preferredLabelsKeys.push(id.getKey());
+            }
+
+            return preferredLabelsKeys;
+        }
+
+        private getPointQuadrantNumber(x: number, y: number, centerPoint: Point): number {
+            if (x > centerPoint.x && y <= centerPoint.y)
+                return QuadrantNumber.First;
+            if (x <= centerPoint.x && y <= centerPoint.y)
+                return QuadrantNumber.Second;
+            if (x <= centerPoint.x && y > centerPoint.y)
+                return QuadrantNumber.Third;
+            else
+                return QuadrantNumber.Fourth;
+        }
+
+        private getDistanceBetweenPoints(x1: number, y1: number, x2: number, y2: number): number {
+            return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+        }
+
+        private isLabelPreferred(key: string, preferredLabelsKeys: string[]) {
+            for (let preferredLabel of preferredLabelsKeys) {
+                if (key.localeCompare(preferredLabel) === 0)
+                    return true;
+            }
+            return false;
         }
     }
 }

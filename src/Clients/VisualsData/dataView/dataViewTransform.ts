@@ -28,7 +28,9 @@
 
 module powerbi.data {
     import inherit = Prototype.inherit;
+    import inheritSingle = Prototype.inheritSingle;
     import ArrayExtensions = jsCommon.ArrayExtensions;
+    import EnumExtensions = jsCommon.EnumExtensions;
     import INumberDictionary = jsCommon.INumberDictionary;
 
     export interface DataViewTransformApplyOptions {
@@ -37,6 +39,7 @@ module powerbi.data {
         dataViewMappings?: DataViewMapping[];
         transforms: DataViewTransformActions;
         colorAllocatorFactory: IColorAllocatorFactory;
+        dataRoles: VisualDataRole[];
     }
 
     /** Describes the Transform actions to be done to a prototype DataView. */
@@ -60,11 +63,12 @@ module powerbi.data {
         format?: string;
         type?: ValueType;
         roles?: { [roleName: string]: boolean };
-        kpiStatusGraphic?: string;
+        kpi?: DataViewKpiColumnMetadata;
         sort?: SortDirection;
+        expr?: SQExpr;
 
         /** Describes the default value applied to a column, if any. */
-        defaultValue?: SQConstantExpr;
+        defaultValue?: DefaultValueDefinition;
     }
 
     export interface DataViewSplitTransform {
@@ -90,10 +94,19 @@ module powerbi.data {
         [position: number]: number;
     }
 
-    enum CategoricalDataViewTransformation {
+    const enum CategoricalDataViewTransformation {
         None,
         Pivot,
         SelfCrossJoin,
+    }
+
+    const enum StandardDataViewKinds {
+        None = 0,
+        Categorical = 1,
+        Matrix = 1 << 1,
+        Single = 1 << 2,
+        Table = 1 << 3,
+        Tree = 1 << 4,
     }
 
     // TODO: refactor & focus DataViewTransform into a service with well-defined dependencies.
@@ -107,7 +120,8 @@ module powerbi.data {
                 objectDescriptors = options.objectDescriptors,
                 dataViewMappings = options.dataViewMappings,
                 transforms = options.transforms,
-                colorAllocatorFactory = options.colorAllocatorFactory;
+                colorAllocatorFactory = options.colorAllocatorFactory,
+                dataRoles = options.dataRoles;
 
             if (!prototype)
                 return transformEmptyDataView(objectDescriptors, transforms, colorAllocatorFactory);
@@ -115,14 +129,17 @@ module powerbi.data {
             if (!transforms)
                 return [prototype];
 
+            // unpivot result if query was pivoted
+            prototype = DataViewPivotCategoricalToPrimaryGroups.unpivotResult(prototype, transforms.selects, dataViewMappings);
+
             let splits = transforms.splits;
             if (ArrayExtensions.isUndefinedOrEmpty(splits)) {
-                return [transformDataView(prototype, objectDescriptors, dataViewMappings, transforms, colorAllocatorFactory)];
+                return [transformDataView(prototype, objectDescriptors, dataViewMappings, transforms, colorAllocatorFactory, dataRoles)];
             }
 
             let transformedDataviews: DataView[] = [];
             for (let split of splits) {
-                let transformed = transformDataView(prototype, objectDescriptors, dataViewMappings, transforms, colorAllocatorFactory, split.selects);
+                let transformed = transformDataView(prototype, objectDescriptors, dataViewMappings, transforms, colorAllocatorFactory, dataRoles, split.selects);
                 transformedDataviews.push(transformed);
             }
 
@@ -137,7 +154,13 @@ module powerbi.data {
                     }
                 };
 
-                transformObjects(emptyDataView, objectDescriptors, transforms.objects, transforms.selects, colorAllocatorFactory);
+                transformObjects(
+                    emptyDataView,
+                    StandardDataViewKinds.None,
+                    objectDescriptors,
+                    transforms.objects,
+                    transforms.selects,
+                    colorAllocatorFactory);
 
                 return [emptyDataView];
             }
@@ -151,16 +174,46 @@ module powerbi.data {
             roleMappings: DataViewMapping[],
             transforms: DataViewTransformActions,
             colorAllocatorFactory: IColorAllocatorFactory,
+            dataRoles: VisualDataRole[],
             selectsToInclude?: INumberDictionary<boolean>): DataView {
             debug.assertValue(prototype, 'prototype');
 
+            let targetKinds = getTargetKinds(roleMappings);
             let transformed = inherit(prototype);
             transformed.metadata = inherit(prototype.metadata);
 
             transformed = transformSelects(transformed, roleMappings, transforms.selects, transforms.projectionOrdering, selectsToInclude);
-            transformObjects(transformed, objectDescriptors, transforms.objects, transforms.selects, colorAllocatorFactory);
+            transformObjects(transformed, targetKinds, objectDescriptors, transforms.objects, transforms.selects, colorAllocatorFactory);
+
+            DataViewNormalizeValues.apply({
+                dataview: transformed,
+                dataViewMappings: roleMappings,
+                dataRoles: dataRoles,
+            });
 
             return transformed;
+        }
+
+        function getTargetKinds(roleMappings: DataViewMapping[]): StandardDataViewKinds {
+            debug.assertAnyValue(roleMappings, 'roleMappings');
+
+            if (!roleMappings)
+                return StandardDataViewKinds.None;
+
+            let result = StandardDataViewKinds.None;
+            for (let roleMapping of roleMappings) {
+                if (roleMapping.categorical)
+                    result |= StandardDataViewKinds.Categorical;
+                if (roleMapping.matrix)
+                    result |= StandardDataViewKinds.Matrix;
+                if (roleMapping.single)
+                    result |= StandardDataViewKinds.Single;
+                if (roleMapping.table)
+                    result |= StandardDataViewKinds.Table;
+                if (roleMapping.tree)
+                    result |= StandardDataViewKinds.Tree;
+            }
+            return result;
         }
 
         function transformSelects(
@@ -234,8 +287,8 @@ module powerbi.data {
                     column.displayName = select.displayName;
                 if (select.queryName)
                     column.queryName = select.queryName;
-                if (select.kpiStatusGraphic)
-                    column.kpiStatusGraphic = select.kpiStatusGraphic;
+                if (select.kpi)
+                    column.kpi = select.kpi;
                 if (select.sort)
                     column.sort = select.sort;
 
@@ -474,7 +527,9 @@ module powerbi.data {
             columnRewrites: ValueRewrite<DataViewMetadataColumn>[]): NumberToNumberMapping {
             let roles = Object.keys(projectionOrdering);
 
-            debug.assert(roles.length === 1, "Tables should have exactly one role.");
+            // If we have more than one role then the ordering of columns between roles is ambiguous, so don't reorder anything.
+            if (roles.length !== 1)
+                return;
 
             let role = roles[0],
                 originalOrder = _.map(columnRewrites, (rewrite: ValueRewrite<DataViewMetadataColumn>) => rewrite.from.index),
@@ -684,11 +739,13 @@ module powerbi.data {
 
         function transformObjects(
             dataView: DataView,
+            targetDataViewKinds: StandardDataViewKinds,
             objectDescriptors: DataViewObjectDescriptors,
             objectDefinitions: DataViewObjectDefinitions,
             selectTransforms: DataViewSelectTransform[],
             colorAllocatorFactory: IColorAllocatorFactory): void {
             debug.assertValue(dataView, 'dataView');
+            debug.assertValue(targetDataViewKinds, 'targetDataViewKinds');
             debug.assertAnyValue(objectDescriptors, 'objectDescriptors');
             debug.assertAnyValue(objectDefinitions, 'objectDefinitions');
             debug.assertAnyValue(selectTransforms, 'selectTransforms');
@@ -698,51 +755,90 @@ module powerbi.data {
                 return;
 
             let objectsForAllSelectors = DataViewObjectEvaluationUtils.groupObjectsBySelector(objectDefinitions);
-            if (selectTransforms)
             DataViewObjectEvaluationUtils.addImplicitObjects(objectsForAllSelectors, objectDescriptors, dataView.metadata.columns, selectTransforms);
 
             let metadataOnce = objectsForAllSelectors.metadataOnce;
             let dataObjects = objectsForAllSelectors.data;
             if (metadataOnce)
-                evaluateMetadataObjects(dataView, objectDescriptors, metadataOnce.objects, dataObjects, colorAllocatorFactory);
+                evaluateMetadataObjects(dataView, selectTransforms, objectDescriptors, metadataOnce.objects, dataObjects, colorAllocatorFactory);
 
             let metadataObjects = objectsForAllSelectors.metadata;
             if (metadataObjects) {
                 for (let i = 0, len = metadataObjects.length; i < len; i++) {
                     let metadataObject = metadataObjects[i];
-                    evaluateMetadataRepetition(dataView, objectDescriptors, metadataObject.selector, metadataObject.objects);
+                    evaluateMetadataRepetition(dataView, selectTransforms, objectDescriptors, metadataObject.selector, metadataObject.objects);
                 }
             }
 
             for (let i = 0, len = dataObjects.length; i < len; i++) {
                 let dataObject = dataObjects[i];
-                evaluateDataRepetition(dataView, objectDescriptors, dataObject.selector, dataObject.rules, dataObject.objects);
+                evaluateDataRepetition(dataView, targetDataViewKinds, objectDescriptors, dataObject.selector, dataObject.rules, dataObject.objects);
             }
 
-            if (objectsForAllSelectors.userDefined) {
-                // TODO: Implement this.
+            let userDefined = objectsForAllSelectors.userDefined;
+            if (userDefined) {
+                // TODO: We only handle user defined objects at the metadata level, but should be able to support them with arbitrary repetition.
+                evaluateUserDefinedObjects(dataView, selectTransforms, objectDescriptors, userDefined);
+            }
+        }
+
+        function evaluateUserDefinedObjects(
+            dataView: DataView,
+            selectTransforms: DataViewSelectTransform[],
+            objectDescriptors: DataViewObjectDescriptors,
+            objectDefns: DataViewObjectDefinitionsForSelector[]): void {
+            debug.assertValue(dataView, 'dataView');
+            debug.assertAnyValue(selectTransforms, 'selectTransforms');
+            debug.assertValue(objectDescriptors, 'objectDescriptors');
+            debug.assertValue(objectDefns, 'objectDefns');
+
+            let dataViewObjects: DataViewObjects = dataView.metadata.objects;
+            if (!dataViewObjects) {
+                dataViewObjects = dataView.metadata.objects = {};
+            }
+            let evalContext = createStaticEvalContext(dataView, selectTransforms);
+
+            for (let objectDefn of objectDefns) {
+                let id = objectDefn.selector.id;
+
+                let objects = DataViewObjectEvaluationUtils.evaluateDataViewObjects(evalContext, objectDescriptors, objectDefn.objects);
+
+                for (let objectName in objects) {
+                    let object = <DataViewObject>objects[objectName];
+
+                    let map = <DataViewObjectMap>dataViewObjects[objectName];
+                    if (!map)
+                        map = dataViewObjects[objectName] = [];
+                    debug.assert(DataViewObjects.isUserDefined(map), 'expected DataViewObjectMap');
+
+                    // NOTE: We do not check for duplicate ids.
+                    map.push({ id: id, object: object });
+                }
             }
         }
 
         /** Evaluates and sets properties on the DataView metadata. */
         function evaluateMetadataObjects(
             dataView: DataView,
+            selectTransforms: DataViewSelectTransform[],
             objectDescriptors: DataViewObjectDescriptors,
             objectDefns: DataViewNamedObjectDefinition[],
             dataObjects: DataViewObjectDefinitionsForSelectorWithRule[],
             colorAllocatorFactory: IColorAllocatorFactory): void {
             debug.assertValue(dataView, 'dataView');
+            debug.assertAnyValue(selectTransforms, 'selectTransforms');
             debug.assertValue(objectDescriptors, 'objectDescriptors');
             debug.assertValue(objectDefns, 'objectDefns');
             debug.assertValue(dataObjects, 'dataObjects');
             debug.assertValue(colorAllocatorFactory, 'colorAllocatorFactory');
 
-            let objects = DataViewObjectEvaluationUtils.evaluateDataViewObjects(objectDescriptors, objectDefns);
+            let evalContext = createStaticEvalContext(dataView, selectTransforms);
+            let objects = DataViewObjectEvaluationUtils.evaluateDataViewObjects(evalContext, objectDescriptors, objectDefns);
             if (objects) {
                 dataView.metadata.objects = objects;
 
                 for (let objectName in objects) {
-                    let object: DataViewObject = objects[objectName],
+                    let object = <DataViewObject>objects[objectName],
                         objectDesc = objectDescriptors[objectName];
 
                     for (let propertyName in object) {
@@ -880,9 +976,9 @@ module powerbi.data {
                     return;
 
                 splitScales =
-                    linearGradient3.min.value === undefined &&
-                    linearGradient3.max.value === undefined &&
-                    linearGradient3.mid.value !== undefined;
+                linearGradient3.min.value === undefined &&
+                linearGradient3.max.value === undefined &&
+                linearGradient3.mid.value !== undefined;
 
                 if (linearGradient3.min.value === undefined) {
                     linearGradient3.min.value = inputRange.min;
@@ -937,11 +1033,13 @@ module powerbi.data {
 
         function evaluateDataRepetition(
             dataView: DataView,
+            targetDataViewKinds: StandardDataViewKinds,
             objectDescriptors: DataViewObjectDescriptors,
             selector: Selector,
             rules: RuleEvaluation[],
             objectDefns: DataViewNamedObjectDefinition[]): void {
             debug.assertValue(dataView, 'dataView');
+            debug.assertValue(targetDataViewKinds, 'targetDataViewKinds');
             debug.assertValue(objectDescriptors, 'objectDescriptors');
             debug.assertValue(selector, 'selector');
             debug.assertAnyValue(rules, 'rules');
@@ -950,20 +1048,24 @@ module powerbi.data {
             let containsWildcard = Selector.containsWildcard(selector);
 
             let dataViewCategorical = dataView.categorical;
-            if (dataViewCategorical) {
-                let selectorMatched: boolean = false;
-
+            if (dataViewCategorical && EnumExtensions.hasFlag(targetDataViewKinds, StandardDataViewKinds.Categorical)) {
                 // 1) Match against categories
-                selectorMatched = evaluateDataRepetitionCategoricalCategory(dataViewCategorical, objectDescriptors, selector, rules, containsWildcard, objectDefns) || selectorMatched;
+                evaluateDataRepetitionCategoricalCategory(dataViewCategorical, objectDescriptors, selector, rules, containsWildcard, objectDefns);
 
                 // 2) Match against valueGrouping
-                selectorMatched = evaluateDataRepetitionCategoricalValueGrouping(dataViewCategorical, objectDescriptors, selector, rules, containsWildcard, objectDefns) || selectorMatched;
+                evaluateDataRepetitionCategoricalValueGrouping(dataViewCategorical, objectDescriptors, selector, rules, containsWildcard, objectDefns);
 
-                if (selectorMatched)
-                    return;
+                // Consider capturing diagnostics for unmatched selectors to help debugging.
             }
 
-            // If we made it here, nothing matched the selector.  Consider capturing this in a diagnostics/context object to help debugging.
+            let dataViewMatrix = dataView.matrix;
+            if (dataViewMatrix && EnumExtensions.hasFlag(targetDataViewKinds, StandardDataViewKinds.Matrix)) {
+                let rewrittenMatrix = evaluateDataRepetitionMatrix(dataViewMatrix, objectDescriptors, selector, rules, containsWildcard, objectDefns);
+                if (rewrittenMatrix)
+                    dataView.matrix = rewrittenMatrix;
+                
+                // Consider capturing diagnostics for unmatched selectors to help debugging.
+            }
         }
 
         function evaluateDataRepetitionCategoricalCategory(
@@ -989,7 +1091,7 @@ module powerbi.data {
 
             let identities = targetColumn.identities,
                 foundMatch: boolean,
-                matchedRules: { rule: RuleEvaluation; inputValues: any[] }[];
+                evalContext = createCategoricalEvalContext(dataViewCategorical, identities);
 
             if (!identities)
                 return;
@@ -1000,18 +1102,9 @@ module powerbi.data {
                 let identity = identities[i];
 
                 if (containsWildcard || Selector.matchesData(selector, [identity])) {
-                    // Set the context for any rules.
-                    if (rules) {
-                        if (!matchedRules)
-                            matchedRules = matchRulesToDataViewCategorical(rules, dataViewCategorical);
+                    evalContext.setCurrentRowIndex(i);
 
-                        for (let ruleIdx = 0, ruleLen = matchedRules.length; ruleIdx < ruleLen; ruleIdx++) {
-                            let matchedRule = matchedRules[ruleIdx];
-                            matchedRule.rule.setContext(identity, matchedRule.inputValues ? matchedRule.inputValues[i] : undefined);
-                        }
-                    }
-
-                    let objects = DataViewObjectEvaluationUtils.evaluateDataViewObjects(objectDescriptors, objectDefns);
+                    let objects = DataViewObjectEvaluationUtils.evaluateDataViewObjects(evalContext, objectDescriptors, objectDefns);
                     if (objects) {
                         // TODO: This mutates the DataView -- the assumption is that prototypal inheritance has already occurred.  We should
                         // revisit this, likely when we do lazy evaluation of DataView.
@@ -1030,28 +1123,6 @@ module powerbi.data {
             }
 
             return foundMatch;
-        }
-
-        function matchRulesToDataViewCategorical(
-            rules: RuleEvaluation[],
-            dataViewCategorical: DataViewCategorical): { rule: RuleEvaluation; inputValues: any[] }[] {
-            let result: { rule: RuleEvaluation; inputValues: any[] }[] = [];
-
-            for (let i = 0, len = rules.length; i < len; i++) {
-                let rule = rules[i],
-                    inputColumn = findRuleInputCategoricalColumn(dataViewCategorical, rule.inputRole);
-
-                let inputValues: any[];
-                if (inputColumn)
-                    inputValues = inputColumn.values;
-
-                result.push({
-                    rule: rule,
-                    inputValues: inputValues,
-                });
-            }
-
-            return result;
         }
 
         function evaluateDataRepetitionCategoricalValueGrouping(
@@ -1079,13 +1150,17 @@ module powerbi.data {
             if (!valuesGrouped)
                 return;
 
+            // NOTE: We do not set the evalContext row index below because iteration is over value groups (i.e., columns, no rows).
+            // This should be enhanced in the future.
+            let evalContext = createCategoricalEvalContext(dataViewCategorical);
+
             let foundMatch: boolean;
             for (let i = 0, len = valuesGrouped.length; i < len; i++) {
                 let valueGroup = valuesGrouped[i];
                 let selectorMetadata = selector.metadata;
                 let valuesInGroup = valueGroup.values;
                 if (containsWildcard || Selector.matchesData(selector, [valueGroup.identity])) {
-                    let objects = DataViewObjectEvaluationUtils.evaluateDataViewObjects(objectDescriptors, objectDefns);
+                    let objects = DataViewObjectEvaluationUtils.evaluateDataViewObjects(evalContext, objectDescriptors, objectDefns);
                     if (objects) {
                         // TODO: This mutates the DataView -- the assumption is that prototypal inheritance has already occurred.  We should
                         // revisit this, likely when we do lazy evaluation of DataView.
@@ -1120,12 +1195,148 @@ module powerbi.data {
             return foundMatch;
         }
 
+        function evaluateDataRepetitionMatrix(
+            dataViewMatrix: DataViewMatrix,
+            objectDescriptors: DataViewObjectDescriptors,
+            selector: Selector,
+            rules: RuleEvaluation[],
+            containsWildcard: boolean,
+            objectDefns: DataViewNamedObjectDefinition[]): DataViewMatrix {
+
+            let evalContext = createMatrixEvalContext(dataViewMatrix);
+            let rewrittenRows = evaluateDataRepetitionMatrixHierarchy(evalContext, dataViewMatrix.rows, objectDescriptors, selector, rules, containsWildcard, objectDefns);
+            let rewrittenCols = evaluateDataRepetitionMatrixHierarchy(evalContext, dataViewMatrix.columns, objectDescriptors, selector, rules, containsWildcard, objectDefns);
+
+            if (rewrittenRows || rewrittenCols) {
+                let rewrittenMatrix = inheritSingle(dataViewMatrix);
+
+                if (rewrittenRows)
+                    rewrittenMatrix.rows = rewrittenRows;
+                if (rewrittenCols)
+                    rewrittenMatrix.columns = rewrittenCols;
+
+                return rewrittenMatrix;
+            }
+        }
+
+        function evaluateDataRepetitionMatrixHierarchy(
+            evalContext: IEvalContext,
+            dataViewMatrixHierarchy: DataViewHierarchy,
+            objectDescriptors: DataViewObjectDescriptors,
+            selector: Selector,
+            rules: RuleEvaluation[],
+            containsWildcard: boolean,
+            objectDefns: DataViewNamedObjectDefinition[]): DataViewHierarchy {
+            debug.assertAnyValue(dataViewMatrixHierarchy, 'dataViewMatrixHierarchy');
+            debug.assertValue(objectDescriptors, 'objectDescriptors');
+            debug.assertValue(selector, 'selector');
+            debug.assertAnyValue(rules, 'rules');
+            debug.assertValue(objectDefns, 'objectDefns');
+
+            if (!dataViewMatrixHierarchy)
+                return;
+
+            let root = dataViewMatrixHierarchy.root;
+            if (!root)
+                return;
+
+            let rewrittenRoot = evaluateDataRepetitionMatrixNode(evalContext, root, objectDescriptors, selector, rules, containsWildcard, objectDefns);
+            if (rewrittenRoot) {
+                let rewrittenHierarchy = inheritSingle(dataViewMatrixHierarchy);
+                rewrittenHierarchy.root = rewrittenRoot;
+
+                return rewrittenHierarchy;
+            }
+        }
+
+        function evaluateDataRepetitionMatrixNode(
+            evalContext: IEvalContext,
+            dataViewNode: DataViewMatrixNode,
+            objectDescriptors: DataViewObjectDescriptors,
+            selector: Selector,
+            rules: RuleEvaluation[],
+            containsWildcard: boolean,
+            objectDefns: DataViewNamedObjectDefinition[]): DataViewMatrixNode {
+            debug.assertValue(evalContext, 'evalContext');
+            debug.assertValue(dataViewNode, 'dataViewNode');
+            debug.assertValue(objectDescriptors, 'objectDescriptors');
+            debug.assertValue(selector, 'selector');
+            debug.assertAnyValue(rules, 'rules');
+            debug.assertValue(objectDefns, 'objectDefns');
+
+            let childNodes = dataViewNode.children;
+            if (!childNodes)
+                return;
+
+            let rewrittenNode: DataViewMatrixNode;
+            let shouldSearchChildren: boolean;
+            let childIdentityFields = dataViewNode.childIdentityFields;
+            if (childIdentityFields) {
+                // NOTE: selector matching in matrix currently only considers the current node, and does not consider parents as part of the match.
+                shouldSearchChildren = Selector.matchesKeys(selector, [childIdentityFields]);
+            }
+
+            for (let i = 0, len = childNodes.length; i < len; i++) {
+                let childNode = childNodes[i],
+                    identity = childNode.identity,
+                    rewrittenChildNode: DataViewMatrixNode = null;
+
+                if (shouldSearchChildren) {
+                    if (containsWildcard || Selector.matchesData(selector, [identity])) {
+                        // TODO: Need to initialize context for rule-based properties.  Rule-based properties
+                        // (such as fillRule/gradients) are not currently implemented.
+
+                        let objects = DataViewObjectEvaluationUtils.evaluateDataViewObjects(evalContext, objectDescriptors, objectDefns);
+                        if (objects) {
+                            rewrittenChildNode = inheritSingle(childNode);
+                            rewrittenChildNode.objects = objects;
+                        }
+                    }
+                }
+                else {
+                    rewrittenChildNode = evaluateDataRepetitionMatrixNode(
+                        evalContext,
+                        childNode,
+                        objectDescriptors,
+                        selector,
+                        rules,
+                        containsWildcard,
+                        objectDefns);
+                }
+
+                if (rewrittenChildNode) {
+                    if (!rewrittenNode)
+                        rewrittenNode = inheritNodeAndChildren(dataViewNode);
+                    rewrittenNode.children[i] = rewrittenChildNode;
+
+                    if (!containsWildcard) {
+                        // NOTE: once we find a match for a non-wildcard selector, stop looking.
+                        break;
+                    }
+                }
+            }
+
+            return rewrittenNode;
+        }
+
+        function inheritNodeAndChildren(node: DataViewMatrixNode): DataViewMatrixNode {
+            if (Object.getPrototypeOf(node) !== Object.prototype) {
+                return node;
+            }
+
+            let inherited = inheritSingle(node);
+            inherited.children = inherit(node.children);
+            return inherited;
+        }
+
         function evaluateMetadataRepetition(
             dataView: DataView,
+            selectTransforms: DataViewSelectTransform[],
             objectDescriptors: DataViewObjectDescriptors,
             selector: Selector,
             objectDefns: DataViewNamedObjectDefinition[]): void {
             debug.assertValue(dataView, 'dataView');
+            debug.assertAnyValue(selectTransforms, 'selectTransforms');
             debug.assertValue(objectDescriptors, 'objectDescriptors');
             debug.assertValue(selector, 'selector');
             debug.assertValue(objectDefns, 'objectDefns');
@@ -1133,11 +1344,12 @@ module powerbi.data {
             // TODO: This mutates the DataView -- the assumption is that prototypal inheritance has already occurred.  We should
             // revisit this, likely when we do lazy evaluation of DataView.
             let columns = dataView.metadata.columns,
-                metadataId = selector.metadata;
+                metadataId = selector.metadata,
+                evalContext = createStaticEvalContext(dataView, selectTransforms);
             for (let i = 0, len = columns.length; i < len; i++) {
                 let column = columns[i];
                 if (column.queryName === metadataId) {
-                    let objects = DataViewObjectEvaluationUtils.evaluateDataViewObjects(objectDescriptors, objectDefns);
+                    let objects = DataViewObjectEvaluationUtils.evaluateDataViewObjects(evalContext, objectDescriptors, objectDefns);
                     if (objects)
                         column.objects = objects;
                 }
@@ -1199,29 +1411,6 @@ module powerbi.data {
                 return;
 
             return { data: [DataViewScopeWildcard.fromExprs(categoryIdentityFields)] };
-        }
-
-        function findRuleInputCategoricalColumn(dataViewCategorical: DataViewCategorical, inputRole: string): DataViewCategoricalColumn {
-            debug.assertValue(dataViewCategorical, 'dataViewCategorical');
-
-            return findRuleInputInCategoricalColumns(dataViewCategorical.values, inputRole) ||
-                findRuleInputInCategoricalColumns(dataViewCategorical.categories, inputRole);
-        }
-
-        function findRuleInputInCategoricalColumns(columns: DataViewCategoricalColumn[], inputRole: string): DataViewCategoricalColumn {
-            debug.assertAnyValue(columns, 'columns');
-
-            if (!columns)
-                return;
-
-            for (let i = 0, len = columns.length; i < len; i++) {
-                let column = columns[i],
-                    roles = column.source.roles;
-                if (!roles || !roles[inputRole])
-                    continue;
-
-                return column;
-            }
         }
 
         /** Attempts to find the value range for the single column with the given inputRole. */
@@ -1359,8 +1548,14 @@ module powerbi.data {
                 result.type = describeDataType(select.Type, ConceptualDataCategory[select.DataCategory]);
             }
 
+            if (select.kpi) {
+                result.kpi = select.kpi;
+            }
+
             if (select.kpiStatusGraphic) {
-                result.kpiStatusGraphic = select.kpiStatusGraphic;
+                result.kpi = {
+                    graphic: select.kpiStatusGraphic
+                };
             }
 
             return result;

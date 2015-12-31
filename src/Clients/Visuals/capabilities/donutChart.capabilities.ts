@@ -27,7 +27,7 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var donutChartCapabilities: VisualCapabilities = {
+    export const donutChartCapabilities: VisualCapabilities = {
         dataRoles: [
             {
                 name: 'Category',
@@ -44,10 +44,11 @@ module powerbi.visuals {
                 name: 'Y',
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_Values'),
-                description: data.createDisplayNameGetter('Role_DisplayName_ValuesDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_ValuesDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }
         ],
-        objects: {
+        objects:{ 
             general: {
                 displayName: data.createDisplayNameGetter('Visual_General'),
                 properties: {
@@ -77,7 +78,16 @@ module powerbi.visuals {
                     titleText: {
                         displayName: data.createDisplayNameGetter('Visual_LegendName'),
                         description: data.createDisplayNameGetter('Visual_LegendNameDescription'),
-                        type: { text: true }
+                        type: { text: true },
+                        suppressFormatPainterCopy: true
+                    },
+                    labelColor: {
+                        displayName: data.createDisplayNameGetter('Visual_LegendTitleColor'),
+                        type: { fill: { solid: { color: true } } }
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
                     }
                 }
             },
@@ -100,8 +110,7 @@ module powerbi.visuals {
                 }
             },
             labels: {
-                displayName: data.createDisplayNameGetter('Visual_DataPointsLabels'),
-                description: data.createDisplayNameGetter('Visual_DataPointsLabelsDescription'),
+                displayName: data.createDisplayNameGetter('Visual_DetailLabels'),
                 properties: {
                     show: {
                         type: { bool: true }
@@ -114,24 +123,27 @@ module powerbi.visuals {
                     labelDisplayUnits: {
                         displayName: data.createDisplayNameGetter('Visual_DisplayUnits'),
                         description: data.createDisplayNameGetter('Visual_DisplayUnitsDescription'),
-                        type: { formatting: { labelDisplayUnits: true } }
+                        type: { formatting: { labelDisplayUnits: true } },
+                        suppressFormatPainterCopy: true,
                     },
                     labelPrecision: {
                         displayName: data.createDisplayNameGetter('Visual_Precision'),
                         description: data.createDisplayNameGetter('Visual_PrecisionDescription'),
-                        type: { numeric: true }
+                        placeHolderText: data.createDisplayNameGetter('Visual_Precision_Auto'),
+                        type: { numeric: true },
+                        suppressFormatPainterCopy: true,
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } },
+                        suppressFormatPainterCopy: true,
+                    },
+                    labelStyle: {
+                        displayName: data.createDisplayNameGetter('Visual_LabelStyle'),
+                        type: { enumeration: labelStyle.type }
                     },
                 },
             },
-            categoryLabels: {
-                displayName: data.createDisplayNameGetter('Visual_CategoryLabels'),
-                description: data.createDisplayNameGetter('Visual_CategoryLabelsDescription'),
-                properties: {
-                    show: {
-                        type: { bool: true }
-                    },
-                },
-            }
         },
         dataViewMappings: [{
             conditions: [
@@ -162,7 +174,7 @@ module powerbi.visuals {
         },
     };
 
-    export var donutChartProps = {
+    export const donutChartProps = {
         general: {
             formatString: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'formatString' },
         },
@@ -176,6 +188,7 @@ module powerbi.visuals {
             position: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'position' },
             showTitle: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'showTitle' },
             titleText: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'titleText' },
-        },
+            labelColor: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'labelColor' },
+        }, 
     };
 }

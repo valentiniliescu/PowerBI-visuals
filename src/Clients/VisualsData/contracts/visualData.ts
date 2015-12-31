@@ -28,6 +28,11 @@
 
 module powerbi {
 
+    export interface IViewport {
+        height: number;
+        width: number;
+    }
+
     export interface VisualElement {
         DataRoles?: DataRole[];
         Settings?: VisualElementSettings;

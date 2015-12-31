@@ -35,14 +35,13 @@
 @import "colorPalette.less";
 @import "fonts.less";
 
-@dashboardTileHeaderHeight: 50px;
+@dashboardTileHeaderHeight: 50px; /* updates to tile header height should be reflected in tileSize.ts */
 @dashboardTilePadding: 10px;
 
 .unselectable {
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
-    -o-user-select: none;
     user-select: none;
     cursor: default;
 }
@@ -69,8 +68,6 @@
     width: 30px;
     height: 30px;
     cursor: pointer;
-    -moz-transition: opacity 0.2s ease-in;
-    -o-transition: opacity 0.2s ease-in;
     -webkit-transition: opacity 0.2s ease-in;
     transition: opacity 0.2s ease-in;
     -webkit-transition-delay: 0s; /* Safari */
@@ -116,14 +113,13 @@
     opacity: 0;
 }
 
+.no-border-radius {
+    border-radius: 0;
+}
+
 .placeholderColor(@color: @neutralSecondaryColor) {
     &::-webkit-input-placeholder { /* WebKit browsers */
         color: @color;
-    }
-
-    &:-moz-placeholder { /* Mozilla Firefox 4 to 18 */
-        color: @color;
-        opacity: 1;
     }
 
     &::-moz-placeholder { /* Mozilla Firefox 19+ */
@@ -133,26 +129,6 @@
 
     &:-ms-input-placeholder { /* Internet Explorer 10+ */
         color: @color;
-    }
-}
-
-.onFocusHidePlaceholder(@color: @neutralSecondaryColor) {
-    .placeholderColor(@color);
-
-    &:focus::-webkit-input-placeholder { /* WebKit browsers */
-        color: transparent;
-    }
-
-    &:focus:-moz-placeholder { /* Mozilla Firefox 4 to 18 */
-        color: transparent;
-    }
-
-    &:focus::-moz-placeholder { /* Mozilla Firefox 19+ */
-        color: transparent;
-    }
-
-    &:focus:-ms-input-placeholder { /* Internet Explorer 10+ */
-        color: transparent;
     }
 }
 

@@ -65,7 +65,16 @@ module powerbi {
          */
         resolve<TSuccess>(value?: TSuccess): IPromise2<TSuccess, any>;
 
-        all(promises: IPromise2<any, any>[]): IPromise2<any, any>;
+        /**
+         * Combines multiple promises into a single promise that is resolved when all of the input promises are resolved.
+         */
+        all(promises: IPromise2<any, any>[]): IPromise<any[]>;
+
+        /**
+         * Wraps an object that might be a value or a then-able promise into a promise. 
+         * This is useful when you are dealing with an object that might or might not be a promise
+         */
+        when<T>(value: T | IPromise<T>): IPromise<T>;
     }
 
     /** 

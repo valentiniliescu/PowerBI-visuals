@@ -28,6 +28,7 @@
 /// <reference path="typedefs/typedefs.obj.ts"/>
 
 /// <reference path="sampleDataViews/sampleDataViews.ts"/>
+/// <reference path="sampleDataViews/CarLogosData.ts"/>
 /// <reference path="sampleDataViews/DistrictSalesData.ts"/>
 /// <reference path="sampleDataViews/FileStorageData.ts"/>
 /// <reference path="sampleDataViews/ImageData.ts"/>
@@ -38,6 +39,7 @@
 /// <reference path="sampleDataViews/ServicesByUsers.ts"/>
 /// <reference path="sampleDataViews/SimpleAreaRangeData.ts"/>
 /// <reference path="sampleDataViews/SimpleDotPlotData.ts"/>
+/// <reference path="sampleDataViews/SimpleTimelineData.ts"/>
 /// <reference path="sampleDataViews/SimpleFunnelData.ts"/>
 /// <reference path="sampleDataViews/SimpleGaugeData.ts"/>
 /// <reference path="sampleDataViews/SimpleMatrixData.ts"/>
@@ -46,6 +48,8 @@
 /// <reference path="sampleDataViews/calenderData.ts"/>
 /// <reference path="sampleDataViews/SimpleTreeData.ts"/>
 /// <reference path="sampleDataViews/SimpleHistogramData.ts"/>
+/// <reference path="sampleDataViews/SimpleDataByCountries.ts"/>
+/// <reference path="sampleDataViews/SimpleCountriesData.ts"/>
 /// <reference path="sampleDataViews/Plotly3DSurfaceData.ts"/>
 /// <reference path="sampleData.ts"/>
 /// <reference path="hostControls.ts"/>

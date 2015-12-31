@@ -27,7 +27,7 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var filledMapCapabilities: VisualCapabilities = {
+    export const filledMapCapabilities: VisualCapabilities = {
         dataRoles: [
             {
                 name: 'Category',
@@ -57,7 +57,7 @@ module powerbi.visuals {
                 description: data.createDisplayNameGetter('Role_DisplayName_LongitudeFilledMapDescription'),
                 preferredTypes: [
                     { geography: { longitude: true } }
-                ]
+                ],
             }, {
                 name: 'Y',
                 kind: VisualDataRoleKind.Measure,
@@ -70,7 +70,8 @@ module powerbi.visuals {
                 name: 'Size',
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_Values'),
-                description: data.createDisplayNameGetter('Role_DisplayName_ValuesDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_ValuesDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }
         ],
         objects: {
@@ -104,6 +105,10 @@ module powerbi.visuals {
                         displayName: data.createDisplayNameGetter('Visual_LegendName'),
                         description: data.createDisplayNameGetter('Visual_LegendNameDescription'),
                         type: { text: true }
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
                     }
                 }
             },
@@ -137,6 +142,36 @@ module powerbi.visuals {
                     }
                 }
             },
+            labels: {
+                displayName: data.createDisplayNameGetter('Visual_DataPointsLabels'),
+                properties: {
+                    show: {
+                        type: { bool: true }
+                    },
+                    color: {
+                        displayName: data.createDisplayNameGetter('Visual_LabelsFill'),
+                        type: { fill: { solid: { color: true } } }
+                    },
+                    labelDisplayUnits: {
+                        displayName: data.createDisplayNameGetter('Visual_DisplayUnits'),
+                        type: { formatting: { labelDisplayUnits: true } }
+                    },
+                    labelPrecision: {
+                        displayName: data.createDisplayNameGetter('Visual_Precision'),
+                        description: data.createDisplayNameGetter('Visual_PrecisionDescription'),
+                        placeHolderText: data.createDisplayNameGetter('Visual_Precision_Auto'),
+                        type: { numeric: true }
+                    },
+                },
+            },
+            categoryLabels: {
+                displayName: data.createDisplayNameGetter('Visual_CategoryLabels'),
+                properties: {
+                    show: {
+                        type: { bool: true }
+                    },
+                },
+            }
         },
         dataViewMappings: [{
             conditions: [
@@ -168,5 +203,31 @@ module powerbi.visuals {
         drilldown: {
             roles: ['Category']
         },
+    };
+
+    export const filledMapProps = {
+        general: {
+            formatString: <DataViewObjectPropertyIdentifier>{ objectName: 'general', propertyName: 'formatString' },
+        },
+        dataPoint: {
+            defaultColor: <DataViewObjectPropertyIdentifier>{ objectName: 'dataPoint', propertyName: 'defaultColor' },
+            fill: <DataViewObjectPropertyIdentifier>{ objectName: 'dataPoint', propertyName: 'fill' },
+            showAllDataPoints: <DataViewObjectPropertyIdentifier>{ objectName: 'dataPoint', propertyName: 'showAllDataPoints' },
+        },
+        legend: {
+            show: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'show' },
+            position: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'position' },
+            showTitle: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'showTitle' },
+            titleText: <DataViewObjectPropertyIdentifier>{ objectName: 'legend', propertyName: 'titleText' },
+        },
+        labels: {
+            show: <DataViewObjectPropertyIdentifier>{ objectName: 'labels', propertyName: 'show' },
+            color: <DataViewObjectPropertyIdentifier>{ objectName: 'labels', propertyName: 'color' },
+            labelDisplayUnits: <DataViewObjectPropertyIdentifier>{ objectName: 'labels', propertyName: 'labelDisplayUnits' },
+            labelPrecision: <DataViewObjectPropertyIdentifier>{ objectName: 'labels', propertyName: 'labelPrecision' },
+        },
+        categoryLabels: {
+            show: <DataViewObjectPropertyIdentifier>{ objectName: 'categoryLabels', propertyName: 'show' },
+        }
     };
 }

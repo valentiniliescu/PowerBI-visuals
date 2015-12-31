@@ -38,6 +38,7 @@ module powerbi {
         single?: DataViewSingleMapping;
         tree?: DataViewTreeMapping;
         matrix?: DataViewMatrixMapping;
+        scriptResult?: DataViewScriptResultMapping;
     }
 
     /** Describes whether a particular mapping is fits the set of projections. */
@@ -50,7 +51,7 @@ module powerbi {
         dataVolume?: number;
     }
 
-    export interface DataViewCategoricalMapping extends HasDataVolume {
+    export interface DataViewCategoricalMapping extends HasDataVolume, HasReductionAlgorithm {
         categories?: DataViewRoleMappingWithReduction | DataViewListRoleMappingWithReduction;
         values?: DataViewRoleMapping | DataViewGroupedRoleMapping | DataViewListRoleMapping;
 
@@ -174,16 +175,14 @@ module powerbi {
         max?: number;
     }
 
-    export interface RoleCondition extends NumberRange {
-        kind?: VisualDataRoleKind;
+    export interface DataViewMappingScriptDefinition {
+        source: DataViewObjectPropertyIdentifier;
+        provider: DataViewObjectPropertyIdentifier;
+        imageFormat: string;
     }
 
-    export enum VisualDataRoleKind {
-        /** Indicates that the role should be bound to something that evaluates to a grouping of values. */
-        Grouping,
-        /** Indicates that the role should be bound to something that evaluates to a single value in a scope. */
-        Measure,
-        /** Indicates that the role can be bound to either Grouping or Measure. */
-        GroupingOrMeasure,
+    export interface DataViewScriptResultMapping {
+        dataInput: DataViewMapping;
+        script: DataViewMappingScriptDefinition;
     }
 }

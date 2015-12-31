@@ -75,9 +75,9 @@ module powerbi.visuals {
         }
 
         public getMessages(resourceProvider: IStringResourceProvider): IVisualErrorMessage {
-            let messageKey: string = 'DsrLimitWarning_TooMuchDataMessage';
-            let titleKey: string = '';
-            let detailKey: string = '';
+            let messageKey: string = 'GeometryCulledWarningMessage';
+            let titleKey: string = 'GeometryCulledWarningKey';
+            let detailKey: string = 'GeometryCulledWarningVal';
 
             let visualMessage: IVisualErrorMessage = {
                 message: resourceProvider.get(messageKey),
@@ -95,9 +95,9 @@ module powerbi.visuals {
         }
 
         public getMessages(resourceProvider: IStringResourceProvider): IVisualErrorMessage {
-            var messageKey: string = 'VisualWarning_NegativeValues';
+            const messageKey: string = 'VisualWarning_NegativeValues';
 
-            var visualMessage: IVisualErrorMessage = {
+            const visualMessage: IVisualErrorMessage = {
                 message: resourceProvider.get(messageKey),
                 title: '',
                 detail: '',
@@ -113,9 +113,9 @@ module powerbi.visuals {
         }
 
         public getMessages(resourceProvider: IStringResourceProvider): IVisualErrorMessage {
-            var messageKey: string = 'VisualWarning_AllNegativeValues';
+            let messageKey: string = 'VisualWarning_AllNegativeValues';
 
-            var visualMessage: IVisualErrorMessage = {
+            let visualMessage: IVisualErrorMessage = {
                 message: resourceProvider.get(messageKey),
                 title: '',
                 detail: '',
@@ -131,7 +131,7 @@ module powerbi.visuals {
         }
 
         public getMessages(resourceProvider: IStringResourceProvider): IVisualErrorMessage {
-            let messageKey: string = 'VisualWarning_InfinityValues';
+            let messageKey: string = 'VisualWarning_NanValues';
 
             let visualMessage: IVisualErrorMessage = {
                 message: resourceProvider.get(messageKey),
@@ -196,4 +196,42 @@ module powerbi.visuals {
             return visualMessage;
         }
     }
+
+    export class VisualKPIDataMissingWarning implements IVisualWarning {
+        public get code(): string {
+            return "VisualKPIDataMissing";
+        }
+
+        public getMessages(resourceProvider: IStringResourceProvider): IVisualErrorMessage {
+            let messageKey: string = 'Visual_KPI_DataMissing';
+
+            let visualMessage: IVisualErrorMessage = {
+                message: resourceProvider.get(messageKey),
+                title: '',
+                detail: '',
+            };
+
+            return visualMessage;
+        }
+    }
+
+        export class ScriptVisualRefreshWarning implements IVisualWarning {
+        public get code(): string {
+            return "ScriptVisualNotRefreshed";
+        }
+
+        public getMessages(resourceProvider: IStringResourceProvider): IVisualErrorMessage {
+            let messageKey: string = 'ScriptVisualRefreshWarningMessage';
+            let detailKey: string = 'ScriptVisualRefreshWarningValue';
+
+            let visualMessage: IVisualErrorMessage = {
+                message: resourceProvider.get(messageKey),
+                title: resourceProvider.get(messageKey),
+                detail: resourceProvider.get(detailKey),
+            };
+
+            return visualMessage;
+        }
+    }
+
 }

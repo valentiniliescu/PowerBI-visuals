@@ -55,7 +55,7 @@ module powerbitests {
     describe("basicShape Tests", () => {
 
         it('registered capabilities', () => {
-            var pluginCapabilities = powerbi.visuals.visualPluginFactory.create().getPlugin('basicShape').capabilities;
+            let pluginCapabilities = powerbi.visuals.visualPluginFactory.create().getPlugin('basicShape').capabilities;
             expect(pluginCapabilities.toString()).toBe(basicShapeCapabilities.toString());
         });
 
@@ -68,10 +68,10 @@ module powerbitests {
         });
 
         describe('rendering', () => {
-            var element: JQuery;
-            var viewport: powerbi.IViewport;
-            var options: powerbi.VisualInitOptions;
-            var basicShape: BasicShapeVisual;
+            let element: JQuery;
+            let viewport: powerbi.IViewport;
+            let options: powerbi.VisualInitOptions;
+            let basicShape: BasicShapeVisual;
 
             beforeEach(() => {
                 element = powerbitests.helpers.testDom('200', '300');
@@ -102,7 +102,7 @@ module powerbitests {
                 basicShape.update(visualUpdateOptions);
 
                 //Verifying the DOM
-                var rect = element.find('rect');
+                let rect = element.find('rect');
 
                 helpers.assertColorsMatch(rect.css('stroke'), BasicShapeVisual.DefaultStrokeColor); // lineColor
                 helpers.assertColorsMatch(rect.css('fill'), BasicShapeVisual.DefaultFillColor); // fillColor
@@ -118,7 +118,7 @@ module powerbitests {
                 basicShape.update(visualUpdateOptions);
 
                 //Verifying the DOM
-                var rect = element.find('rect');
+                let rect = element.find('rect');
                 helpers.assertColorsMatch(rect.css('stroke'), "#00b8ad"); // lineColor
                 helpers.assertColorsMatch(rect.css('fill'), "#e6e6e4"); // fillColor
                 expect(rect.css('stroke-opacity')).toBe("0.75"); // lineTransparency
@@ -135,7 +135,7 @@ module powerbitests {
                 basicShape.update(visualUpdateOptions);
 
                 //Verifying the DOM
-                var rect = element.find('rect');
+                let rect = element.find('rect');
                 helpers.assertColorsMatch(rect.css('stroke'), "#00b8ad"); // lineColor
                 helpers.assertColorsMatch(rect.css('fill'), "#e6e6e4"); // fillColor
                 expect(rect.css('stroke-opacity')).toBe("0.75"); // lineTransparency
@@ -178,8 +178,8 @@ module powerbitests {
                 basicShape.update(visualUpdateOptions);
 
                 //Verifying the DOM
-                var rect = element.find('rect');
-                var rotator = rect.parents('div[style*=transform]').eq(0);
+                let rect = element.find('rect');
+                let rotator = rect.parents('div[style*=transform]').eq(0);
                 expect(BasicShapeHelpers.getRotateFromStyle(rotator)).toBe(270);
             });
         });

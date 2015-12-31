@@ -32,7 +32,7 @@ module powerbi.data {
      * NOTE Keep this file in sync with the Sql\InfoNav\src\Data\Contracts\DsqGeneration\DataShapeBindingVersions.cs
      * file in the TFS Dev branch.
      */
-    export enum DataShapeBindingVersions {
+    export const enum DataShapeBindingVersions {
         /** The initial version of data shape binding */
         Version0 = 0,
         /** Explicit subtotal support for axis groupings. */
@@ -61,6 +61,7 @@ module powerbi.data {
         Version?: number;
         Primary: DataShapeBindingAxis;
         Secondary?: DataShapeBindingAxis;
+        Projections?: number[];
         Limits?: DataShapeBindingLimit[];
         Highlights?: FilterDefinition[];
         DataReduction?: DataShapeBindingDataReduction;

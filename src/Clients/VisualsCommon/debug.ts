@@ -57,6 +57,15 @@ module debug {
     }
 
     /**
+     * Asserts that the value is neither null nor undefined, and has a length property that returns greater than zero, fails otherwise. 
+     */
+    export function assertNonEmpty<T>(value: T[], message: string): void {
+        if (!(value != null && value.length > 0)) {
+            assertFail(message || ('condition: ' + value));
+        }
+    }
+
+    /**
      * Makes no assertion on the given value.
      * This is documentation/placeholder that a value is possibly null or undefined (unlike assertValue).
      */

@@ -29,6 +29,7 @@
 module powerbi.visuals {
     import ClassAndSelector = jsCommon.CssConstants.ClassAndSelector;
     import createClassAndSelector = jsCommon.CssConstants.createClassAndSelector;
+    import PixelConverter = jsCommon.PixelConverter;
 
     export interface GaugeData extends TooltipEnabledDataPoint {
         percent: number;
@@ -73,6 +74,7 @@ module powerbi.visuals {
         labels: {
             count: number;
             padding: number;
+            fontSize: number;
         };
         kpiBands: {
             show: boolean;
@@ -108,6 +110,7 @@ module powerbi.visuals {
     export interface GaugeConstructorOptions {
         gaugeSmallViewPortProperties?: GaugeSmallViewPortProperties;
         animator?: IGenericAnimator;
+        tooltipsEnabled?: boolean;
     }
 
     export interface GaugeDataViewObjects extends DataViewObjects {
@@ -149,7 +152,8 @@ module powerbi.visuals {
             },
             labels: {
                 count: 2,
-                padding: 5
+                padding: 5,
+                fontSize: NewDataLabelUtils.DefaultLabelFontSizeInPt,
             },
             kpiBands: {
                 show: false,
@@ -206,6 +210,8 @@ module powerbi.visuals {
         private gaugeSmallViewPortProperties: GaugeSmallViewPortProperties;
         private showTargetLabel: boolean;
 
+        private tooltipsEnabled: boolean; 
+
         private hostService: IVisualHostServices;
 
         // TODO: Remove this once all visuals have implemented update.
@@ -219,6 +225,7 @@ module powerbi.visuals {
                     this.gaugeSmallViewPortProperties = options.gaugeSmallViewPortProperties;
                 }
                 this.animator = options.animator;
+                this.tooltipsEnabled = options.tooltipsEnabled;
             }
         }
 
@@ -249,6 +256,7 @@ module powerbi.visuals {
                 show: true,
                 precision: true,
                 displayUnits: true,
+                fontSize: true,
                 enumeration: enumeration,
             };
         }
@@ -337,7 +345,7 @@ module powerbi.visuals {
                 gaugeDrawingOptions.innerRadiusFactor,
                 gaugeDrawingOptions.top,
                 gaugeDrawingOptions.left);
-            this.animatedNumber.svg.attr('transform', animatedNumberProperties.transformString);
+            this.animatedNumberGrapicsContext.attr('transform', animatedNumberProperties.transformString);
             this.animatedNumber.onResizing(animatedNumberProperties.viewport);
         }
 
@@ -380,8 +388,7 @@ module powerbi.visuals {
                 false /*supportsNegativeInfinity*/,
                 false /*supportsPositiveInfinity*/);
 
-            if (warnings && warnings.length > 0)
-                this.hostService.setWarnings(warnings);
+            this.hostService.setWarnings(warnings);
         }
 
         private updateCalloutValue(suppressAnimations: boolean): void {
@@ -391,13 +398,8 @@ module powerbi.visuals {
                     this.gaugeVisualProperties.innerRadiusFactor,
                     this.gaugeVisualProperties.top,
                     this.gaugeVisualProperties.left);
-
-                this.animatedNumber.svg.attr('transform', animatedNumberProperties.transformString);
-
-                let calloutValueSelection: D3.Selection = this.animatedNumber.svg.selectAll('text');
-                calloutValueSelection.style({
-                    'fill': this.data.calloutValueLabelsSettings.labelColor
-                });
+                this.animatedNumberGrapicsContext.attr('transform', animatedNumberProperties.transformString);
+                this.animatedNumber.setTextColor(this.data.calloutValueLabelsSettings.labelColor);
 
                 let calloutValue: number = this.data ? this.data.total : null;
                 let formatter = this.getFormatter(this.data.calloutValueLabelsSettings, calloutValue);
@@ -560,14 +562,14 @@ module powerbi.visuals {
                 metadataColumn: Gauge.getMetaDataColumn(dataView),
                 targetSettings: settings,
                 tooltipInfo: tooltipInfo,
-                dataLabelsSettings: Gauge.convertDataLableSettings(dataView, "labels", formatString),
-                calloutValueLabelsSettings: Gauge.convertDataLableSettings(dataView, "calloutValue", formatString),
+                dataLabelsSettings: Gauge.convertDataLableSettings(dataView, "labels"),
+                calloutValueLabelsSettings: Gauge.convertDataLableSettings(dataView, "calloutValue"),
             };
         }
 
-        private static convertDataLableSettings(dataview: DataView, objectName: string, format?: string): VisualDataLabelsSettings {
+        private static convertDataLableSettings(dataview: DataView, objectName: string): VisualDataLabelsSettings {
             let dataViewMetadata = dataview.metadata;
-            let dataLabelsSettings = dataLabelUtils.getDefaultGaugeLabelSettings(format);
+            let dataLabelsSettings = dataLabelUtils.getDefaultGaugeLabelSettings();
             if (dataViewMetadata) {
                 let objects: DataViewObjects = dataViewMetadata.objects;
                 if (objects) {
@@ -642,14 +644,21 @@ module powerbi.visuals {
             }
         }
 
-        private updateTargetLine(radius: number, innerRadius: number, left, top) {
+        private getTargetRatio(): number {
             let targetSettings = this.targetSettings;
+            let range = targetSettings.max - targetSettings.min;
+            if (range !== 0)
+                return (targetSettings.target - targetSettings.min) / range;
 
+            return 0;
+        }
+
+        private updateTargetLine(radius: number, innerRadius: number, left, top) {
             if (!this.targetLine) {
                 this.targetLine = this.mainGraphicsContext.append('line');
             }
 
-            let angle = (targetSettings.target - targetSettings.min) / (targetSettings.max - targetSettings.min) * Math.PI;
+            let angle = this.getTargetRatio() * Math.PI;
 
             let outY = top - radius * Math.sin(angle);
             let outX = left - radius * Math.cos(angle);
@@ -826,8 +835,8 @@ module powerbi.visuals {
             this.appendTextAlongArc(ticks, radius, height, width, margin);
             this.updateVisualConfigurations();
             this.updateVisualStyles();
-
-            TooltipManager.addTooltip(this.foregroundArcPath, (tooltipEvent: TooltipEvent) => data.tooltipInfo);
+            if (this.tooltipsEnabled)
+                TooltipManager.addTooltip(this.foregroundArcPath, (tooltipEvent: TooltipEvent) => data.tooltipInfo);
         }
 
         private updateVisualStyles() {
@@ -860,7 +869,7 @@ module powerbi.visuals {
             let divisor = total - 1;
             let top = (radius + (height - radius) / 2 + margin.top);
             let showMinMaxLabelsOnBottom = this.showMinMaxLabelsOnBottom();
-            let fontSize = this.style.labelText.fontSize;
+            let fontSize = PixelConverter.fromPoint(this.data.dataLabelsSettings.fontSize || NewDataLabelUtils.DefaultLabelFontSizeInPt);
             let padding = this.settings.labels.padding;
 
             for (let count = 0; count < total; count++) {
@@ -918,21 +927,19 @@ module powerbi.visuals {
         }
 
         private getFormatter(dataLabelSettings: VisualDataLabelsSettings, value2?: number): IValueFormatter {
-            return valueFormatter.create({
-                format: valueFormatter.getFormatString(this.data.metadataColumn, Gauge.formatStringProp),
-                precision: dataLabelSettings.precision,
-                value: dataLabelSettings.displayUnits,
-                value2: dataLabelSettings.displayUnits === 0 ? value2 : null,
-                allowFormatBeautification: true,
-                formatSingleValues: dataLabelSettings.displayUnits > 0 ? false : true,
-            });
+            let realValue2 = dataLabelSettings.displayUnits === 0 ? value2 : null;
+            let formatString: string = valueFormatter.getFormatString(this.data.metadataColumn, Gauge.formatStringProp);
+            let precision = dataLabelUtils.getLabelPrecision(dataLabelSettings.precision, formatString);
+            let valueFormatterOptions: ValueFormatterOptions = dataLabelUtils.getOptionsForLabelFormatter(dataLabelSettings, formatString, realValue2, precision);
+            valueFormatterOptions.formatSingleValues = dataLabelSettings.displayUnits > 0 ? false : true;
+            return valueFormatter.create(valueFormatterOptions);
         }
 
         private appendTargetTextAlongArc(radius: number, height: number, width: number, margin: IMargin) {
             let targetSettings = this.targetSettings;
 
             let target = targetSettings.target;
-            let tRatio = (target - targetSettings.min) / (targetSettings.max - targetSettings.min);
+            let tRatio = this.getTargetRatio();
             let top = (radius + (height - radius) / 2 + margin.top);
             let flag = tRatio > 0.5;
             let padding = this.settings.labels.padding;
@@ -1018,7 +1025,7 @@ module powerbi.visuals {
                 let visualWhitespace = (this.currentViewport.width - (this.gaugeVisualProperties.radius * 2)) / 2;
                 let maxLabelWidth = visualWhitespace - this.settings.labels.padding;
                 let textProperties: TextProperties = TextMeasurementService.getMeasurementProperties($(this.svg.node()));
-                textProperties.fontSize = this.style.labelText.fontSize;
+                textProperties.fontSize = PixelConverter.fromPoint(this.data.dataLabelsSettings.fontSize || NewDataLabelUtils.DefaultLabelFontSizeInPt);
 
                 let width: number;
                 for (let tickValue of [ticks[0], ticks[ticks.length - 1]]) {
@@ -1065,6 +1072,17 @@ module powerbi.visuals {
                     // Otherwise, reduce both margins
                     this.margin.left = this.margin.right = Gauge.ReducedLeftRightMargin;
                 }
+            }
+
+            let fontSize = 0;
+            if (this.data && this.data.dataLabelsSettings && this.data.dataLabelsSettings.fontSize && this.data.dataLabelsSettings.fontSize >= NewDataLabelUtils.DefaultLabelFontSizeInPt) {
+                fontSize = PixelConverter.fromPointToPixel(this.data.dataLabelsSettings.fontSize - NewDataLabelUtils.DefaultLabelFontSizeInPt);
+            }
+
+            if (fontSize !== 0) {
+                this.margin.bottom += fontSize;
+                this.margin.left += fontSize;
+                this.margin.right += fontSize;
             }
         }
 

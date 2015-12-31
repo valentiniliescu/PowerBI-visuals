@@ -157,10 +157,7 @@ module powerbi.visuals {
                     if (dvCategories && dvCategories.length > 0 && dvCategories[0].source && dvCategories[0].source.type)
                         categoryType = dvCategories[0].source.type;
 
-                    this.data = DataDotChart.converter(dataView, valueFormatter.format(null));
-                    if (this.interactivityService) {
-                        this.interactivityService.applySelectionStateToData(this.data.series.data);
-                    }
+                    this.data = DataDotChart.converter(dataView, valueFormatter.format(null), this.interactivityService);
                 }
             }
         }
@@ -225,7 +222,7 @@ module powerbi.visuals {
                 pixelSpan: height,
                 dataDomain: combinedDomain,
                 metaDataColumn: yMetaDataColumn,
-                formatStringProp: DataDotChart.formatStringProp,
+                formatString: valueFormatter.getFormatString(yMetaDataColumn, DataDotChart.formatStringProp),
                 outerPadding: 0,
                 isScalar: true,
                 isVertical: true,
@@ -240,7 +237,7 @@ module powerbi.visuals {
                 pixelSpan: width,
                 dataDomain: xDomain,
                 metaDataColumn: xMetaDataColumn,
-                formatStringProp: DataDotChart.formatStringProp,
+                formatString: valueFormatter.getFormatString(xMetaDataColumn, DataDotChart.formatStringProp),
                 outerPadding: outerPadding,
                 isScalar: false,
                 isVertical: false,
@@ -254,7 +251,7 @@ module powerbi.visuals {
             return [this.xAxisProperties, this.yAxisProperties];
         }
 
-        private static createClippedDataIfOverflowed(data: DataDotChartData, categoryCount: number): DataDotChartData {                                                
+        private static createClippedDataIfOverflowed(data: DataDotChartData, categoryCount: number): DataDotChartData {
 
             // If there are highlights, then the series is 2x in length and highlights are interwoven.
             let requiredLength = data.hasHighlights ? Math.min(data.series.data.length, categoryCount * 2) : Math.min(data.series.data.length, categoryCount);
@@ -383,7 +380,7 @@ module powerbi.visuals {
             // This should always be the last line in the render code.
             SVGUtil.flushAllD3TransitionsIfNeeded(this.options);
 
-            return { dataPoints: dataPoints, behaviorOptions: behaviorOptions, labelDataPoints: [] };
+            return { dataPoints: dataPoints, behaviorOptions: behaviorOptions, labelDataPoints: [], labelsAreNumeric: true };
         }
 
         public calculateLegend(): LegendData {
@@ -448,7 +445,7 @@ module powerbi.visuals {
             // cartesianChart handles calling render again.
         }
 
-        public static converter(dataView: DataView, blankCategoryValue: string): DataDotChartData {
+        public static converter(dataView: DataView, blankCategoryValue: string, interactivityService: IInteractivityService): DataDotChartData {
             let categorical = dataView.categorical;
 
             let category: DataViewCategoryColumn = categorical.categories && categorical.categories.length > 0
@@ -507,6 +504,9 @@ module powerbi.visuals {
                         });
                     }
                 }
+
+                if (interactivityService)
+                    interactivityService.applySelectionStateToData(dataPoints);
 
                 return {
                     series: {

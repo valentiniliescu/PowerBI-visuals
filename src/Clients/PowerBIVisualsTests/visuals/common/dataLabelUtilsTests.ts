@@ -44,87 +44,124 @@ module powerbitests {
         describe("dataLabelUtils tests", () => {
 
             it('display units formatting values : Auto', () => {
-                var value: number = 2000000;
-                var labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                let value: number = 2000000;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
                 labelSettings.displayUnits = 0;
                 labelSettings.precision = 0;
-                var value2 = 1000000;
-                var formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
-                var formatter = formattersCache.getOrCreate(null, labelSettings, value2);
-                var formattedValue = formatter.format(value);
+                let value2 = 1000000;
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter = formattersCache.getOrCreate(null, labelSettings, value2);
+                let formattedValue = formatter.format(value);
                 expect(formattedValue).toBe("2M");
             });
 
             it('display units formatting values : None', () => {
-                var value: number = 20000;
-                var labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                let value: number = 20000;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
                 labelSettings.displayUnits = 10;
                 labelSettings.precision = 0;
-                var formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
-                var formatter = formattersCache.getOrCreate(null, labelSettings);
-                var formattedValue = formatter.format(value);
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter = formattersCache.getOrCreate(null, labelSettings);
+                let formattedValue = formatter.format(value);
                 expect(formattedValue).toBe("20,000");
             });
 
             it("display units formatting values : K", () => {
-                var value: number = 20000;
-                var labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                let value: number = 20000;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
                 labelSettings.displayUnits = 10000;
                 labelSettings.precision = 0;
-                var formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
-                var formatter = formattersCache.getOrCreate(null, labelSettings);
-                var formattedValue = formatter.format(value);
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter = formattersCache.getOrCreate(null, labelSettings);
+                let formattedValue = formatter.format(value);
                 expect(formattedValue).toBe("20K");
             });
 
             it("display units formatting values : M", () => {
-                var value: number = 200000;
-                var labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                let value: number = 200000;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
                 labelSettings.displayUnits = 1000000;
                 labelSettings.precision = 1;
-                var formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
-                var formatter = formattersCache.getOrCreate(null, labelSettings);
-                var formattedValue = formatter.format(value);
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter = formattersCache.getOrCreate(null, labelSettings);
+                let formattedValue = formatter.format(value);
                 expect(formattedValue).toBe("0.2M");
             });
 
             it("display units formatting values : B", () => {
-                var value: number = 200000000000;
-                var labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                let value: number = 200000000000;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
                 labelSettings.displayUnits = 1000000000;
                 labelSettings.precision = 0;
-                var formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
-                var formatter = formattersCache.getOrCreate(null, labelSettings);
-                var formattedValue = formatter.format(value);
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter = formattersCache.getOrCreate(null, labelSettings);
+                let formattedValue = formatter.format(value);
                 expect(formattedValue).toBe("200bn");
             });
 
             it("display units formatting values : T", () => {
-                var value: number = 200000000000;
-                var labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                let value: number = 200000000000;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
                 labelSettings.displayUnits = 1000000000000;
                 labelSettings.precision = 1;
-                var formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
-                var formatter = formattersCache.getOrCreate(null, labelSettings);
-                var formattedValue = formatter.format(value);
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter = formattersCache.getOrCreate(null, labelSettings);
+                let formattedValue = formatter.format(value);
                 expect(formattedValue).toBe("0.2T");
             });
 
+            it("precision formatting using format string #0", () => {
+                let value: number = 2000;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter = formattersCache.getOrCreate("#0", labelSettings);
+                let formattedValue = formatter.format(value);
+                expect(formattedValue).toBe("2000");
+            });
+
+            it("precision formatting using format string #0.00", () => {
+                let value: number = 2000;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter = formattersCache.getOrCreate("#0.00", labelSettings);
+                let formattedValue = formatter.format(value);
+                expect(formattedValue).toBe("2,000.00");
+            });
+
+            it("precision formatting using format string 0.#### $;-0.#### $;0 $", () => {
+                let value: number = -2000.123456;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter = formattersCache.getOrCreate("#.#### $;-#.#### $;0 $", labelSettings);
+                let formattedValue = formatter.format(value);
+                expect(formattedValue).toBe("-2000.1235 $");
+            });
+
+            it("precision formatting using forced precision", () => {
+                let value: number = 2000.123456;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                labelSettings.precision = 2;
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter = formattersCache.getOrCreate("0.0000", labelSettings);
+                let formattedValue = formatter.format(value);
+                expect(formattedValue).toBe("2,000.12");
+            });
+
             it("label formatting - multiple formats", () => {
-                var formatCol1 = "#,0.0";
-                var formatCol2 = "$#,0.0";
-                var value: number = 1545;
-                var labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
+                let formatCol1 = "#,0.0";
+                let formatCol2 = "$#,0.0";
+                let value: number = 1545;
+                let labelSettings: powerbi.visuals.VisualDataLabelsSettings = DataLabelUtils.getDefaultLabelSettings();
                 labelSettings.displayUnits = null;
                 labelSettings.precision = 1;
 
-                var formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
-                var formatter1 = formattersCache.getOrCreate(formatCol1, labelSettings);
-                var formattedValue = formatter1.format(value);
+                let formattersCache = DataLabelUtils.createColumnFormatterCacheManager();
+                let formatter1 = formattersCache.getOrCreate(formatCol1, labelSettings);
+                let formattedValue = formatter1.format(value);
 
                 expect(formattedValue).toBe("1,545.0");
 
-                var formatter2 = formattersCache.getOrCreate(formatCol2, labelSettings);
+                let formatter2 = formattersCache.getOrCreate(formatCol2, labelSettings);
                 formattedValue = formatter2.format(value);
 
                 expect(formattedValue).toBe("$1,545.0");
@@ -143,8 +180,14 @@ module powerbitests {
                 DataLabelUtils.enumerateCategoryLabels(enumerationNoColor, labelSettings, false);
                 let objectsNoColor = enumerationNoColor.complete().instances;
 
+                labelSettings.showCategory = true;
+                let enumerationCategoryLabels = new ObjectEnumerationBuilder();
+                DataLabelUtils.enumerateCategoryLabels(enumerationCategoryLabels, labelSettings, false, true);
+                let objectsCategoryLabels = enumerationCategoryLabels.complete().instances;
+
                 expect(objectsWithColor[0].properties["show"]).toBe(false);
                 expect(objectsNoColor[0].properties["show"]).toBe(false);
+                expect(objectsCategoryLabels[0].properties["show"]).toBe(true);
 
                 expect(objectsWithColor[0].properties["color"]).toBe(labelSettings.labelColor);
                 expect(objectsNoColor[0].properties["color"]).toBeUndefined();
@@ -160,7 +203,14 @@ module powerbitests {
                 let objectsWithColor = enumerationWithColor.complete().instances;
 
                 expect(objectsWithColor[0].properties["show"]).toBe(true);
-                helpers.assertColorsMatch(<string>objectsWithColor[0].properties["color"], "#FF0000");
+                helpers.assertColorsMatch(<string>objectsWithColor[0].properties["color"], labelSettings.labelColor);
+
+                labelSettings.categoryLabelColor = "#222222";
+                enumerationWithColor = new ObjectEnumerationBuilder();
+                DataLabelUtils.enumerateCategoryLabels(enumerationWithColor, labelSettings, true);
+                objectsWithColor = enumerationWithColor.complete().instances;
+
+                helpers.assertColorsMatch(<string>objectsWithColor[0].properties["color"], labelSettings.categoryLabelColor);
             });
 
             it("test category labels objects for donut chart", () => {
@@ -175,28 +225,21 @@ module powerbitests {
 
             it("test null values", () => {
                 let labelSettings = DataLabelUtils.getDefaultPointLabelSettings();
-                let donutLabelSettings = DataLabelUtils.getDefaultDonutLabelSettings();
 
                 let enumerationWithColor = new ObjectEnumerationBuilder();
                 DataLabelUtils.enumerateCategoryLabels(enumerationWithColor, null, true);
                 let objectsWithColor = enumerationWithColor.complete().instances;
 
-                let enumerationCategories = new ObjectEnumerationBuilder();
-                DataLabelUtils.enumerateCategoryLabels(enumerationCategories, null, false, true);
-                let donutObjectsWithColor = enumerationCategories.complete().instances;
-
                 expect(objectsWithColor[0].properties["show"]).toBe(labelSettings.show);
                 expect(objectsWithColor[0].properties["color"]).toBe(labelSettings.labelColor);
-
-                expect(donutObjectsWithColor[0].properties["show"]).toBe(donutLabelSettings.showCategory);
             });
         });
     });
 
     function columnChartDataLabelsShowValidation(chartType: string, collide: boolean) {
-        var visualBuilder: VisualBuilder;
+        let visualBuilder: VisualBuilder;
 
-        var dataViewMetadataThreeColumn: powerbi.DataViewMetadataColumn[] = [
+        let dataViewMetadataThreeColumn: powerbi.DataViewMetadataColumn[] = [
             {
                 displayName: "col1",
                 queryName: "col1",
@@ -217,7 +260,7 @@ module powerbitests {
         ];
 
         function createMetadata(columns): powerbi.DataViewMetadata {
-            var metadata: powerbi.DataViewMetadata = {
+            let metadata: powerbi.DataViewMetadata = {
                 columns: columns,
             };
 
@@ -353,9 +396,9 @@ module powerbitests {
                 return;
             }
 
-            var categoryIdentities: powerbi.DataViewScopeIdentity[] = [];
+            let categoryIdentities: powerbi.DataViewScopeIdentity[] = [];
 
-            for (var i = 0; i < this.categoriesValues.length; i++) {
+            for (let i = 0; i < this.categoriesValues.length; i++) {
                 categoryIdentities.push(mocks.dataViewScopeIdentity(this.categoriesValues[i]));
             }
 
@@ -451,7 +494,7 @@ module powerbitests {
 
     class MapSliceBuilder extends MapBuilder {
         public buildMapSlice(x: number, y: number, labeltext: string, value: any): powerbi.visuals.MapSlice {
-            var map: any = this.build(x, y, labeltext);
+            let map: any = this.build(x, y, labeltext);
             map.value = value;
 
             return <powerbi.visuals.MapSlice> map;

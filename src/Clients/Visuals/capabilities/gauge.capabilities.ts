@@ -27,35 +27,39 @@
 /// <reference path="../_references.ts"/>
 
 module powerbi.visuals {
-    export var gaugeRoleNames = {
+    export const gaugeRoleNames = {
         y: 'Y',
         minValue: 'MinValue',
         maxValue: 'MaxValue',
         targetValue: 'TargetValue'
     };
 
-    export var gaugeCapabilities: VisualCapabilities = {
+    export const gaugeCapabilities: VisualCapabilities = {
         dataRoles: [
             {
                 name: gaugeRoleNames.y,
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_Value'),
-                description: data.createDisplayNameGetter('Role_DisplayName_ValueDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_ValueDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }, {
                 name: gaugeRoleNames.minValue,
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_MinValue'),
-                description: data.createDisplayNameGetter('Role_DisplayName_MinValueDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_MinValueDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }, {
                 name: gaugeRoleNames.maxValue,
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_MaxValue'),
-                description: data.createDisplayNameGetter('Role_DisplayName_MaxValueDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_MaxValueDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }, {
                 name: gaugeRoleNames.targetValue,
                 kind: VisualDataRoleKind.Measure,
                 displayName: data.createDisplayNameGetter('Role_DisplayName_TargetValue'),
-                description: data.createDisplayNameGetter('Role_DisplayName_TargetValueDescription')
+                description: data.createDisplayNameGetter('Role_DisplayName_TargetValueDescription'),
+                requiredTypes: [{ numeric: true }, { integer: true }],
             }
         ],
         objects: {
@@ -99,7 +103,12 @@ module powerbi.visuals {
                     },
                     labelPrecision: {
                         displayName: data.createDisplayNameGetter('Visual_Precision'),
+                        placeHolderText: data.createDisplayNameGetter('Visual_Precision_Auto'),
                         type: { numeric: true }
+                    },
+                    fontSize: {
+                        displayName: data.createDisplayNameGetter('Visual_TextSize'),
+                        type: { formatting: { fontSize: true } }
                     },
                 },
             },
@@ -119,6 +128,7 @@ module powerbi.visuals {
                     },
                     labelPrecision: {
                         displayName: data.createDisplayNameGetter('Visual_Precision'),
+                        placeHolderText: data.createDisplayNameGetter('Visual_Precision_Auto'),
                         type: { numeric: true }
                     },
                 },
@@ -139,6 +149,7 @@ module powerbi.visuals {
                 },
             },
         }],
+        supportsSelection: false,
     };
 
 }
