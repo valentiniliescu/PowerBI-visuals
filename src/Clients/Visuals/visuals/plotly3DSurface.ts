@@ -24,9 +24,9 @@
  *  THE SOFTWARE.
  */
 
-/// <reference path="../../_references.ts"/>
+/// <reference path="../_references.ts"/>
 
-module powerbi.visuals.samples {
+module powerbi.visuals {
 
     interface Plotly3DSurfaceViewModel {
         x: number[];
@@ -200,7 +200,7 @@ module powerbi.visuals.samples {
 module powerbi.visuals.plugins {
     export var plotly3DSurface: IVisualPlugin = {
         name: 'plotly3DSurface',
-        capabilities: samples.Plotly3DSurface.capabilities,
-        create: () => new samples.Plotly3DSurface()
+        capabilities: Plotly3DSurface.capabilities,
+        create: () => new Plotly3DSurface()
     };
 }
