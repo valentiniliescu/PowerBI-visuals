@@ -130,4 +130,10 @@ module powerbi.visuals.plugins {
         capabilities: samples.ForceGraph.capabilities,
         create: () => new samples.ForceGraph()
     };
+
+    export var plotly3DSurface: IVisualPlugin = {
+        name: 'plotly3DSurface',
+        capabilities: samples.Plotly3DSurface.capabilities,
+        create: () => new samples.Plotly3DSurface()
+    };
 }
