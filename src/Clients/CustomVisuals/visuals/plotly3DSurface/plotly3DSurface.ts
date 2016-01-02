@@ -196,11 +196,3 @@ module powerbi.visuals.samples {
         }
     }
 }
-
-module powerbi.visuals.plugins {
-    export var plotly3DSurface: IVisualPlugin = {
-        name: 'plotly3DSurface',
-        capabilities: samples.Plotly3DSurface.capabilities,
-        create: () => new samples.Plotly3DSurface()
-    };
-}
