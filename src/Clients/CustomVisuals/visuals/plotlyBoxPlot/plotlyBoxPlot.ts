@@ -84,11 +84,3 @@ module powerbi.visuals.samples {
         
     }
 }
-
-module powerbi.visuals.plugins {
-    export var plotlyBoxPlot: IVisualPlugin = {
-        name: 'plotlyBoxPlot',
-        capabilities: samples.PlotlyBoxPlot.capabilities,
-        create: () => new samples.PlotlyBoxPlot()
-    };
-}

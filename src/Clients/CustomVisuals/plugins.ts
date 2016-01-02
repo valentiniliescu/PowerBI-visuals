@@ -136,4 +136,10 @@ module powerbi.visuals.plugins {
         capabilities: samples.Plotly3DSurface.capabilities,
         create: () => new samples.Plotly3DSurface()
     };
+
+    export var plotlyBoxPlot: IVisualPlugin = {
+        name: 'plotlyBoxPlot',
+        capabilities: samples.PlotlyBoxPlot.capabilities,
+        create: () => new samples.PlotlyBoxPlot()
+    };
 }
