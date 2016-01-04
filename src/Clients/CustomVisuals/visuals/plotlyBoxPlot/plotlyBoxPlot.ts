@@ -27,6 +27,9 @@
 /// <reference path="../../_references.ts"/>
 
 module powerbi.visuals.samples {
+    interface PlotlyBoxPlotViewModel extends Array<{ y: number[], x: string[], name: string, type: string, boxmean: string }>{
+        
+    }
 
     export class PlotlyBoxPlot implements IVisual {
         public static capabilities: VisualCapabilities = {
@@ -69,18 +72,91 @@ module powerbi.visuals.samples {
         };
 
         private element: JQuery;
+        private firstUpdate: boolean = true;
 
         public init(options: VisualInitOptions): void {
             this.element = options.element;
         }
 
         public update(options: VisualUpdateOptions) {
-            
+            const divElement = <HTMLDivElement>this.element[0];
+
+            const dataViews = options.dataViews;
+            if (!dataViews || dataViews.length === 0)
+                return;
+
+            if (!dataViews[0].categorical)
+                return;
+
+            const viewModel = PlotlyBoxPlot.converter(dataViews[0].categorical);
+
+            if (!viewModel)
+                return;
+
+            // the div does not seem to resize when viewport changes
+            this.element.height(options.viewport.height + 'px');
+            this.element.width(options.viewport.width + 'px');
+
+            // TODO: handle changes in all VisualUpdateOptions properties
+            if (this.firstUpdate) {
+                // first update
+                const data = viewModel;
+                const layout = {
+                    autosize: true,
+                    boxmode: 'group'
+                };
+
+                Plotly.plot(divElement, data, layout, { displayModeBar: false });
+                Plotly.Plots.resize(divElement);
+
+                this.firstUpdate = false;
+            } else if (!_.isEqual(viewModel, divElement['data'])) {
+                // data changed
+
+                divElement['data'] = viewModel;
+
+                Plotly.redraw(divElement);
+            } else {
+                // resize 
+
+                Plotly.Plots.resize(divElement);
+            }
         }
 
         public destroy() {
         }
 
-        
+        private static converter(categorical: DataViewCategorical): PlotlyBoxPlotViewModel {
+
+            var x = ['day 1', 'day 1', 'day 1', 'day 1', 'day 1', 'day 1',
+                'day 2', 'day 2', 'day 2', 'day 2', 'day 2', 'day 2'];
+
+            var trace1 = {
+                y: [0.2, 0.2, 0.6, 1.0, 0.5, 0.4, 0.2, 0.7, 0.9, 0.1, 0.5, 0.3],
+                x: x,
+                name: 'kale',
+                type: 'box',
+                boxmean: 'sd'
+            };
+
+            var trace2 = {
+                y: [0.6, 0.7, 0.3, 0.6, 0.0, 0.5, 0.7, 0.9, 0.5, 0.8, 0.7, 0.2],
+                x: x,
+                name: 'radishes',
+                type: 'box',
+                boxmean: 'sd'
+            };
+
+            var trace3 = {
+                y: [0.1, 0.3, 0.1, 0.9, 0.6, 0.6, 0.9, 1.0, 0.3, 0.6, 0.8, 0.5],
+                x: x,
+                name: 'carrots',
+                type: 'box',
+                boxmean: 'sd'
+            };
+
+            return [trace1, trace2, trace3];
+
+        }
     }
 }
