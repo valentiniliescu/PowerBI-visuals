@@ -102,6 +102,12 @@ module powerbi.visuals.samples {
                 // first update
                 const data = viewModel;
                 const layout = {
+                    margin: {
+                        l: 10,
+                        r: 10,
+                        t: 10,
+                        b: 30
+                    },
                     autosize: true,
                     boxmode: 'group'
                 };
