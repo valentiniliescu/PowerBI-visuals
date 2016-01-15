@@ -102,9 +102,9 @@ module powerbi.visuals.samples {
                 const data = viewModel;
                 const layout = {
                     margin: {
-                        l: 10,
-                        r: 10,
-                        t: 10,
+                        l: 30,
+                        r: 20,
+                        t: 20,
                         b: 30
                     },
                     autosize: true,
