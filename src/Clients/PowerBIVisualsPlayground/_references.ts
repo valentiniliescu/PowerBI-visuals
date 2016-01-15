@@ -51,6 +51,7 @@
 /// <reference path="sampleDataViews/SimpleDataByCountries.ts"/>
 /// <reference path="sampleDataViews/SimpleCountriesData.ts"/>
 /// <reference path="sampleDataViews/Plotly3DSurfaceData.ts"/>
+/// <reference path="sampleDataViews/PlotlyBoxPlotData.ts"/>
 /// <reference path="sampleData.ts"/>
 /// <reference path="hostControls.ts"/>
 /// <reference path="app.ts"/>

@@ -27,8 +27,11 @@
 /// <reference path="../../_references.ts"/>
 
 module powerbi.visuals.samples {
-    interface PlotlyBoxPlotViewModel extends Array<{ y: number[], x: string[], name: string, type: string, boxmean: string }>{
-        
+    type BoxPlotTrace = { y: number[], x: string[], name: string, type: string, boxmean: string };
+    type PlotlyBoxPlotViewModel = Array<BoxPlotTrace>;
+
+    interface CategoryMap {
+        [category: string]: { series: string[], ys: number[] };
     }
 
     export class PlotlyBoxPlot implements IVisual {
@@ -52,21 +55,17 @@ module powerbi.visuals.samples {
             ],
             dataViewMappings: [{
                 conditions: [
-                    { 'Category': { max: 1 }, 'Series': { min: 1, max: 1 }, 'Y': { max: 1 } }
+                    { 'Category': { max: 1 }, 'Series': { max: 1 }, 'Y': { max: 1 } }
                 ],
-                categorical: {
-                    categories: {
-                        for: { in: 'Category' },
-                        dataReductionAlgorithm: { top: {} }
+                table: {
+                    rows: {
+                        select: [
+                            { bind: { to: 'Category' } },
+                            { bind: { to: 'Series' } },
+                            { bind: { to: 'Y' } },
+                        ]
                     },
-                    values: {
-                        group: {
-                            by: 'Series',
-                            select: [{ for: { in: 'Y' } }],
-                            dataReductionAlgorithm: { top: {} }
-                        }
-                    },
-                    rowCount: { preferred: { min: 2 }, supported: { min: 0 } }
+                    rowCount: { preferred: { min: 1 } }
                 },
             }],
         };
@@ -85,10 +84,10 @@ module powerbi.visuals.samples {
             if (!dataViews || dataViews.length === 0)
                 return;
 
-            if (!dataViews[0].categorical)
+            if (!dataViews[0].table)
                 return;
 
-            const viewModel = PlotlyBoxPlot.converter(dataViews[0].categorical);
+            const viewModel = PlotlyBoxPlot.converter(dataViews[0].table);
 
             if (!viewModel)
                 return;
@@ -132,37 +131,42 @@ module powerbi.visuals.samples {
         public destroy() {
         }
 
-        private static converter(categorical: DataViewCategorical): PlotlyBoxPlotViewModel {
+        private static converter(table: DataViewTable): PlotlyBoxPlotViewModel {
 
-            var x = ['day 1', 'day 1', 'day 1', 'day 1', 'day 1', 'day 1',
-                'day 2', 'day 2', 'day 2', 'day 2', 'day 2', 'day 2'];
+            if (!table || !table.rows || table.rows.length === 0) {
+                return null;
+            }
 
-            var trace1 = {
-                y: [0.2, 0.2, 0.6, 1.0, 0.5, 0.4, 0.2, 0.7, 0.9, 0.1, 0.5, 0.3],
-                x: x,
-                name: 'kale',
-                type: 'box',
-                boxmean: 'sd'
-            };
+            const categoryMap: CategoryMap = {};
 
-            var trace2 = {
-                y: [0.6, 0.7, 0.3, 0.6, 0.0, 0.5, 0.7, 0.9, 0.5, 0.8, 0.7, 0.2],
-                x: x,
-                name: 'radishes',
-                type: 'box',
-                boxmean: 'sd'
-            };
+            for (let i = 0; i < table.rows.length; i++) {
+                // TODO: handle case when there is no series
+                if (table.rows[i].length !== 3) {
+                    return null;
+                }
 
-            var trace3 = {
-                y: [0.1, 0.3, 0.1, 0.9, 0.6, 0.6, 0.9, 1.0, 0.3, 0.6, 0.8, 0.5],
-                x: x,
-                name: 'carrots',
-                type: 'box',
-                boxmean: 'sd'
-            };
+                const category = table.rows[i][0];
+                const series = table.rows[i][1];
+                const y = table.rows[i][2];
 
-            return [trace1, trace2, trace3];
+                let categoryMapValue = categoryMap[category];
+                if (!categoryMapValue) {
+                    categoryMap[category] = categoryMapValue = { series: [], ys:[] };
+                }
 
+                categoryMapValue.series.push(series);
+                categoryMapValue.ys.push(y);
+            }
+
+            return Object.keys(categoryMap).map(category => {
+                return {
+                    y: categoryMap[category].ys,
+                    x: categoryMap[category].series,
+                    name: category,
+                    type: 'box',
+                    boxmean: 'sd'
+                };
+            });
         }
     }
 }
