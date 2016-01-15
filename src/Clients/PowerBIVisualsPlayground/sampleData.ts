@@ -55,7 +55,7 @@ module powerbi.visuals.sampleData {
             new sampleDataViews.SimpleHistogramData(),
             new sampleDataViews.SimpleDataByCountries(),
             new sampleDataViews.SimpleCountriesData(),
-            new sampleDataViews.Plotly3DSurfaceData(),
+            new sampleDataViews.PlotlyHeightmapData(),
             new sampleDataViews.PlotlyBoxPlotData()
         ];
 

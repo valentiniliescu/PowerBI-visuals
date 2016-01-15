@@ -28,12 +28,12 @@
 
 module powerbi.visuals.sampleDataViews {
 
-    export class Plotly3DSurfaceData extends SampleDataViews implements ISampleDataViewsMethods {
+    export class PlotlyHeightmapData extends SampleDataViews implements ISampleDataViewsMethods {
 
-        public name: string = "Plotly3DSurfaceData";
-        public displayName: string = "3D surface data";
+        public name: string = "PlotlyHeightmapData";
+        public displayName: string = "Heightmap data";
 
-        public visuals: string[] = ['plotly3DSurface'];
+        public visuals: string[] = ['plotly3DSurface', 'plotlyHeatmap', 'plotlyContour'];
 
         private sampleHeightMap = [
             [27.80985, 49.61936, 83.08067, 116.6632, 130.414, 150.7206, 220.1871, 156.1536, 148.6416, 203.7845, 206.0386, 107.1618, 68.36975, 45.3359, 49.96142, 21.89279, 17.02552, 11.74317, 14.75226, 13.6671, 5.677561, 3.31234, 1.156517, -0.147662],

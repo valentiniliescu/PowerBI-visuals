@@ -28,7 +28,7 @@
 
 module powerbi.visuals.samples {
 
-    interface Plotly3DSurfaceViewModel {
+    interface PlotlyHeightmapViewModel {
         x: number[];
         y: number[];
         z: number[][];
@@ -38,7 +38,7 @@ module powerbi.visuals.samples {
         [key: number]: T;
     }
 
-    export class Plotly3DSurface implements IVisual {
+    export class PlotlyHeightmap implements IVisual {
         public static capabilities: VisualCapabilities = {
             dataRoles: [
                 {
@@ -76,6 +76,9 @@ module powerbi.visuals.samples {
         private element: JQuery;
         private firstUpdate: boolean = true;
 
+        protected modelExtraProperties(): any {
+        }
+
         public init(options: VisualInitOptions): void {
             this.element = options.element;
         }
@@ -90,7 +93,7 @@ module powerbi.visuals.samples {
             if (!dataViews[0].table)
                 return;
 
-            const viewModel = Plotly3DSurface.converter(dataViews[0].table);
+            const viewModel = PlotlyHeightmap.converter(dataViews[0].table);
 
             if (!viewModel)
                 return;
@@ -102,21 +105,13 @@ module powerbi.visuals.samples {
             // TODO: handle changes in all VisualUpdateOptions properties
             if (this.firstUpdate) {
                 // first update
-                const data = [
-                    {
-                        x: viewModel.x,
-                        y: viewModel.y,
-                        z: viewModel.z,
-                        zauto: true,
-                        type: 'surface'
-                    }
-                ];
+                const data = [_.merge(viewModel, this.modelExtraProperties())];
                 const layout = {
                     margin: {
-                        l: 10,
-                        r: 10,
-                        t: 10,
-                        b: 10
+                        l: 20,
+                        r: 20,
+                        t: 20,
+                        b: 20
                     },
                     autosize: true
                 };
@@ -143,7 +138,7 @@ module powerbi.visuals.samples {
         public destroy() {
         }
 
-        private static converter(table: DataViewTable): Plotly3DSurfaceViewModel {
+        private static converter(table: DataViewTable): PlotlyHeightmapViewModel {
 
             const map: Map<Map<number>> = {};
 

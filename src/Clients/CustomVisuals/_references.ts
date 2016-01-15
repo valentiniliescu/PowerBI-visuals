@@ -47,7 +47,10 @@
 /// <reference path="visuals/globeMap/globeMap.ts" />
 /// <reference path="visuals/bulletChart/bulletChart.ts" />
 /// <reference path="visuals/forceGraph/forceGraph.ts" />
-/// <reference path="visuals/plotly3DSurface/plotly3DSurface.ts" />
+/// <reference path="visuals/plotlyHeightmap/plotlyHeightMap.ts" />
+/// <reference path="visuals/plotlyHeightmap/plotly3DSurface.ts" />
+/// <reference path="visuals/plotlyHeightmap/plotlyHeatmap.ts" />
+/// <reference path="visuals/plotlyHeightmap/plotlyContour.ts" />
 /// <reference path="visuals/plotlyBoxPlot/plotlyBoxPlot.ts" />
 
 /// <reference path="plugins.ts" />

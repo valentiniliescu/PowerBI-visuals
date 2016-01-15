@@ -137,6 +137,18 @@ module powerbi.visuals.plugins {
         create: () => new samples.Plotly3DSurface()
     };
 
+    export var plotlyHeatmap: IVisualPlugin = {
+        name: 'plotlyHeatmap',
+        capabilities: samples.PlotlyHeatmap.capabilities,
+        create: () => new samples.PlotlyHeatmap()
+    };
+
+    export var plotlyContour: IVisualPlugin = {
+        name: 'plotlyContour',
+        capabilities: samples.PlotlyContour.capabilities,
+        create: () => new samples.PlotlyContour()
+    };
+
     export var plotlyBoxPlot: IVisualPlugin = {
         name: 'plotlyBoxPlot',
         capabilities: samples.PlotlyBoxPlot.capabilities,
