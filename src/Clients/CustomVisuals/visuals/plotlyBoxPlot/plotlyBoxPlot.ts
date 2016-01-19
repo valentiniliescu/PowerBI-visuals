@@ -51,6 +51,7 @@ module powerbi.visuals.samples {
                     name: 'Y',
                     kind: VisualDataRoleKind.Measure,
                     displayName: data.createDisplayNameGetter('Role_DisplayName_Value'),
+                    requiredTypes: [{ numeric: true }, { integer: true }]
                 }
             ],
             dataViewMappings: [{

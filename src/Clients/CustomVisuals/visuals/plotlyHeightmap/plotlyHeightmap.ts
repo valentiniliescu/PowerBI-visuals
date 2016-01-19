@@ -44,16 +44,18 @@ module powerbi.visuals.samples {
                 {
                     name: 'X',
                     kind: VisualDataRoleKind.Measure,
-                    displayName: 'X'
-
+                    displayName: 'X',
+                    requiredTypes: [{ numeric: true }, { integer: true }]
                 }, {
                     name: 'Y',
                     kind: VisualDataRoleKind.Measure,
-                    displayName: 'Y'
+                    displayName: 'Y',
+                    requiredTypes: [{ numeric: true }, { integer: true }]
                 }, {
                     name: 'Z',
                     kind: VisualDataRoleKind.Measure,
-                    displayName: 'Z'
+                    displayName: 'Z',
+                    requiredTypes: [{ numeric: true }, { integer: true }]
                 }
             ],
             dataViewMappings: [{
