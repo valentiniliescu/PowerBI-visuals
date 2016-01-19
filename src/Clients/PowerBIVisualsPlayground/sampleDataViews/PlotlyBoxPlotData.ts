@@ -74,17 +74,29 @@ module powerbi.visuals.sampleDataViews {
                     {
                         displayName: 'Category',
                         type: powerbi.ValueType.fromDescriptor({ text: true }),
-                        isMeasure: false
+                        isMeasure: false,
+                        roles: {
+                            Category: true
+                        },
+                        index: 0
                     },
                     {
                         displayName: 'Series',
                         type: powerbi.ValueType.fromDescriptor({ text: true }),
-                        isMeasure: false
+                        isMeasure: false,
+                        roles: {
+                            Series: true
+                        },
+                        index: 1
                     },
                     {
                         displayName: 'Y',
                         type: powerbi.ValueType.fromDescriptor({ numeric: true }),
-                        isMeasure: true
+                        isMeasure: true,
+                        roles: {
+                            Y: true
+                        },
+                        index: 2
                     }
                 ]
             };

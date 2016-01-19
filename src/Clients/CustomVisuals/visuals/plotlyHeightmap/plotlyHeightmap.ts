@@ -141,28 +141,35 @@ module powerbi.visuals.samples {
         }
 
         private static converter(table: DataViewTable): PlotlyHeightmapViewModel {
-
-            const map: Map<Map<number>> = {};
-
-            if (!table || !table.rows || table.rows.length === 0) {
+            if (!table || !table.rows || table.rows.length === 0 || !table.columns) {
                 return null;
             }
 
-            for (let i = 0; i < table.rows.length; i++) {
-                if (table.rows[i].length !== 3) {
-                    return null;
-                }
+            const xColumns = table.columns.filter(column => column.roles['X']);
+            const yColumns = table.columns.filter(column => column.roles['Y']);
+            const zColumns = table.columns.filter(column => column.roles['Z']);
 
-                const x = table.rows[i][0];
-                const y = table.rows[i][1];
-                const z = table.rows[i][2];
+            if (xColumns.length !== 1 || yColumns.length !== 1 || zColumns.length !== 1) {
+                return null;
+            }
+
+            const map: Map<Map<number>> = {};
+
+            const xIndex = xColumns[0].index;
+            const yIndex = yColumns[0].index;
+            const zIndex = zColumns[0].index;
+
+            table.rows.forEach(row => {
+                const x = row[xIndex];
+                const y = row[yIndex];
+                const z = row[zIndex];
 
                 if (!map[x]) {
                     map[x] = {};
                 }
 
                 map[x][y] = z;
-            }
+            });
 
             const xs: number[] = Object.keys(map).map(k => parseInt(k, 10)).sort((a, b) => a - b);
             const ys: number[] = Object.keys(map[xs[0]]).map(k => parseInt(k, 10)).sort((a, b) => a - b);

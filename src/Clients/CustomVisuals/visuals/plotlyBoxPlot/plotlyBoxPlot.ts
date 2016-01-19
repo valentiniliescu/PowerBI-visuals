@@ -133,31 +133,38 @@ module powerbi.visuals.samples {
         }
 
         private static converter(table: DataViewTable): PlotlyBoxPlotViewModel {
+            if (!table || !table.rows || table.rows.length === 0 || !table.columns) {
+                return null;
+            }
 
-            if (!table || !table.rows || table.rows.length === 0) {
+            const categoryColumns = table.columns.filter(column => column.roles['Category']);
+            const seriesColumns = table.columns.filter(column => column.roles['Series']);
+            const yColumns = table.columns.filter(column => column.roles['Y']);
+
+            // TODO: handle case when there is no series
+            if (categoryColumns.length !== 1 || seriesColumns.length !== 1 || yColumns.length !== 1) {
                 return null;
             }
 
             const categoryMap: CategoryMap = {};
 
-            for (let i = 0; i < table.rows.length; i++) {
-                // TODO: handle case when there is no series
-                if (table.rows[i].length !== 3) {
-                    return null;
-                }
+            const categoryIndex = categoryColumns[0].index;
+            const seriesIndex = seriesColumns[0].index;
+            const yIndex = yColumns[0].index;
 
-                const category = table.rows[i][0];
-                const series = table.rows[i][1];
-                const y = table.rows[i][2];
+            table.rows.forEach(row => {
+                const category = row[categoryIndex];
+                const series = row[seriesIndex];
+                const y = row[yIndex];
 
                 let categoryMapValue = categoryMap[category];
                 if (!categoryMapValue) {
-                    categoryMap[category] = categoryMapValue = { series: [], ys:[] };
+                    categoryMap[category] = categoryMapValue = { series: [], ys: [] };
                 }
 
                 categoryMapValue.series.push(series);
                 categoryMapValue.ys.push(y);
-            }
+            });
 
             return Object.keys(categoryMap).map(category => {
                 return {
