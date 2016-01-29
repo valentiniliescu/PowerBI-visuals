@@ -43,17 +43,17 @@ module powerbi.visuals.samples {
             dataRoles: [
                 {
                     name: 'X',
-                    kind: VisualDataRoleKind.Measure,
+                    kind: VisualDataRoleKind.GroupingOrMeasure,
                     displayName: 'X',
                     requiredTypes: [{ numeric: true }, { integer: true }]
                 }, {
                     name: 'Y',
-                    kind: VisualDataRoleKind.Measure,
+                    kind: VisualDataRoleKind.GroupingOrMeasure,
                     displayName: 'Y',
                     requiredTypes: [{ numeric: true }, { integer: true }]
                 }, {
                     name: 'Z',
-                    kind: VisualDataRoleKind.Measure,
+                    kind: VisualDataRoleKind.GroupingOrMeasure,
                     displayName: 'Z',
                     requiredTypes: [{ numeric: true }, { integer: true }]
                 }
