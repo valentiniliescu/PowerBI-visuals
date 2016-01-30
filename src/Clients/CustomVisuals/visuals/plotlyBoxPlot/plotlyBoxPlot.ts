@@ -49,7 +49,7 @@ module powerbi.visuals.samples {
                     description: data.createDisplayNameGetter('Role_DisplayName_LegendDescription')
                 }, {
                     name: 'Y',
-                    kind: VisualDataRoleKind.Measure,
+                    kind: VisualDataRoleKind.GroupingOrMeasure,
                     displayName: data.createDisplayNameGetter('Role_DisplayName_Value'),
                     requiredTypes: [{ numeric: true }, { integer: true }]
                 }
