@@ -145,9 +145,9 @@ module powerbi.visuals.samples {
                 return null;
             }
 
-            const xColumns = table.columns.filter(column => column.roles['X']);
-            const yColumns = table.columns.filter(column => column.roles['Y']);
-            const zColumns = table.columns.filter(column => column.roles['Z']);
+            const xColumns = table.columns.filter(column => column.roles && column.roles['X']);
+            const yColumns = table.columns.filter(column => column.roles && column.roles['Y']);
+            const zColumns = table.columns.filter(column => column.roles && column.roles['Z']);
 
             if (xColumns.length !== 1 || yColumns.length !== 1 || zColumns.length !== 1) {
                 return null;

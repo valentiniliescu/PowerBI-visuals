@@ -137,9 +137,9 @@ module powerbi.visuals.samples {
                 return null;
             }
 
-            const categoryColumns = table.columns.filter(column => column.roles['Category']);
-            const seriesColumns = table.columns.filter(column => column.roles['Series']);
-            const yColumns = table.columns.filter(column => column.roles['Y']);
+            const categoryColumns = table.columns.filter(column => column.roles && column.roles['Category']);
+            const seriesColumns = table.columns.filter(column => column.roles && column.roles['Series']);
+            const yColumns = table.columns.filter(column => column.roles && column.roles['Y']);
 
             // TODO: handle case when there is no series
             if (categoryColumns.length !== 1 || seriesColumns.length !== 1 || yColumns.length !== 1) {
