@@ -78,7 +78,7 @@ module powerbi.visuals.sampleDataViews {
                         roles: {
                             Category: true
                         },
-                        index: 0
+                        index: 1
                     },
                     {
                         displayName: 'Series',
@@ -87,7 +87,7 @@ module powerbi.visuals.sampleDataViews {
                         roles: {
                             Series: true
                         },
-                        index: 1
+                        index: 0
                     },
                     {
                         displayName: 'Y',

@@ -30,8 +30,8 @@ module powerbi.visuals.samples {
     type BoxPlotTrace = { y: number[], x: string[], name: string, type: string, boxmean: string };
     type PlotlyBoxPlotViewModel = Array<BoxPlotTrace>;
 
-    interface CategoryMap {
-        [category: string]: { series: string[], ys: number[] };
+    interface SeriesMap {
+        [series: string]: { categories: string[], ys: number[] };
     }
 
     export class PlotlyBoxPlot implements IVisual {
@@ -146,7 +146,7 @@ module powerbi.visuals.samples {
                 return null;
             }
 
-            const categoryMap: CategoryMap = {};
+            const seriesMap: SeriesMap = {};
 
             const categoryIndex = categoryColumns[0].index;
             const seriesIndex = seriesColumns[0].index;
@@ -157,20 +157,20 @@ module powerbi.visuals.samples {
                 const series = row[seriesIndex];
                 const y = row[yIndex];
 
-                let categoryMapValue = categoryMap[category];
-                if (!categoryMapValue) {
-                    categoryMap[category] = categoryMapValue = { series: [], ys: [] };
+                let seriesMapValue = seriesMap[series];
+                if (!seriesMapValue) {
+                    seriesMap[series] = seriesMapValue = { categories: [], ys: [] };
                 }
 
-                categoryMapValue.series.push(series);
-                categoryMapValue.ys.push(y);
+                seriesMapValue.categories.push(category);
+                seriesMapValue.ys.push(y);
             });
 
-            return Object.keys(categoryMap).map(category => {
+            return Object.keys(seriesMap).map(series => {
                 return {
-                    y: categoryMap[category].ys,
-                    x: categoryMap[category].series,
-                    name: category,
+                    y: seriesMap[series].ys,
+                    x: seriesMap[series].categories,
+                    name: series,
                     type: 'box',
                     boxmean: 'sd'
                 };
