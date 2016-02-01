@@ -76,10 +76,12 @@ module powerbi.visuals.samples {
 
         public init(options: VisualInitOptions): void {
             this.element = options.element;
+            this.element.empty();
+            $('<div />').appendTo(this.element).width('100%').height('100%');
         }
 
         public update(options: VisualUpdateOptions) {
-            const divElement = <HTMLDivElement>this.element[0];
+            const divElement = <HTMLDivElement>this.element.children()[0];
 
             const dataViews = options.dataViews;
             if (!dataViews || dataViews.length === 0)
@@ -130,6 +132,7 @@ module powerbi.visuals.samples {
         }
 
         public destroy() {
+            this.element.empty();
         }
 
         private static converter(table: DataViewTable): PlotlyBoxPlotViewModel {
