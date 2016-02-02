@@ -84,7 +84,12 @@ module powerbi.visuals.samples {
         public init(options: VisualInitOptions): void {
             this.element = options.element;
             this.element.empty();
-            $('<div />').appendTo(this.element).width('100%').height('100%');
+            $('<div />').appendTo(this.element)
+                .width('100%')
+                .height('100%')
+                .mousedown((event: JQueryEventObject) => event.stopPropagation())
+                .mouseup((event: JQueryEventObject) => event.stopPropagation())
+                .mousemove((event: JQueryEventObject) => event.stopPropagation());
         }
 
         public update(options: VisualUpdateOptions) {
