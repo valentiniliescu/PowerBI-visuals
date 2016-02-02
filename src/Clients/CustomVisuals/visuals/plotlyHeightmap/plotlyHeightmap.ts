@@ -72,7 +72,17 @@ module powerbi.visuals.samples {
                     },
                     rowCount: { preferred: { min: 1 } }
                 }
-            }]
+            }],
+            objects: {
+                general: {
+                    displayName: data.createDisplayNameGetter('Visual_General'),
+                    properties: {
+                        formatString: {
+                            type: { formatting: { formatString: true } },
+                        },
+                    },
+                }
+            }
         };
 
         private element: JQuery;
@@ -122,6 +132,7 @@ module powerbi.visuals.samples {
                         t: 20,
                         b: 20
                     },
+                    paper_bgcolor: 'transparent',
                     autosize: true
                 };
 
