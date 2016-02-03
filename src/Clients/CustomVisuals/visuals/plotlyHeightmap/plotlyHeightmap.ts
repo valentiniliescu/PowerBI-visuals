@@ -81,6 +81,19 @@ module powerbi.visuals.samples {
                             type: { formatting: { formatString: true } },
                         },
                     },
+                },
+                colorRange: {
+                    displayName: 'Color Range',
+                    properties: {
+                        minColor: {
+                            displayName: 'Min color',
+                            type: { fill: { solid: { color: true } } }
+                        },
+                        maxColor: {
+                            displayName: 'Max color',
+                            type: { fill: { solid: { color: true } } }
+                        }
+                    }
                 }
             }
         };
@@ -124,7 +137,8 @@ module powerbi.visuals.samples {
             // TODO: handle changes in all VisualUpdateOptions properties
             if (this.firstUpdate) {
                 // first update
-                const data = [_.merge(viewModel, this.modelExtraProperties())];
+                const formattingProperties = PlotlyHeightmap.getFormattingProperties(dataViews[0].metadata);
+                const data = [_.merge(viewModel, this.modelExtraProperties(), formattingProperties)];
                 const layout = {
                     margin: {
                         l: 20,
@@ -157,6 +171,19 @@ module powerbi.visuals.samples {
 
         public destroy() {
             this.element.empty();
+        }
+
+        private static getFormattingProperties(metadata: DataViewMetadata): any {
+            if (!metadata || !metadata.objects) {
+                return null;
+            }
+
+            var minColor = DataViewObjects.getFillColor(metadata.objects, <DataViewObjectPropertyIdentifier>{ objectName: 'colorRange', propertyName: 'minColor' });
+            var maxColor = DataViewObjects.getFillColor(metadata.objects, <DataViewObjectPropertyIdentifier>{ objectName: 'colorRange', propertyName: 'maxColor' });
+
+            return {
+                colorscale: [[0, minColor], [1, maxColor]]
+            };
         }
 
         private static converter(table: DataViewTable): PlotlyHeightmapViewModel {
