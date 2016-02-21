@@ -100,6 +100,7 @@ module powerbi.visuals.samples {
 
         private element: JQuery;
         private firstUpdate: boolean = true;
+        private metadata: DataViewMetadata;
 
         protected modelExtraProperties(): any {
         }
@@ -130,6 +131,9 @@ module powerbi.visuals.samples {
             if (!viewModel)
                 return;
 
+            this.metadata = dataViews[0].metadata;
+            const formattingProperties = PlotlyHeightmap.getFormattingProperties(this.metadata);
+
             // the div does not seem to resize when viewport changes
             this.element.height(options.viewport.height + 'px');
             this.element.width(options.viewport.width + 'px');
@@ -137,7 +141,6 @@ module powerbi.visuals.samples {
             // TODO: handle changes in all VisualUpdateOptions properties
             if (this.firstUpdate) {
                 // first update
-                const formattingProperties = PlotlyHeightmap.getFormattingProperties(dataViews[0].metadata);
                 const data = [_.merge(viewModel, this.modelExtraProperties(), formattingProperties)];
                 const layout = {
                     margin: {
@@ -160,10 +163,16 @@ module powerbi.visuals.samples {
                 divElement['data'][0].x = viewModel.x;
                 divElement['data'][0].y = viewModel.y;
                 divElement['data'][0].z = viewModel.z;
+                if (formattingProperties) {
+                    divElement['data'][0].colorscale = formattingProperties.colorscale;
+                }
 
                 Plotly.redraw(divElement);
             } else {
-                // resize 
+                // resize or format changed
+                if (formattingProperties) {
+                    divElement['data'][0].colorscale = formattingProperties.colorscale;
+                }
 
                 Plotly.Plots.resize(divElement);
             }
@@ -173,13 +182,41 @@ module powerbi.visuals.samples {
             this.element.empty();
         }
 
+        public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
+            const enumeration = new ObjectEnumerationBuilder();
+            switch (options.objectName) {
+                case 'colorRange':
+                    const colorRange: VisualObjectInstance = {
+                        objectName: 'colorRange',
+                        displayName: 'Color Range',
+                        selector: null,
+                        properties: {
+                            minColor: PlotlyHeightmap.getMinColor(this.metadata),
+                            maxColor: PlotlyHeightmap.getMaxColor(this.metadata)
+                        }
+                    };
+                    enumeration.pushInstance(colorRange);
+                    break;
+            }
+
+            return enumeration.complete();
+        }
+
+        private static getMinColor(metadata: DataViewMetadata): string {
+            return DataViewObjects.getFillColor(metadata.objects, <DataViewObjectPropertyIdentifier>{ objectName: 'colorRange', propertyName: 'minColor' }, 'rgb(5, 10, 172)');
+        }
+
+        private static getMaxColor(metadata: DataViewMetadata): string {
+            return DataViewObjects.getFillColor(metadata.objects, <DataViewObjectPropertyIdentifier>{ objectName: 'colorRange', propertyName: 'maxColor' }, 'rgb(178, 10, 28)');
+        }
+
         private static getFormattingProperties(metadata: DataViewMetadata): any {
             if (!metadata || !metadata.objects) {
                 return null;
             }
 
-            var minColor = DataViewObjects.getFillColor(metadata.objects, <DataViewObjectPropertyIdentifier>{ objectName: 'colorRange', propertyName: 'minColor' });
-            var maxColor = DataViewObjects.getFillColor(metadata.objects, <DataViewObjectPropertyIdentifier>{ objectName: 'colorRange', propertyName: 'maxColor' });
+            var minColor = PlotlyHeightmap.getMinColor(metadata);
+            var maxColor = PlotlyHeightmap.getMaxColor(metadata);
 
             return {
                 colorscale: [[0, minColor], [1, maxColor]]
