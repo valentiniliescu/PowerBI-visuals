@@ -203,18 +203,14 @@ module powerbi.visuals.samples {
         }
 
         private static getMinColor(metadata: DataViewMetadata): string {
-            return DataViewObjects.getFillColor(metadata.objects, <DataViewObjectPropertyIdentifier>{ objectName: 'colorRange', propertyName: 'minColor' }, 'rgb(5, 10, 172)');
+            return DataViewObjects.getFillColor(metadata && metadata.objects, <DataViewObjectPropertyIdentifier>{ objectName: 'colorRange', propertyName: 'minColor' }, '#008DFF');
         }
 
         private static getMaxColor(metadata: DataViewMetadata): string {
-            return DataViewObjects.getFillColor(metadata.objects, <DataViewObjectPropertyIdentifier>{ objectName: 'colorRange', propertyName: 'maxColor' }, 'rgb(178, 10, 28)');
+            return DataViewObjects.getFillColor(metadata && metadata.objects, <DataViewObjectPropertyIdentifier>{ objectName: 'colorRange', propertyName: 'maxColor' }, '#FF0A18');
         }
 
         private static getFormattingProperties(metadata: DataViewMetadata): any {
-            if (!metadata || !metadata.objects) {
-                return null;
-            }
-
             var minColor = PlotlyHeightmap.getMinColor(metadata);
             var maxColor = PlotlyHeightmap.getMaxColor(metadata);
 
