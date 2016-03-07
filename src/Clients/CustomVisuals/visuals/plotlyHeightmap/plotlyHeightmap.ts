@@ -157,7 +157,8 @@ module powerbi.visuals.samples {
                 Plotly.Plots.resize(divElement);
 
                 this.firstUpdate = false;
-            } else if (!_.isEqual(viewModel.z, divElement['data'][0].z)) {
+            } else if (!_.isEqual(viewModel.z, divElement['data'][0].z)
+                || !_.isEqual(formattingProperties && formattingProperties.colorscale, divElement['data'][0].colorscale)) {
                 // data changed
 
                 divElement['data'][0].x = viewModel.x;
@@ -169,11 +170,7 @@ module powerbi.visuals.samples {
 
                 Plotly.redraw(divElement);
             } else {
-                // resize or format changed
-                if (formattingProperties) {
-                    divElement['data'][0].colorscale = formattingProperties.colorscale;
-                }
-
+                // resize changed
                 Plotly.Plots.resize(divElement);
             }
         }
